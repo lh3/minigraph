@@ -16,6 +16,17 @@ typedef struct mg_idx_bucket_s {
 	void *h;     // hash table indexing _p_ and minimizers appearing once
 } mg_idx_bucket_t;
 
+mg_idx_t *mg_idx_init(int k, int w, int b, int flag)
+{
+	mg_idx_t *gi;
+	if (k*2 < b) b = k * 2;
+	if (w < 1) w = 1;
+	gi = KCALLOC(0, mg_idx_t, 1);
+	gi->w = w, gi->k = k, gi->b = b, gi->flag = flag;
+	gi->B = KCALLOC(0, mg_idx_bucket_t, 1<<b);
+	return gi;
+}
+
 void mg_idx_destroy(mg_idx_t *gi)
 {
 	uint32_t i;
@@ -138,8 +149,7 @@ mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int flag, int n_threads)
 	int i;
 
 	if (mg_gfa_overlap(g)) return 0;
-	gi = KCALLOC(0, mg_idx_t, 1);
-	gi->w = w, gi->k = k, gi->b = b, gi->flag = flag;
+	gi = mg_idx_init(k, w, b, flag);
 	gi->g = g;
 
 	for (i = 0; i < g->n_seg; ++i) {

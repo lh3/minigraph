@@ -6,6 +6,11 @@ OBJS=		kalloc.o kthread.o gfa-base.o gfa-io.o sketch.o misc.o index.o options.o
 PROG=		minigraph
 LIBS=		-lz
 
+ifneq ($(asan),)
+	CFLAGS+=-fsanitize=address
+	LIBS+=-fsanitize=address
+endif
+
 .SUFFIXES:.c .o
 .PHONY:all clean depend
 

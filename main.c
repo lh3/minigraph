@@ -21,6 +21,7 @@ void liftrlimit() {}
 #endif
 
 static ko_longopt_t long_options[] = {
+	{ "print-gfa",    ko_no_argument,       301 },
 	{ 0, 0, 0 }
 };
 
@@ -41,7 +42,7 @@ int main(int argc, char *argv[])
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
-	int i, c, n_threads = 4;
+	int i, c, n_threads = 4, print_gfa = 0;
 //	char *fnw = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mg_idx_t *gi;
@@ -72,6 +73,7 @@ int main(int argc, char *argv[])
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
+		else if (c == 301) print_gfa = 1;
 	}
 	if (mg_opt_check(&ipt, &opt) < 0)
 		return 1;
@@ -94,6 +96,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[ERROR] failed to load the graph from file '%s'\n", argv[o.ind]);
 		return 1;
 	}
+	if (print_gfa) {
+		gfa_print(gi->g, stdout, 1);
+		goto free_gfa;
+	}
+
+free_gfa:
+	mg_idx_destroy(gi);
 
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");
