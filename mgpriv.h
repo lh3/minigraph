@@ -14,6 +14,10 @@ void mg_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 void radix_sort_128x(mg128_t *beg, mg128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);
 
+double realtime(void);
+double cputime(void);
+long peakrss(void);
+
 #ifdef __cplusplus
 }
 #endif

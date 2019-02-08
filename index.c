@@ -26,9 +26,10 @@ void mg_idx_destroy(mg_idx_t *gi)
 			free(gi->B[i].a.a);
 			kh_destroy(idx, (idxhash_t*)gi->B[i].h);
 		}
+		free(gi->B);
 	}
 	gfa_destroy(gi->g);
-	free(gi->B); free(gi);
+	free(gi);
 }
 
 /****************
