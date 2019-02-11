@@ -230,6 +230,7 @@ mg_lchain1_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t
 		ri->hash = (uint32_t)z[i].x;
 		ri->cnt = (int32_t)z[i].y;
 		ri->as = z[i].y >> 32;
+		ri->div = -1.0f;
 		mg_reg_set_coor(ri, qlen, a);
 	}
 	kfree(km, z);

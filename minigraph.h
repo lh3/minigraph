@@ -6,7 +6,20 @@
 
 #define MG_VERSION "r1"
 
-#define MG_I_HPC 0x1
+#define MG_M_SPLICE       0x10
+#define MG_M_SR           0x20
+#define MG_M_FRAG_MODE    0x40
+#define MG_M_FOR_ONLY     0x100
+#define MG_M_REV_ONLY     0x200
+#define MG_M_HEAP_SORT    0x400
+#define MG_M_COPY_COMMENT 0x10000
+#define MG_M_INDEPEND_SEG 0x20000
+#define MG_M_NO_QUAL      0x40000
+#define MG_M_2_IO_THREADS 0x80000
+
+#define MG_I_HPC          0x1
+
+#define MG_MAX_SEG        255
 
 typedef struct { uint64_t x, y; } mg128_t;
 typedef struct { size_t n, m; mg128_t *a; } mg128_v;
@@ -19,7 +32,14 @@ typedef struct {
 
 typedef struct {
 	uint64_t flag;
-	int bw;
+	int seed;
+	int mini_batch_size;
+	int max_qlen;
+	int pe_ori;
+	int mid_occ, max_occ;
+	int bw, max_gap, max_gap_ref, max_frag_len;
+	int max_chain_skip;
+	int min_lc_cnt, min_lc_score;
 } mg_mapopt_t;
 
 typedef struct {
@@ -37,9 +57,12 @@ typedef struct {
 	int32_t mlen, blen;
 	uint32_t hash;
 	uint32_t rev:1, dummy:31;
+	float div;
 } mg_lchain1_t;
 
-extern int mg_verbose;
+typedef struct mg_tbuf_s mg_tbuf_t;
+
+extern int mg_verbose, mg_dbg_flag;
 extern double mg_realtime0;
 
 #ifdef __cplusplus
