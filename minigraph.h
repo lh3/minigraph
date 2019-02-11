@@ -1,6 +1,7 @@
 #ifndef MINIGRAPH_H
 #define MINIGRAPH_H
 
+#include <stdint.h>
 #include "gfa.h"
 
 #define MG_VERSION "r1"
@@ -26,6 +27,17 @@ typedef struct {
 	gfa_t *g;
 	struct mg_idx_bucket_s *B; // index (hidden)
 } mg_idx_t;
+
+typedef struct {
+	int32_t id;
+	int32_t as, cnt;
+	int32_t rid;
+	int32_t rs, re, qs, qe;
+	int32_t sc_chain;
+	int32_t mlen, blen;
+	uint32_t hash;
+	uint32_t rev:1, dummy:31;
+} mg_lchain1_t;
 
 extern int mg_verbose;
 extern double mg_realtime0;
