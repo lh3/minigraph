@@ -276,7 +276,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 
 	regs0 = mg_lchain_gen(b->km, hash, qlen_sum, n_regs0, u, a);
 
-	if (mg_dbg_flag & MG_DBG_PRINT_SEED)
+	if (1 || (mg_dbg_flag & MG_DBG_PRINT_SEED))
 		for (j = 0; j < n_regs0; ++j)
 			for (i = regs0[j].as; i < regs0[j].as + regs0[j].cnt; ++i)
 				fprintf(stderr, "CN\t%d\t%s\t%d\t%c\t%d\t%d\t%d\n", j, gi->g->seg[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),

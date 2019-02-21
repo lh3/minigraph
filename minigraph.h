@@ -75,6 +75,8 @@ mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int flag, int n_threads);
 mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int flag, int n_threads);
 void mg_idx_destroy(mg_idx_t *gi);
 
+int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
+
 #ifdef __cplusplus
 }
 #endif
