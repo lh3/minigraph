@@ -15,11 +15,11 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->seed = 11;
 	mo->mid_occ = 200;
 	mo->max_gap = 5000;
-	opt->max_gap_ref = -1;
-	opt->max_chain_skip = 25;
+	mo->max_gap_ref = -1;
+	mo->max_chain_skip = 25;
 	mo->bw = 500;
 	mo->min_lc_cnt = 3, mo->min_lc_score = 30;
-	opt->mini_batch_size = 500000000;
+	mo->mini_batch_size = 500000000;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo)

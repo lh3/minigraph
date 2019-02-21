@@ -30,10 +30,13 @@ void gfa_destroy(gfa_t *g)
 		gfa_seg_t *s = &g->seg[i];
 		free(s->name);
 		free(s->aux.aux);
-		for (j = 0; j < s->utg.n; ++j)
-			free(s->utg.name[j]);
-		free(s->utg.name);
-		free(s->utg.a);
+		if (s->utg) {
+			for (j = 0; j < s->utg->n; ++j)
+				free(s->utg->name[j]);
+			free(s->utg->name);
+			free(s->utg->a);
+			free(s->utg);
+		}
 	}
 	for (k = 0; k < g->n_arc; ++k)
 		free(g->arc_aux[k].aux);

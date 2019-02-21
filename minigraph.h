@@ -57,7 +57,6 @@ typedef struct {
 	int32_t mlen, blen;
 	uint32_t hash;
 	uint32_t rev:1, dummy:31;
-	float div;
 } mg_lchain1_t;
 
 typedef struct mg_tbuf_s mg_tbuf_t;

@@ -57,9 +57,12 @@ typedef struct {
 typedef struct {
 	int32_t len;
 	uint32_t del:16, circ:16;
+	int32_t pnid; // persistent name ID
+	int32_t ppos; // persistent start position
 	char *name, *seq;
+	char *pname;  // a pointer to aux; not allocated
+	gfa_utg_t *utg;
 	gfa_aux_t aux;
-	gfa_utg_t utg;
 } gfa_seg_t;
 
 #define gfa_n_vtx(g) ((g)->n_seg << 1)
@@ -68,7 +71,7 @@ typedef struct {
 	// segments
 	uint32_t m_seg, n_seg;
 	gfa_seg_t *seg;
-	void *h_names;
+	void *h_names, *h_pnames;
 	// links
 	uint64_t m_arc, n_arc:62, is_srt:1, is_symm:1;
 	gfa_arc_t *arc;
