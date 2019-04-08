@@ -30,12 +30,17 @@ depend:
 
 # DO NOT DELETE
 
+bseq.o: bseq.h kvec.h kalloc.h kseq.h
 gfa-base.o: gfa.h khash.h kalloc.h ksort.h
 gfa-io.o: kstring.h gfa.h kseq.h
+gfa-sub.o: gfa.h kalloc.h kavl.h khash.h
 index.o: mgpriv.h kalloc.h minigraph.h gfa.h khash.h kthread.h kvec.h
 kalloc.o: kalloc.h
 kthread.o: kthread.h
+lchain.o: mgpriv.h kalloc.h minigraph.h gfa.h
 main.o: bseq.h minigraph.h gfa.h mgpriv.h kalloc.h ketopt.h
+map.o: kthread.h kvec.h kalloc.h mgpriv.h minigraph.h gfa.h bseq.h khash.h
+map.o: ksort.h
 misc.o: mgpriv.h kalloc.h minigraph.h gfa.h ksort.h
 options.o: minigraph.h gfa.h
 sketch.o: kvec.h kalloc.h mgpriv.h minigraph.h gfa.h
