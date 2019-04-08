@@ -17,6 +17,7 @@ void *kcalloc(void *km, size_t count, size_t size);
 void kfree(void *km, void *ptr);
 
 void *km_init(void);
+void *km_init2(void *km_par, size_t min_core_size);
 void km_destroy(void *km);
 void km_stat(const void *_km, km_stat_t *s);
 
@@ -30,7 +31,7 @@ void km_stat(const void *_km, km_stat_t *s);
 
 #define KEXPAND(km, a, m) do { \
 		(m) = (m)? (m) + ((m)>>1) : 16; \
-		REALLOC((km), (a), (m)); \
+		KREALLOC((km), (a), (m)); \
 	} while (0)
 
 #endif

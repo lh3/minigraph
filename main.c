@@ -101,6 +101,13 @@ int main(int argc, char *argv[])
 		goto free_gfa;
 	}
 
+#if 1
+	extern void gfa_sub_from_vertex(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist);
+	int sid = gfa_name2id(gi->g, "MTh0");
+	if (sid < 0) abort();
+	gfa_sub_from_vertex(0, gi->g, sid<<1|0, 5000);
+#endif
+
 	for (i = o.ind + 1; i < argc; ++i)
 		mg_map_file(gi, argv[i], &opt, n_threads);
 

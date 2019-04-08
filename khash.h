@@ -185,6 +185,7 @@ static const double __ac_HASH_UPPER = 0.77;
 		khint32_t *flags; \
 		khkey_t *keys; \
 		khval_t *vals; \
+		void *km; \
 	} kh_##name##_t;
 
 #define __KHASH_PROTOTYPES(name, khkey_t, khval_t)	 					\
@@ -197,17 +198,22 @@ static const double __ac_HASH_UPPER = 0.77;
 	extern void kh_del_##name(kh_##name##_t *h, khint_t x);
 
 #define __KHASH_IMPL(name, SCOPE, khkey_t, khval_t, kh_is_map, __hash_func, __hash_equal) \
-	SCOPE kh_##name##_t *kh_init_##name(void) {							\
-		return (kh_##name##_t*)kcalloc(0, 1, sizeof(kh_##name##_t));	\
-	}																	\
-	SCOPE void kh_destroy_##name(kh_##name##_t *h)						\
-	{																	\
-		if (h) {														\
-			kfree(0, (void *)h->keys); kfree(0, h->flags);				\
-			kfree(0, (void *)h->vals);									\
-			kfree(0, h);												\
-		}																\
-	}																	\
+	SCOPE kh_##name##_t *kh_init2_##name(void *km) { \
+		kh_##name##_t *h; \
+		h = (kh_##name##_t*)kcalloc(km, 1, sizeof(kh_##name##_t)); \
+		h->km = km; \
+		return h; \
+	} \
+	SCOPE kh_##name##_t *kh_init_##name(void) {	return kh_init2_##name(0); } \
+	SCOPE void kh_destroy_##name(kh_##name##_t *h) \
+	{ \
+		if (h) { \
+			void *km = h->km; \
+			kfree(km, (void *)h->keys); kfree(km, h->flags); \
+			kfree(km, (void *)h->vals); \
+			kfree(km, h); \
+		} \
+	} \
 	SCOPE void kh_clear_##name(kh_##name##_t *h)						\
 	{																	\
 		if (h && h->flags) {											\
@@ -238,16 +244,16 @@ static const double __ac_HASH_UPPER = 0.77;
 			if (new_n_buckets < 4) new_n_buckets = 4;					\
 			if (h->size >= (khint_t)(new_n_buckets * __ac_HASH_UPPER + 0.5)) j = 0;	/* requested size is too small */ \
 			else { /* hash table size to be changed (shrink or expand); rehash */ \
-				new_flags = (khint32_t*)kmalloc(0, __ac_fsize(new_n_buckets) * sizeof(khint32_t));	\
+				new_flags = (khint32_t*)kmalloc(h->km, __ac_fsize(new_n_buckets) * sizeof(khint32_t));	\
 				if (!new_flags) return -1;								\
 				memset(new_flags, 0xaa, __ac_fsize(new_n_buckets) * sizeof(khint32_t)); \
 				if (h->n_buckets < new_n_buckets) {	/* expand */		\
-					khkey_t *new_keys = (khkey_t*)krealloc(0, (void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
-					if (!new_keys) { kfree(0, new_flags); return -1; }	\
+					khkey_t *new_keys = (khkey_t*)krealloc(h->km, (void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
+					if (!new_keys) { kfree(h->km, new_flags); return -1; }	\
 					h->keys = new_keys;									\
 					if (kh_is_map) {									\
-						khval_t *new_vals = (khval_t*)krealloc(0, (void *)h->vals, new_n_buckets * sizeof(khval_t)); \
-						if (!new_vals) { kfree(0, new_flags); return -1; } \
+						khval_t *new_vals = (khval_t*)krealloc(h->km, (void *)h->vals, new_n_buckets * sizeof(khval_t)); \
+						if (!new_vals) { kfree(h->km, new_flags); return -1; } \
 						h->vals = new_vals;								\
 					}													\
 				} /* otherwise shrink */								\
@@ -281,10 +287,10 @@ static const double __ac_HASH_UPPER = 0.77;
 				}														\
 			}															\
 			if (h->n_buckets > new_n_buckets) { /* shrink the hash table */ \
-				h->keys = (khkey_t*)krealloc(0, (void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
-				if (kh_is_map) h->vals = (khval_t*)krealloc(0, (void *)h->vals, new_n_buckets * sizeof(khval_t)); \
+				h->keys = (khkey_t*)krealloc(h->km, (void *)h->keys, new_n_buckets * sizeof(khkey_t)); \
+				if (kh_is_map) h->vals = (khval_t*)krealloc(h->km, (void *)h->vals, new_n_buckets * sizeof(khval_t)); \
 			}															\
-			kfree(0, h->flags); /* free the working space */			\
+			kfree(h->km, h->flags); /* free the working space */ \
 			h->flags = new_flags;										\
 			h->n_buckets = new_n_buckets;								\
 			h->n_occupied = h->size;									\
@@ -425,6 +431,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
   @return       Pointer to the hash table [khash_t(name)*]
  */
 #define kh_init(name) kh_init_##name()
+#define kh_init2(name, km) kh_init2_##name(km)
 
 /*! @function
   @abstract     Destroy a hash table.

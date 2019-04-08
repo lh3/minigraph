@@ -18,15 +18,14 @@
  *       |                           |                 |                               |
  *       p=p->ptr->ptr->ptr->ptr     p->ptr            p->ptr->ptr                     p->ptr->ptr->ptr
  */
-
-#define MIN_CORE_SIZE 0x80000
-
 typedef struct header_t {
 	size_t size;
 	struct header_t *ptr;
 } header_t;
 
 typedef struct {
+	void *par;
+	size_t min_core_size;
 	header_t base, *loop_head, *core_head; /* base is a zero-sized block always kept in the loop */
 } kmem_t;
 
@@ -36,31 +35,38 @@ static void panic(const char *s)
 	abort();
 }
 
-void *km_init(void)
+void *km_init2(void *km_par, size_t min_core_size)
 {
-	return calloc(1, sizeof(kmem_t));
+	kmem_t *km;
+	km = kcalloc(km_par, 1, sizeof(kmem_t));
+	km->par = km_par;
+	km->min_core_size = min_core_size > 0? min_core_size : 0x80000;
+	return (void*)km;
 }
+
+void *km_init(void) { return km_init2(0, 0); }
 
 void km_destroy(void *_km)
 {
 	kmem_t *km = (kmem_t*)_km;
+	void *km_par = km->par;
 	header_t *p, *q;
 	if (km == NULL) return;
 	for (p = km->core_head; p != NULL;) {
 		q = p->ptr;
-		free(p);
+		kfree(km_par, p);
 		p = q;
 	}
-	free(km);
+	kfree(km_par, km);
 }
 
 static header_t *morecore(kmem_t *km, size_t nu)
 {
 	header_t *q;
 	size_t bytes, *p;
-	nu = (nu + 1 + (MIN_CORE_SIZE - 1)) / MIN_CORE_SIZE * MIN_CORE_SIZE; /* the first +1 for core header */
+	nu = (nu + 1 + (km->min_core_size - 1)) / km->min_core_size * km->min_core_size; /* the first +1 for core header */
 	bytes = nu * sizeof(header_t);
-	q = (header_t*)malloc(bytes);
+	q = (header_t*)kmalloc(km->par, bytes);
 	if (!q) panic("[morecore] insufficient memory");
 	q->ptr = km->core_head, q->size = nu, km->core_head = q;
 	p = (size_t*)(q + 1);

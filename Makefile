@@ -2,7 +2,7 @@ CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
 INCLUDES=	-I.
-OBJS=		kalloc.o kthread.o gfa-base.o gfa-io.o sketch.o misc.o options.o bseq.o index.o lchain.o map.o
+OBJS=		kalloc.o kthread.o gfa-base.o gfa-io.o gfa-sub.o sketch.o misc.o options.o bseq.o index.o lchain.o map.o
 PROG=		minigraph
 LIBS=		-lz
 

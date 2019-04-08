@@ -79,6 +79,20 @@ typedef struct {
 	uint64_t *idx;
 } gfa_t;
 
+// linearized subgraphs
+
+typedef struct {
+	uint32_t v;
+	int32_t n_for, o_for, n_rev, o_rev;
+} gfa_subv_t;
+
+typedef struct {
+	int32_t n, n_back;
+	gfa_subv_t *v;
+	int32_t *af, *ar;
+	void *km;
+} gfa_sub_t;
+
 extern int gfa_verbose;
 
 #ifdef __cplusplus
