@@ -83,13 +83,13 @@ typedef struct {
 
 typedef struct {
 	uint32_t v;
-	int32_t n_for, o_for, n_rev, o_rev;
+	int32_t off, n;
 } gfa_subv_t;
 
 typedef struct {
-	int32_t n, n_back;
+	int32_t n_v, n_a;
 	gfa_subv_t *v;
-	int32_t *af, *ar;
+	int32_t *a;
 	void *km;
 } gfa_sub_t;
 
@@ -123,6 +123,10 @@ uint8_t *gfa_aux_get(int l_data, const uint8_t *data, const char tag[2]);
 int gfa_aux_del(int l_data, uint8_t *data, uint8_t *s);
 
 void gfa_sub(gfa_t *g, int n, char *const* seg, int step);
+
+gfa_sub_t *gfa_sub_from(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist);
+void gfa_sub_destroy(gfa_sub_t *sub);
+void gfa_sub_print(FILE *fp, const gfa_t *g, const gfa_sub_t *sub);
 
 #ifdef __cplusplus
 }

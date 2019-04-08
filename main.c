@@ -102,10 +102,12 @@ int main(int argc, char *argv[])
 	}
 
 #if 1
-	extern void gfa_sub_from_vertex(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist);
 	int sid = gfa_name2id(gi->g, "MTh0");
+	gfa_sub_t *sub;
 	if (sid < 0) abort();
-	gfa_sub_from_vertex(0, gi->g, sid<<1|0, 5000);
+	sub = gfa_sub_from(0, gi->g, sid<<1|0, 5000);
+	gfa_sub_print(stdout, gi->g, sub);
+	gfa_sub_destroy(sub);
 #endif
 
 	for (i = o.ind + 1; i < argc; ++i)
