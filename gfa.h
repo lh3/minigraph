@@ -82,12 +82,12 @@ typedef struct {
 // linearized subgraphs
 
 typedef struct {
-	uint32_t v;
+	uint32_t v, d;
 	int32_t off, n;
 } gfa_subv_t;
 
 typedef struct {
-	int32_t n_v, n_a;
+	int32_t n_v, n_a, is_dag;
 	gfa_subv_t *v;
 	int32_t *a;
 	void *km;

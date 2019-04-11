@@ -4,6 +4,10 @@
 #include "kalloc.h"
 #include "kavl.h"
 #include "khash.h"
+#include "ksort.h"
+
+#define generic_key(x) (x)
+KRADIX_SORT_INIT(32, int32_t, generic_key, 4)
 
 typedef struct tnode_s {
 	uint64_t nd;
@@ -90,6 +94,7 @@ gfa_sub_t *gfa_sub_from(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist
 	sub->n_a = n_arc;
 	sub->v = KCALLOC(sub->km, gfa_subv_t, n_L);
 	sub->a = KCALLOC(sub->km, int32_t, n_arc);
+	sub->is_dag = 1;
 
 	for (j = 0; j < n_L; ++j) L[j]->in_tree = j;
 	for (j = 0, off = 0; j < sub->n_v; ++j) {
@@ -104,8 +109,11 @@ gfa_sub_t *gfa_sub_from(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist
 			sub->a[off++] = kh_val(h, k)->in_tree;
 		}
 		sub->v[j].v = L[j]->v;
+		sub->v[j].d = (uint32_t)L[j]->nd;
 		sub->v[j].off = o0;
 		sub->v[j].n = off - o0;
+		radix_sort_32(&sub->a[o0], &sub->a[off]);
+		if (sub->a[o0] <= j) sub->is_dag = 0;
 	}
 	assert(off == n_arc);
 
@@ -126,7 +134,7 @@ void gfa_sub_print(FILE *fp, const gfa_t *g, const gfa_sub_t *sub)
 	int32_t i, j;
 	for (i = 0; i < sub->n_v; ++i) {
 		gfa_subv_t *p = &sub->v[i];
-		fprintf(fp, "[%d]\t%d\t%s\t%d", i, p->v, g->seg[p->v>>1].name, p->n);
+		fprintf(fp, "[%d]\t%d\t%s\t%d\t%d", i, p->v, g->seg[p->v>>1].name, p->d, p->n);
 		if (p->n > 0) {
 			fputc('\t', fp);
 			for (j = 0; j < p->n; ++j) {
