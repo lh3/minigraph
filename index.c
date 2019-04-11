@@ -47,13 +47,13 @@ void mg_idx_destroy(mg_idx_t *gi)
  * Index access *
  ****************/
 
-const uint64_t *mg_idx_hget(const void *h_, const uint64_t *q, int shift, uint64_t minier, int *n)
+const uint64_t *mg_idx_hget(const void *h_, const uint64_t *q, int suflen, uint64_t minier, int *n)
 {
 	khint_t k;
 	const idxhash_t *h = (const idxhash_t*)h_;
 	*n = 0;
 	if (h == 0) return 0;
-	k = kh_get(idx, h, minier>>shift<<1);
+	k = kh_get(idx, h, minier>>suflen<<1);
 	if (k == kh_end(h)) return 0;
 	if (kh_key(h, k)&1) { // special casing when there is only one k-mer
 		*n = 1;
@@ -84,7 +84,7 @@ static void mg_idx_add(mg_idx_t *gi, int n, const mg128_t *a)
 	}
 }
 
-void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int shift, uint64_t **q_, int32_t *n_)
+void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, int32_t *n_)
 {
 	int32_t N, n, n_keys;
 	int32_t j, start_a, start_q;
@@ -116,7 +116,7 @@ void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int shift, uint64_t **q_, in
 			khint_t itr;
 			int absent;
 			mg128_t *p = &a[j-1];
-			itr = kh_put(idx, h, p->x>>8>>shift<<1, &absent);
+			itr = kh_put(idx, h, p->x>>8>>suflen<<1, &absent);
 			assert(absent && j == start_a + n);
 			if (n == 1) {
 				kh_key(h, itr) |= 1;

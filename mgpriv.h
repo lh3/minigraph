@@ -31,6 +31,9 @@ extern unsigned char seq_nt4_table[256];
 
 void mg_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mg128_v *p);
 
+void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, int32_t *n_);
+const uint64_t *mg_idx_hget(const void *h_, const uint64_t *q, int suflen, uint64_t minier, int *n);
+
 const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n);
 
 mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km);
