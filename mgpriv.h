@@ -27,6 +27,8 @@ typedef struct __kstring_t {
 extern "C" {
 #endif
 
+extern unsigned char seq_nt4_table[256];
+
 void mg_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mg128_v *p);
 
 const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n);

@@ -47,23 +47,28 @@ void mg_idx_destroy(mg_idx_t *gi)
  * Index access *
  ****************/
 
-const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n)
+const uint64_t *mg_idx_hget(const void *h_, const uint64_t *q, int shift, uint64_t minier, int *n)
 {
-	int mask = (1<<gi->b) - 1;
 	khint_t k;
-	mg_idx_bucket_t *b = &gi->B[minier&mask];
-	idxhash_t *h = (idxhash_t*)b->h;
+	const idxhash_t *h = (const idxhash_t*)h_;
 	*n = 0;
 	if (h == 0) return 0;
-	k = kh_get(idx, h, minier>>gi->b<<1);
+	k = kh_get(idx, h, minier>>shift<<1);
 	if (k == kh_end(h)) return 0;
 	if (kh_key(h, k)&1) { // special casing when there is only one k-mer
 		*n = 1;
 		return &kh_val(h, k);
 	} else {
 		*n = (uint32_t)kh_val(h, k);
-		return &b->p[kh_val(h, k)>>32];
+		return &q[kh_val(h, k)>>32];
 	}
+}
+
+const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n)
+{
+	int mask = (1<<gi->b) - 1;
+	mg_idx_bucket_t *b = &gi->B[minier&mask];
+	return mg_idx_hget(b->h, b->p, gi->b, minier, n);
 }
 
 /***************
@@ -79,37 +84,39 @@ static void mg_idx_add(mg_idx_t *gi, int n, const mg128_t *a)
 	}
 }
 
-static void worker_post(void *g, long i, int tid)
+void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int shift, uint64_t **q_, int32_t *n_)
 {
-	int n, n_keys;
-	size_t j, start_a, start_p;
+	int32_t N, n, n_keys;
+	int32_t j, start_a, start_q;
 	idxhash_t *h;
-	mg_idx_t *gi = (mg_idx_t*)g;
-	mg_idx_bucket_t *b = &gi->B[i];
-	if (b->a.n == 0) return;
+	uint64_t *q;
+
+	*q_ = 0, *n_ = 0;
+	if (n_a == 0) return 0;
 
 	// sort by minimizer
-	radix_sort_128x(b->a.a, b->a.a + b->a.n);
+	radix_sort_128x(a, a + n_a);
 
 	// count and preallocate
-	for (j = 1, n = 1, n_keys = 0, b->n = 0; j <= b->a.n; ++j) {
-		if (j == b->a.n || b->a.a[j].x>>8 != b->a.a[j-1].x>>8) {
+	for (j = 1, n = 1, n_keys = 0, N = 0; j <= n_a; ++j) {
+		if (j == n_a || a[j].x>>8 != a[j-1].x>>8) {
 			++n_keys;
-			if (n > 1) b->n += n;
+			if (n > 1) N += n;
 			n = 1;
 		} else ++n;
 	}
-	h = kh_init(idx);
+	h = kh_init2(idx, km);
 	kh_resize(idx, h, n_keys);
-	b->p = (uint64_t*)calloc(b->n, 8);
+	*q_ = q = KCALLOC(km, uint64_t, N);
+	*n_ = N;
 
 	// create the hash table
-	for (j = 1, n = 1, start_a = start_p = 0; j <= b->a.n; ++j) {
-		if (j == b->a.n || b->a.a[j].x>>8 != b->a.a[j-1].x>>8) {
+	for (j = 1, n = 1, start_a = start_q = 0; j <= n_a; ++j) {
+		if (j == n_a || a[j].x>>8 != a[j-1].x>>8) {
 			khint_t itr;
 			int absent;
-			mg128_t *p = &b->a.a[j-1];
-			itr = kh_put(idx, h, p->x>>8>>gi->b<<1, &absent);
+			mg128_t *p = &a[j-1];
+			itr = kh_put(idx, h, p->x>>8>>shift<<1, &absent);
 			assert(absent && j == start_a + n);
 			if (n == 1) {
 				kh_key(h, itr) |= 1;
@@ -117,18 +124,24 @@ static void worker_post(void *g, long i, int tid)
 			} else {
 				int k;
 				for (k = 0; k < n; ++k)
-					b->p[start_p + k] = b->a.a[start_a + k].y;
-				radix_sort_64(&b->p[start_p], &b->p[start_p + n]); // sort by position; needed as in-place radix_sort_128x() is not stable
-				kh_val(h, itr) = (uint64_t)start_p<<32 | n;
-				start_p += n;
+					q[start_q + k] = a[start_a + k].y;
+				radix_sort_64(&q[start_q], &q[start_q + n]); // sort by position; needed as in-place radix_sort_128x() is not stable
+				kh_val(h, itr) = (uint64_t)start_q<<32 | n;
+				start_q += n;
 			}
 			start_a = j, n = 1;
 		} else ++n;
 	}
-	b->h = h;
-	assert(b->n == (int32_t)start_p);
+	assert(N == start_q);
+	return h;
+}
 
-	// deallocate and clear b->a
+static void worker_post(void *g, long i, int tid)
+{
+	mg_idx_t *gi = (mg_idx_t*)g;
+	mg_idx_bucket_t *b = &gi->B[i];
+	if (b->a.n == 0) return;
+	b->h = (idxhash_t*)mg_idx_a2h(0, b->a.n, b->a.a, gi->b, &b->p, &b->n);
 	kfree(0, b->a.a);
 	b->a.n = b->a.m = 0, b->a.a = 0;
 }
