@@ -57,8 +57,47 @@ static void mg_sub_idx(void *km, const gfa_t *g, const gfa_sub_t *s, int k, int 
 	kfree(km, a.a);
 }
 
-void mg_gchain(void *km, const gfa_t *g, gfa_sub_t *s, const uint8_t *qseq, int32_t qlen, int32_t max_dist_x, int32_t max_dist_y, int k, int w, int is_hpc)
+typedef struct {
+	int n;
+	uint32_t qpos, q_span;
+	const uint64_t *r;
+} sub_seeds_t;
+
+void mg_gchain(void *km, const gfa_t *g, gfa_sub_t *s, const char *qseq, int32_t qlen, int32_t max_dist_s, int32_t max_dist_g, int k, int w, int is_hpc)
 {
+	int32_t i, st;
 	sub_idx_t si;
-	mg_sub_idx(km, g, s, k, w, is_hpc, max_dist_x, &si);
+	sub_seeds_t *ss;
+	mg128_v qm = {0,0,0};
+
+	mg_sketch(km, qseq, qlen, w, k, 0, is_hpc, &qm);
+	mg_sub_idx(km, g, s, k, w, is_hpc, max_dist_g, &si);
+	ss = KCALLOC(km, sub_seeds_t, qm.n);
+
+	for (i = 0; i < qm.n; ++i) {
+		mg128_t *p = &qm.a[i];
+		sub_seeds_t *q = &ss[i];
+		q->qpos = (uint32_t)p->y, q->q_span = p->x & 0xff;
+		q->r = mg_idx_hget(si.h, si.q, 0, p->x>>8, &q->n);
+	}
+
+	for (i = st = 0; i < qm.n; ++i) {
+		sub_seeds_t *qi = &ss[i];
+		int32_t j, ki, kj;
+		while (st < i && qi->qpos > ss[st].qpos + max_dist_s) ++st;
+		for (ki = 0; ki < qi->n; ++ki) {
+			for (j = i - 1; j >= st; --j) {
+				sub_seeds_t *qj = &ss[j];
+				for (kj = 0; kj < qj->n; ++kj) {
+					int32_t dg, ds = qj->qpos - qi->qpos;
+				}
+			}
+		}
+	}
+
+	// free
+	kfree(km, qm.a);
+	kfree(km, si.q);
+	// destroy si->h!
+	kfree(km, ss);
 }
