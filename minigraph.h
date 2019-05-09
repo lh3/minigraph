@@ -49,15 +49,11 @@ typedef struct {
 } mg_idx_t;
 
 typedef struct {
-	int32_t id;
 	int32_t as, cnt;
-	int32_t rid;
+	uint32_t v;
 	int32_t rs, re, qs, qe;
-	int32_t sc_chain;
-	int32_t mlen, blen;
-	uint32_t hash;
-	uint32_t rev:1, dummy:31;
-} mg_lchain1_t;
+	int32_t sc_lchain;
+} mg_lchain1_t; // lightweight linear chain
 
 typedef struct mg_tbuf_s mg_tbuf_t;
 

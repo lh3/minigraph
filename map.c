@@ -133,11 +133,11 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 		if (!skip_seed(opt->flag, r, q, qname, qlen, gi)) {
 			if ((r&1) == (q->q_pos&1)) { // forward strand
 				p = &a[n_for++];
-				p->x = (r&0xffffffff00000000ULL) | rpos;
+				p->x = r>>32<<33 | rpos;
 				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 			} else { // reverse strand
 				p = &a[(*n_a) - (++n_rev)];
-				p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
+				p->x = r>>32<<33 | 1ULL<<32 | rpos;
 				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
 			}
 			p->y |= (uint64_t)q->seg_id << MG_SEED_SEG_SHIFT;
@@ -187,10 +187,10 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 			if (skip_seed(opt->flag, r[k], q, qname, qlen, gi)) continue;
 			p = &a[(*n_a)++];
 			if ((r[k]&1) == (q->q_pos&1)) { // forward strand
-				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
+				p->x = r[k]>>32<<33 | rpos;
 				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 			} else { // reverse strand
-				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | rpos;
+				p->x = r[k]>>32<<33 | 1ULL<<32 | rpos;
 				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
 			}
 			p->y |= (uint64_t)q->seg_id << MG_SEED_SEG_SHIFT;
@@ -204,14 +204,14 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mg_lchain1_t **regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
-	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos;
+	int i, j, rep_len, qlen_sum, n_lc0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MG_M_SPLICE), is_sr = !!(opt->flag & MG_M_SR);
 	uint32_t hash;
 	int64_t n_a;
 	uint64_t *u, *mini_pos;
 	mg128_t *a;
 	mg128_v mv = {0,0,0};
-	mg_lchain1_t *regs0;
+	mg_lchain1_t *lc0;
 	km_stat_t kmst;
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
@@ -231,7 +231,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	if (mg_dbg_flag & MG_DBG_PRINT_SEED) {
 		fprintf(stderr, "RS\t%d\n", rep_len);
 		for (i = 0; i < n_a; ++i)
-			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", gi->g->seg[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
+			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", gi->g->seg[a[i].x>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>32&1], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 					i == 0? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 	}
 
@@ -246,13 +246,13 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		if (max_chain_gap_ref < opt->max_gap) max_chain_gap_ref = opt->max_gap;
 	} else max_chain_gap_ref = opt->max_gap;
 
-	a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
+	a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc0, &u, b->km);
 
 	if (opt->max_occ > opt->mid_occ && rep_len > 0) {
 		int rechain = 0;
-		if (n_regs0 > 0) { // test if the best chain has all the segments
+		if (n_lc0 > 0) { // test if the best chain has all the segments
 			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
-			for (i = 0; i < n_regs0; ++i) { // find the best chain
+			for (i = 0; i < n_lc0; ++i) { // find the best chain
 				if (max < (int)(u[i]>>32)) max = u[i]>>32, max_i = i, max_off = off;
 				off += (uint32_t)u[i];
 			}
@@ -268,25 +268,26 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 			kfree(b->km, mini_pos);
 			if (opt->flag & MG_M_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->max_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 			else a = collect_seed_hits(b->km, opt, opt->max_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
+			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc0, &u, b->km);
 		}
 	}
 	b->frag_gap = max_chain_gap_ref;
 	b->rep_len = rep_len;
 
-	regs0 = mg_lchain_gen(b->km, hash, qlen_sum, n_regs0, u, a);
+	lc0 = mg_lchain_gen(b->km, hash, qlen_sum, n_lc0, u, a);
 
 	if (1 || (mg_dbg_flag & MG_DBG_PRINT_SEED))
-		for (j = 0; j < n_regs0; ++j)
-			for (i = regs0[j].as; i < regs0[j].as + regs0[j].cnt; ++i)
-				fprintf(stderr, "CN\t%d\t%s\t%d\t%c\t%d\t%d\t%d\n", j, gi->g->seg[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
-						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
-	//if (!is_sr) mg_est_err(gi, qlen_sum, n_regs0, regs0, a, n_mini_pos, mini_pos);
+		for (j = 0; j < n_lc0; ++j)
+			for (i = lc0[j].as; i < lc0[j].as + lc0[j].cnt; ++i)
+				fprintf(stderr, "CN\t%d\t%s\t%d\t%c\t%d\t%d\t%d\n", j, gi->g->seg[a[i].x>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>32&1], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
+						i == lc0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
+	//if (!is_sr) mg_est_err(gi, qlen_sum, n_lc0, lc0, a, n_mini_pos, mini_pos);
 
 	kfree(b->km, mv.a);
 	kfree(b->km, a);
 	kfree(b->km, u);
 	kfree(b->km, mini_pos);
+	kfree(b->km, lc0);
 
 	if (b->km) {
 		km_stat(b->km, &kmst);
@@ -368,7 +369,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 				t = r->qs;
 				r->qs = qlens[j] - r->qe;
 				r->qe = qlens[j] - t;
-				r->rev = !r->rev;
+				r->v ^= 1;
 			}
 		}
 }
