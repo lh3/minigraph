@@ -92,18 +92,6 @@ static mg_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mg_id
 	return m;
 }
 
-static inline int skip_seed(int flag, uint64_t r, const mg_match_t *q, const char *qname, int qlen, const mg_idx_t *gi)
-{
-	if (flag & (MG_M_FOR_ONLY|MG_M_REV_ONLY)) {
-		if ((r&1) == (q->q_pos&1)) { // forward strand
-			if (flag & MG_M_REV_ONLY) return 1;
-		} else {
-			if (flag & MG_M_FOR_ONLY) return 1;
-		}
-	}
-	return 0;
-}
-
 static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max_occ, const mg_idx_t *gi, const char *qname, const mg128_v *mv, int qlen, int64_t *n_a, int *rep_len,
 								  int *n_mini_pos, uint64_t **mini_pos)
 {
@@ -130,19 +118,17 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 		mg128_t *p;
 		uint64_t r = heap->x;
 		int32_t rpos = (uint32_t)r >> 1;
-		if (!skip_seed(opt->flag, r, q, qname, qlen, gi)) { // TODO: in the GFA model, we should flip ->x, not ->y
-			if ((r&1) == (q->q_pos&1)) { // forward strand
-				p = &a[n_for++];
-				p->x = r>>32<<33 | rpos;
-				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
-			} else { // reverse strand
-				p = &a[(*n_a) - (++n_rev)];
-				p->x = r>>32<<33 | 1ULL<<32 | rpos;
-				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
-			}
-			p->y |= (uint64_t)q->seg_id << MG_SEED_SEG_SHIFT;
-			if (q->is_tandem) p->y |= MG_SEED_TANDEM;
+		if ((r&1) == (q->q_pos&1)) { // forward strand
+			p = &a[n_for++];
+			p->x = r>>32<<33 | rpos;
+			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
+		} else { // reverse strand
+			p = &a[(*n_a) - (++n_rev)];
+			p->x = r[k]>>32<<33 | 1ULL<<32 | (gi->g->seg[r[k]>>32].len - (rpos + 1 - q->q_span) - 1);
+			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 		}
+		p->y |= (uint64_t)q->seg_id << MG_SEED_SEG_SHIFT;
+		if (q->is_tandem) p->y |= MG_SEED_TANDEM;
 		// update the heap
 		if ((uint32_t)heap->y < q->n - 1) {
 			++heap[0].y;
@@ -183,15 +169,13 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 		uint32_t k;
 		for (k = 0; k < q->n; ++k) {
 			int32_t rpos = (uint32_t)r[k] >> 1;
-			mg128_t *p;
-			if (skip_seed(opt->flag, r[k], q, qname, qlen, gi)) continue;
-			p = &a[(*n_a)++];
+			mg128_t *p = &a[(*n_a)++];
 			if ((r[k]&1) == (q->q_pos&1)) { // forward strand
 				p->x = r[k]>>32<<33 | rpos;
 				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 			} else { // reverse strand
-				p->x = r[k]>>32<<33 | 1ULL<<32 | rpos;
-				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+				p->x = r[k]>>32<<33 | 1ULL<<32 | (gi->g->seg[r[k]>>32].len - (rpos + 1 - q->q_span) - 1);
+				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 			}
 			p->y |= (uint64_t)q->seg_id << MG_SEED_SEG_SHIFT;
 			if (q->is_tandem) p->y |= MG_SEED_TANDEM;
