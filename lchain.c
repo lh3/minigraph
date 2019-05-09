@@ -19,7 +19,7 @@ static inline int ilog2_32(uint32_t v)
 }
 
 /* Input:
- *   a[].x: rev<<63 | tid<<32 | tpos
+ *   a[].x: tid<<33 | rev<<32 | tpos
  *   a[].y: flags<<40 | q_span<<32 | q_pos
  * Output:
  *   n_u: #chains

@@ -130,7 +130,7 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 		mg128_t *p;
 		uint64_t r = heap->x;
 		int32_t rpos = (uint32_t)r >> 1;
-		if (!skip_seed(opt->flag, r, q, qname, qlen, gi)) {
+		if (!skip_seed(opt->flag, r, q, qname, qlen, gi)) { // TODO: in the GFA model, we should flip ->x, not ->y
 			if ((r&1) == (q->q_pos&1)) { // forward strand
 				p = &a[n_for++];
 				p->x = r>>32<<33 | rpos;
@@ -204,7 +204,7 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mg_lchain1_t **regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
-	int i, j, rep_len, qlen_sum, n_lc0, n_mini_pos;
+	int i, rep_len, qlen_sum, n_lc0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MG_M_SPLICE), is_sr = !!(opt->flag & MG_M_SR);
 	uint32_t hash;
 	int64_t n_a;
@@ -277,10 +277,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	lc0 = mg_lchain_gen(b->km, hash, qlen_sum, n_lc0, u, a);
 
 	if (1 || (mg_dbg_flag & MG_DBG_PRINT_SEED))
-		for (j = 0; j < n_lc0; ++j)
-			for (i = lc0[j].as; i < lc0[j].as + lc0[j].cnt; ++i)
-				fprintf(stderr, "CN\t%d\t%s\t%d\t%c\t%d\t%d\t%d\n", j, gi->g->seg[a[i].x>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>32&1], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
-						i == lc0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
+		mg_print_lchain(stdout, gi, n_lc0, lc0, a, qname);
 	//if (!is_sr) mg_est_err(gi, qlen_sum, n_lc0, lc0, a, n_mini_pos, mini_pos);
 
 	kfree(b->km, mv.a);
