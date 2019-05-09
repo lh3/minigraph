@@ -17,8 +17,6 @@
 #define MG_M_NO_QUAL      0x40000
 #define MG_M_2_IO_THREADS 0x80000
 
-#define MG_I_HPC          0x1
-
 #define MG_MAX_SEG        255
 
 typedef struct { uint64_t x, y; } mg128_t;

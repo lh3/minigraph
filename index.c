@@ -168,7 +168,7 @@ mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int flag, int n_threads)
 	for (i = 0; i < g->n_seg; ++i) {
 		gfa_seg_t *s = &g->seg[i];
 		a.n = 0;
-		mg_sketch(0, s->seq, s->len, w, k, i, flag&MG_I_HPC, &a); // TODO: this can be parallelized
+		mg_sketch(0, s->seq, s->len, w, k, i, &a); // TODO: this can be parallelized
 		mg_idx_add(gi, a.n, a.a);
 	}
 	free(a.a);

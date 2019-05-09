@@ -39,7 +39,7 @@ static void collect_minimizers(void *km, const mg_mapopt_t *opt, const mg_idx_t 
 	mv->n = 0;
 	for (i = n = 0; i < n_segs; ++i) {
 		size_t j;
-		mg_sketch(km, seqs[i], qlens[i], gi->w, gi->k, i, gi->flag&MG_I_HPC, mv);
+		mg_sketch(km, seqs[i], qlens[i], gi->w, gi->k, i, mv);
 		for (j = n; j < mv->n; ++j)
 			mv->a[j].y += sum << 1;
 		sum += qlens[i], n = mv->n;
@@ -122,9 +122,9 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 			p = &a[n_for++];
 			p->x = r>>32<<33 | rpos;
 			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
-		} else { // reverse strand
+		} else { // reverse strand; TODO: more testing needed for this block
 			p = &a[(*n_a) - (++n_rev)];
-			p->x = r[k]>>32<<33 | 1ULL<<32 | (gi->g->seg[r[k]>>32].len - (rpos + 1 - q->q_span) - 1);
+			p->x = r>>32<<33 | 1ULL<<32 | (gi->g->seg[r>>32].len - (rpos + 1 - q->q_span) - 1);
 			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 		}
 		p->y |= (uint64_t)q->seg_id << MG_SEED_SEG_SHIFT;

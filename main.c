@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 		goto free_gfa;
 	}
 
-#if 1
+#if 0
 	int sid = gfa_name2id(gi->g, "MTh0");
 	gfa_sub_t *sub;
 	if (sid < 0) abort();

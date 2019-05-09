@@ -29,7 +29,7 @@ extern "C" {
 
 extern unsigned char seq_nt4_table[256];
 
-void mg_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mg128_v *p);
+void mg_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, mg128_v *p);
 
 void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, int32_t *n_);
 const uint64_t *mg_idx_hget(const void *h_, const uint64_t *q, int suflen, uint64_t minier, int *n);
