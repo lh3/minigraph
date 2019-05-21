@@ -4,20 +4,6 @@
 #include "mgpriv.h"
 #include "kalloc.h"
 
-static const char LogTable256[256] = {
-#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-	-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-	LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
-	LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
-};
-
-static inline int ilog2_32(uint32_t v)
-{
-	uint32_t t, tt;
-	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
-	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
-}
-
 /* Input:
  *   a[].x: tid<<33 | rev<<32 | tpos
  *   a[].y: flags<<40 | q_span<<32 | q_pos
@@ -64,7 +50,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			if (n_segs > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) continue;
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
-			log_dd = dd? ilog2_32(dd) : 0;
+			log_dd = dd? mg_ilog2_32(dd) : 0;
 			if (is_cdna || sidi != sidj) {
 				int c_log, c_lin;
 				c_lin = (int)(dd * .01 * avg_qspan);

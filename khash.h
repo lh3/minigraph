@@ -415,6 +415,19 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 }
 #define kh_int_hash_func2(key) __ac_Wang_hash((khint_t)key)
 
+static kh_inline khint64_t __ac_Wang_hash64(khint64_t key)
+{
+	key = ~key + (key << 21);
+	key = key ^ key >> 24;
+	key = (key + (key << 3)) + (key << 8);
+	key = key ^ key >> 14;
+	key = (key + (key << 2)) + (key << 4);
+	key = key ^ key >> 28;
+	key = key + (key << 31);
+	return key;
+}
+#define kh_int_hash64_func2(key) __ac_Wang_hash64((khint64_t)key)
+
 /* --- END OF HASH FUNCTIONS --- */
 
 /* Other convenient macros... */
