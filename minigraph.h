@@ -50,8 +50,8 @@ typedef struct {
 	int32_t as, cnt;
 	uint32_t v;
 	int32_t rs, re, qs, qe;
-	int32_t sc_lchain;
-} mg_lchain1_t; // lightweight linear chain
+	int32_t sc_chain;
+} mg_gfrag_t;
 
 typedef struct mg_tbuf_s mg_tbuf_t;
 

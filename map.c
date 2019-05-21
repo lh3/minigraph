@@ -183,7 +183,7 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	return a;
 }
 
-void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mg_lchain1_t **regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
+void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mg_gfrag_t **regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
 	int i, rep_len, qlen_sum, n_lc0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MG_M_SPLICE), is_sr = !!(opt->flag & MG_M_SR);
@@ -192,7 +192,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	uint64_t *u, *mini_pos;
 	mg128_t *a;
 	mg128_v mv = {0,0,0};
-	mg_lchain1_t *lc0;
+	mg_gfrag_t *lc0;
 	km_stat_t kmst;
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
@@ -227,7 +227,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		if (max_chain_gap_ref < opt->max_gap) max_chain_gap_ref = opt->max_gap;
 	} else max_chain_gap_ref = opt->max_gap;
 
-	a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc0, &u, b->km);
+	a = mg_gfrag_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc0, &u, b->km);
 
 	if (opt->max_occ > opt->mid_occ && rep_len > 0) {
 		int rechain = 0;
@@ -249,16 +249,16 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 			kfree(b->km, mini_pos);
 			if (opt->flag & MG_M_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->max_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 			else a = collect_seed_hits(b->km, opt, opt->max_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc0, &u, b->km);
+			a = mg_gfrag_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc0, &u, b->km);
 		}
 	}
 	b->frag_gap = max_chain_gap_ref;
 	b->rep_len = rep_len;
 
-	lc0 = mg_lchain_gen(b->km, hash, qlen_sum, n_lc0, u, a);
+	lc0 = mg_gfrag_gen(b->km, hash, qlen_sum, n_lc0, u, a);
 
 	if (1 || (mg_dbg_flag & MG_DBG_PRINT_SEED))
-		mg_print_lchain(stdout, gi, n_lc0, lc0, a, qname);
+		mg_print_gfrag(stdout, gi, n_lc0, lc0, a, qname);
 	//if (!is_sr) mg_est_err(gi, qlen_sum, n_lc0, lc0, a, n_mini_pos, mini_pos);
 
 	kfree(b->km, mv.a);
@@ -279,9 +279,9 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	}
 }
 
-mg_lchain1_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, int *n_regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
+mg_gfrag_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, int *n_regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
-	mg_lchain1_t *regs;
+	mg_gfrag_t *regs;
 	mg_map_frag(gi, 1, &qlen, &seq, n_regs, &regs, b, opt, qname);
 	return regs;
 }
@@ -306,7 +306,7 @@ typedef struct {
     int n_seq, n_frag;
 	mg_bseq1_t *seq;
 	int *n_reg, *seg_off, *n_seg, *rep_len, *frag_gap;
-	mg_lchain1_t **reg;
+	mg_gfrag_t **reg;
 	mg_tbuf_t **buf;
 } step_t;
 
@@ -343,7 +343,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 			int k, t;
 			mg_revcomp_bseq(&s->seq[off + j]);
 			for (k = 0; k < s->n_reg[off + j]; ++k) {
-				mg_lchain1_t *r = &s->reg[off + j][k];
+				mg_gfrag_t *r = &s->reg[off + j][k];
 				t = r->qs;
 				r->qs = qlens[j] - r->qe;
 				r->qe = qlens[j] - t;
@@ -376,7 +376,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->n_seg = s->seg_off + s->n_seq;
 			s->rep_len = s->n_seg + s->n_seq;
 			s->frag_gap = s->rep_len + s->n_seq;
-			s->reg = (mg_lchain1_t**)calloc(s->n_seq, sizeof(mg_lchain1_t*));
+			s->reg = (mg_gfrag_t**)calloc(s->n_seq, sizeof(mg_gfrag_t*));
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mg_qname_same(s->seq[i-1].name, s->seq[i].name)) {
 					s->n_seg[s->n_frag] = i - j;

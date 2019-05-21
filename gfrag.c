@@ -12,7 +12,7 @@
  *   u[]: score<<32 | #anchors (sum of lower 32 bits of u[] is the returned length of a[])
  * input a[] is deallocated on return
  */
-mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
+mg128_t *mg_gfrag_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t k, *f, *p, *t, *v, n_u, n_v;
 	int64_t i, j, st = 0;
@@ -150,14 +150,14 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	return b;
 }
 
-mg_lchain1_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mg128_t *a)
+mg_gfrag_t *mg_gfrag_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mg128_t *a)
 {
 	mg128_t *z;
-	mg_lchain1_t *r;
+	mg_gfrag_t *r;
 	int i, k;
 
 	if (n_u == 0) return 0;
-	r = KCALLOC(km, mg_lchain1_t, n_u);
+	r = KCALLOC(km, mg_gfrag_t, n_u);
 
 	// sort by query position
 	z = KMALLOC(km, mg128_t, n_u);
@@ -171,11 +171,11 @@ mg_lchain1_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t
 
 	// populate r[]
 	for (i = 0; i < n_u; ++i) {
-		mg_lchain1_t *ri = &r[i];
+		mg_gfrag_t *ri = &r[i];
 		int32_t k = z[i].y >> 32, q_span = a[k].y >> 32 & 0xff;
 		ri->as = k;
 		ri->cnt = (int32_t)z[i].y;
-		ri->sc_lchain = (uint32_t)z[i].x;
+		ri->sc_chain = (uint32_t)z[i].x;
 		ri->v = a[k].x >> 32;
 		ri->rs = (int32_t)a[k].x + 1 > q_span? (int32_t)a[k].x + 1 - q_span : 0; // for HPC k-mer
 		ri->qs = z[i].x >> 32;

@@ -63,12 +63,12 @@ static void mg_sprintf_lite(kstring_t *s, const char *fmt, ...)
 	s->s[s->l] = 0;
 }
 
-void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_lchain1_t *lc, const mg128_t *a, const char *qname)
+void mg_print_gfrag(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_gfrag_t *lc, const mg128_t *a, const char *qname)
 {
 	kstring_t str = {0,0,0};
 	int i, j;
 	for (i = 0; i < n_lc; ++i) {
-		const mg_lchain1_t *p = &lc[i];
+		const mg_gfrag_t *p = &lc[i];
 		str.l = 0;
 		mg_sprintf_lite(&str, "LC\t%s\t%d\t%d\t%c\t%s\t%d\t%d\t%d\t", qname, p->qs, p->qe, "+-"[p->v&1], gi->g->seg[p->v>>1].name, p->rs, p->re, p->cnt);
 		for (j = 0; j < p->cnt; ++j)
