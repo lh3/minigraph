@@ -155,7 +155,7 @@ void gfa_sub_print(FILE *fp, const gfa_t *g, const gfa_sub_t *sub)
  ********************/
 
 typedef struct sp_node_s {
-	uint64_t di;
+	uint64_t di; // dist<<32 | unique_id
 	uint32_t v;
 	int32_t pre;
 	KAVL_HEAD(struct sp_node_s) head;
@@ -169,7 +169,7 @@ KSORT_INIT(sp, sp_node_p, sp_node_lt)
 
 typedef struct {
 	int32_t k;
-	sp_node_t *p[GFA_MAX_SHORT_K];
+	sp_node_t *p[GFA_MAX_SHORT_K]; // this forms a max-heap
 } sp_topk_t;
 
 KHASH_MAP_INIT_INT(sp, sp_topk_t)
@@ -190,9 +190,10 @@ gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_
 	void *km;
 	khint_t k;
 	int absent;
-	uint32_t id, n_dst, n_out, m_out, n_ge_target;
+	uint32_t id, n_dst, n_out, m_out;
 	gfa_pathv_t *ret = 0;
 
+	*n_pathv = 0;
 	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
 	km = km_init2(km0, 0x10000);
 	h = kh_init2(sp, km);
@@ -207,13 +208,14 @@ gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_
 	q = &kh_val(h, k);
 	q->k = 1, q->p[0] = p;
 
-	n_dst = n_ge_target = 0;
+	n_dst = 0;
 	while (kavl_size(head, root) > 0) {
 		int32_t i, nv;
 		gfa_arc_t *av;
 		sp_node_t *r;
 
 		r = kavl_erase_first(sp, &root);
+		//fprintf(stderr, "*** %u, %s\n", kavl_size(head, root), g->seg[r->v>>1].name);
 		if (n_out == m_out) KEXPAND(km, out, m_out);
 		r->di = r->di>>32<<32 | n_out; // lower 32 bits now for position in the out[] array
 		out[n_out++] = r;
@@ -221,11 +223,8 @@ gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_
 		if (r->v == dst) { // reached the dst vertex
 			out_dst[n_dst++] = r;
 			if (n_dst >= max_k) break;
-			if (target_dist >= 0) {
-				if (r->di>>32 >= target_dist)
-					++n_ge_target;
-				if (n_ge_target >= 2) break;
-			}
+			if (target_dist >= 0 && r->di>>32 >= target_dist)
+				break;
 		}
 
 		nv = gfa_arc_n(g, r->v);
@@ -237,8 +236,8 @@ gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_
 			k = kh_put(sp, h, ai->w, &absent);
 			q = &kh_val(h, k);
 			if (absent) q->k = 0;
-			if (q->k < max_k - 1) { // enough room
-				p = gen_sp_node(km, g, src, d, id++);
+			if (q->k < max_k) { // enough room
+				p = gen_sp_node(km, g, ai->w, d, id++);
 				p->pre = n_out - 1;
 				kavl_insert(sp, &root, p, 0);
 				q->p[q->k++] = p;
@@ -269,7 +268,7 @@ gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_
 				if (diff < min_diff) min_diff = diff, min_i = i;
 			}
 			assert(min_i >= 0);
-			for (i = (int32_t)out_dst[min_i]->di, n = 1; i >= 0; i = (int32_t)out[i]->pre)
+			for (i = (int32_t)out_dst[min_i]->di, n = 0; i >= 0; i = (int32_t)out[i]->pre)
 				++n;
 			*n_pathv = n;
 			ret = KMALLOC(km0, gfa_pathv_t, n_out);
@@ -282,4 +281,13 @@ gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_
 
 	km_destroy(km);
 	return ret;
+}
+
+void gfa_sub_print_path(FILE *fp, const gfa_t *g, int32_t n, gfa_pathv_t *path)
+{
+	int32_t i;
+	for (i = 0; i < n; ++i) {
+		gfa_pathv_t *p = &path[i];
+		fprintf(fp, "[%d]\t%d\t%s\t%d\t%d\n", i, p->v, g->seg[p->v>>1].name, p->d, p->pre);
+	}
 }

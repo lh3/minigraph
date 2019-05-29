@@ -110,6 +110,18 @@ int main(int argc, char *argv[])
 	gfa_sub_destroy(sub);
 #endif
 
+#if 0
+	int sid1 = gfa_name2id(gi->g, "MTh0");
+	int sid2 = gfa_name2id(gi->g, "MTh13516");
+	int32_t n_pathv;
+	gfa_pathv_t *path;
+	if (sid1 < 0 || sid2 < 0) abort();
+//	path = gfa_sub_shortest_k(0, gi->g, sid1<<1|0, sid2<<1|0, 20000, 3, 13516, &n_pathv);
+	path = gfa_sub_shortest_k(0, gi->g, sid1<<1|0, sid2<<1|0, 20000, 9, -1, &n_pathv);
+	gfa_sub_print_path(stderr, gi->g, n_pathv, path);
+	free(path);
+#endif
+
 	for (i = o.ind + 1; i < argc; ++i)
 		mg_map_file(gi, argv[i], &opt, n_threads);
 
