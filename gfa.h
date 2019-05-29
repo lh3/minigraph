@@ -6,6 +6,8 @@
 
 #define GFA_VERSION "r2"
 
+#define GFA_MAX_SHORT_K  7
+
 /*
   A segment is a sequence. A vertex is one side of a segment. In the code,
   segment_id is an integer, and vertex_id=segment_id<<1|orientation. The
@@ -92,6 +94,11 @@ typedef struct {
 	int32_t *a;
 	void *km;
 } gfa_sub_t;
+
+typedef struct {
+	uint32_t v, d;
+	int32_t pre;
+} gfa_pathv_t;
 
 extern int gfa_verbose;
 
