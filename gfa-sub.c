@@ -173,6 +173,7 @@ typedef struct {
 } sp_topk_t;
 
 KHASH_MAP_INIT_INT(sp, sp_topk_t)
+KHASH_MAP_INIT_INT(sp2, int32_t)
 
 static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32_t d, int32_t id)
 {
@@ -182,20 +183,35 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 	return p;
 }
 
-gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_t dst, int32_t max_dist, int32_t max_k, int32_t target_dist, int32_t *n_pathv)
+gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, gfa_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t *n_pathv)
 {
-	sp_node_t *p, *root = 0, **out, *out_dst[GFA_MAX_SHORT_K];
+	sp_node_t *p, *root = 0, **out;
 	sp_topk_t *q;
 	khash_t(sp) *h;
+	khash_t(sp2) *h2;
 	void *km;
 	khint_t k;
 	int absent;
-	uint32_t id, n_dst, n_out, m_out;
+	int32_t i, n_finished, n_found;
+	uint32_t id, n_out, m_out;
+	int8_t *dst_finish;
 	gfa_pathv_t *ret = 0;
 
-	*n_pathv = 0;
+	if (n_pathv) *n_pathv = 0;
+	if (n_dst <= 0) return 0;
+	for (i = 0; i < n_dst; ++i)
+		dst[i].n_path = 0, dst[i].path_end = -1;
 	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
 	km = km_init2(km0, 0x10000);
+
+	dst_finish = KCALLOC(km, int8_t, n_dst);
+	h2 = kh_init2(sp2, km);
+	kh_resize(sp2, h2, n_dst * 2);
+	for (i = 0; i < n_dst; ++i) {
+		k = kh_put(sp2, h2, dst[i].v, &absent);
+		if (absent) kh_val(h2, k) = i;
+	}
+
 	h = kh_init2(sp, km);
 	kh_resize(sp, h, 16);
 	m_out = 16, n_out = 0;
@@ -208,23 +224,36 @@ gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_
 	q = &kh_val(h, k);
 	q->k = 1, q->p[0] = p;
 
-	n_dst = 0;
+	n_finished = 0;
 	while (kavl_size(head, root) > 0) {
 		int32_t i, nv;
 		gfa_arc_t *av;
 		sp_node_t *r;
 
 		r = kavl_erase_first(sp, &root);
-		//fprintf(stderr, "*** %u, %s\n", kavl_size(head, root), g->seg[r->v>>1].name);
+		//fprintf(stderr, "XX\t%d\t%d\t%d\t%s\t%d\n", n_out, kavl_size(head, root), n_finished, g->seg[r->v>>1].name, (int32_t)(r->di>>32));
 		if (n_out == m_out) KEXPAND(km, out, m_out);
 		r->di = r->di>>32<<32 | n_out; // lower 32 bits now for position in the out[] array
 		out[n_out++] = r;
 
-		if (r->v == dst) { // reached the dst vertex
-			out_dst[n_dst++] = r;
-			if (n_dst >= max_k) break;
-			if (target_dist >= 0 && r->di>>32 >= target_dist)
-				break;
+		k = kh_get(sp2, h2, r->v);
+		if (k != kh_end(h2)) { // we reach one dst vertex
+			int32_t finished = 0, j = kh_val(h2, k);
+			gfa_path_dst_t *t = &dst[j];
+			if (t->n_path == 0) {
+				t->path_end = n_out - 1;
+			} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
+				int32_t d0 = out[t->path_end]->di >> 32, d1 = r->di >> 32;
+				if (d1 >= t->target_dist) finished = 1;
+				d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
+				d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
+				if (d1 < d0) t->path_end = n_out - 1;
+			}
+			++t->n_path;
+			if (t->n_path >= max_k) finished = 1;
+			if (dst_finish[j] == 0 && finished)
+				dst_finish[j] = 1, ++n_finished;
+			if (n_finished == n_dst) break;
 		}
 
 		nv = gfa_arc_n(g, r->v);
@@ -253,30 +282,49 @@ gfa_pathv_t *gfa_sub_shortest_k(void *km0, const gfa_t *g, uint32_t src, uint32_
 		}
 	}
 
-	if (n_dst > 0) {
-		if (target_dist < 0) {
-			int32_t i;
-			*n_pathv = n_out;
-			ret = KMALLOC(km0, gfa_pathv_t, n_out);
-			for (i = 0; i < n_out; ++i)
-				ret[i].v = out[i]->v, ret[i].d = out[i]->di>>32, ret[i].pre = out[i]->pre;
-		} else {
-			int32_t i, min_i = -1, min_diff = 0x7fffffff, n;
-			for (i = 0; i < n_dst; ++i) {
-				int32_t d = out_dst[i]->di >> 32;
-				int32_t diff = d > target_dist? d - target_dist : target_dist - d;
-				if (diff < min_diff) min_diff = diff, min_i = i;
-			}
-			assert(min_i >= 0);
-			for (i = (int32_t)out_dst[min_i]->di, n = 0; i >= 0; i = (int32_t)out[i]->pre)
-				++n;
-			*n_pathv = n;
-			ret = KMALLOC(km0, gfa_pathv_t, n_out);
-			for (i = (int32_t)out_dst[min_i]->di; i >= 0; i = (int32_t)out[i]->pre) {
-				--n;
-				ret[n].v = out[i]->v, ret[n].d = out[i]->di>>32, ret[n].pre = n - 1;
-			}
+	n_found = 0;
+	for (i = 0; i < n_dst; ++i) {
+		gfa_path_dst_t *t = &dst[i];
+		t->dist = t->n_path > 0? out[t->path_end]->di>>32 : -1;
+		if (t->n_path) ++n_found;
+	}
+
+	if (n_found > 0 && n_pathv) {
+		int32_t n, *trans;
+
+		kh_destroy(sp, h);
+		kfree(km, dst_finish);
+
+		trans = KCALLOC(km, int32_t, n_out);
+		for (i = 0; i < n_dst; ++i) {
+			gfa_path_dst_t *t = &dst[i];
+			if (t->n_path > 0 && t->target_dist >= 0)
+				trans[(int32_t)out[t->path_end]->di] = 1;
 		}
+		for (i = 0; i < n_out; ++i) {
+			k = kh_get(sp2, h2, out[i]->v);
+			if (k != kh_end(h2) && dst[kh_val(h2, k)].target_dist < 0)
+				trans[i] = 1;
+		}
+		for (i = n_out - 1; i >= 0; --i)
+			if (trans[i] && out[i]->pre >= 0)
+				trans[out[i]->pre] = 1;
+		for (i = n = 0; i < n_out; ++i)
+			if (trans[i]) trans[i] = n++;
+			else trans[i] = -1;
+
+		*n_pathv = n;
+		ret = KMALLOC(km0, gfa_pathv_t, n);
+		for (i = 0; i < n_out; ++i) {
+			gfa_pathv_t *p;
+			if (trans[i] < 0) continue;
+			p = &ret[trans[i]];
+			p->v = out[i]->v, p->d = out[i]->di >> 32;
+			p->pre = out[i]->pre < 0? out[i]->pre : trans[out[i]->pre];
+		}
+		for (i = 0; i < n_dst; ++i)
+			if (dst[i].path_end >= 0)
+				dst[i].path_end = trans[dst[i].path_end];
 	}
 
 	km_destroy(km);
