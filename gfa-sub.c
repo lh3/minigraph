@@ -200,19 +200,19 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 	if (n_pathv) *n_pathv = 0;
 	if (n_dst <= 0) return 0;
 	for (i = 0; i < n_dst; ++i)
-		dst[i].n_path = 0, dst[i].path_end = -1;
+		dst[i].dist = -1, dst[i].n_path = 0, dst[i].path_end = -1;
 	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
 	km = km_init2(km0, 0x10000);
 
 	dst_finish = KCALLOC(km, int8_t, n_dst);
-	h2 = kh_init2(sp2, km);
+	h2 = kh_init2(sp2, km); // this hash table keeps all destinations
 	kh_resize(sp2, h2, n_dst * 2);
 	for (i = 0; i < n_dst; ++i) {
 		k = kh_put(sp2, h2, dst[i].v, &absent);
 		if (absent) kh_val(h2, k) = i;
 	}
 
-	h = kh_init2(sp, km);
+	h = kh_init2(sp, km); // this hash table keeps visited vertices
 	kh_resize(sp, h, 16);
 	m_out = 16, n_out = 0;
 	out = KMALLOC(km, sp_node_t*, m_out);
@@ -230,14 +230,14 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 		gfa_arc_t *av;
 		sp_node_t *r;
 
-		r = kavl_erase_first(sp, &root);
+		r = kavl_erase_first(sp, &root); // take out the closest vertex in the heap (as a binary tree)
 		//fprintf(stderr, "XX\t%d\t%d\t%d\t%s\t%d\n", n_out, kavl_size(head, root), n_finished, g->seg[r->v>>1].name, (int32_t)(r->di>>32));
 		if (n_out == m_out) KEXPAND(km, out, m_out);
 		r->di = r->di>>32<<32 | n_out; // lower 32 bits now for position in the out[] array
 		out[n_out++] = r;
 
 		k = kh_get(sp2, h2, r->v);
-		if (k != kh_end(h2)) { // we reach one dst vertex
+		if (k != kh_end(h2)) { // we have reached one dst vertex
 			int32_t finished = 0, j = kh_val(h2, k);
 			gfa_path_dst_t *t = &dst[j];
 			if (t->n_path == 0) {
@@ -258,27 +258,27 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 
 		nv = gfa_arc_n(g, r->v);
 		av = gfa_arc_a(g, r->v);
-		for (i = 0; i < nv; ++i) {
+		for (i = 0; i < nv; ++i) { // visit all neighbors
 			gfa_arc_t *ai = &av[i];
 			int32_t d = (r->di>>32) + (uint32_t)ai->v_lv;
-			if (d > max_dist) continue;
+			if (d > max_dist) continue; // don't probe vertices too far away
 			k = kh_put(sp, h, ai->w, &absent);
 			q = &kh_val(h, k);
 			if (absent) q->k = 0;
-			if (q->k < max_k) { // enough room
+			if (q->k < max_k) { // enough room: add to the heap
 				p = gen_sp_node(km, g, ai->w, d, id++);
 				p->pre = n_out - 1;
 				kavl_insert(sp, &root, p, 0);
 				q->p[q->k++] = p;
 				ks_heapup_sp(q->k, q->p);
-			} else if (q->p[0]->di>>32 > d) { // update the longest
+			} else if (q->p[0]->di>>32 > d) { // shorter than the longest path so far: replace the longest (TODO: this block is not well tested)
 				p = kavl_erase(sp, &root, q->p[0], 0);
 				assert(p);
 				p->di = (uint64_t)d<<32 | id++;
 				p->pre = n_out - 1;
 				ks_heapdown_sp(0, q->k, q->p);
 				kavl_insert(sp, &root, p, 0);
-			}
+			} // else: the path is longer than all the existing paths ended at ai->w
 		}
 	}
 
@@ -289,40 +289,40 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 		if (t->n_path) ++n_found;
 	}
 
-	if (n_found > 0 && n_pathv) {
+	if (n_found > 0 && n_pathv) { // then generate the backtrack array
 		int32_t n, *trans;
 
 		kh_destroy(sp, h);
 		kfree(km, dst_finish);
 
-		trans = KCALLOC(km, int32_t, n_out);
-		for (i = 0; i < n_dst; ++i) {
+		trans = KCALLOC(km, int32_t, n_out); // used to squeeze unused elements in out[]
+		for (i = 0; i < n_dst; ++i) { // mark dst vertices with a target distance
 			gfa_path_dst_t *t = &dst[i];
 			if (t->n_path > 0 && t->target_dist >= 0)
 				trans[(int32_t)out[t->path_end]->di] = 1;
 		}
-		for (i = 0; i < n_out; ++i) {
+		for (i = 0; i < n_out; ++i) { // mark dst vertices without a target distance
 			k = kh_get(sp2, h2, out[i]->v);
 			if (k != kh_end(h2) && dst[kh_val(h2, k)].target_dist < 0)
 				trans[i] = 1;
 		}
-		for (i = n_out - 1; i >= 0; --i)
+		for (i = n_out - 1; i >= 0; --i) // mark all predecessors
 			if (trans[i] && out[i]->pre >= 0)
 				trans[out[i]->pre] = 1;
-		for (i = n = 0; i < n_out; ++i)
+		for (i = n = 0; i < n_out; ++i) // generate coordinate translations
 			if (trans[i]) trans[i] = n++;
 			else trans[i] = -1;
 
 		*n_pathv = n;
 		ret = KMALLOC(km0, gfa_pathv_t, n);
-		for (i = 0; i < n_out; ++i) {
+		for (i = 0; i < n_out; ++i) { // generate the backtrack array
 			gfa_pathv_t *p;
 			if (trans[i] < 0) continue;
 			p = &ret[trans[i]];
 			p->v = out[i]->v, p->d = out[i]->di >> 32;
 			p->pre = out[i]->pre < 0? out[i]->pre : trans[out[i]->pre];
 		}
-		for (i = 0; i < n_dst; ++i)
+		for (i = 0; i < n_dst; ++i) // translate "path_end"
 			if (dst[i].path_end >= 0)
 				dst[i].path_end = trans[dst[i].path_end];
 	}
