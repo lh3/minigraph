@@ -113,12 +113,14 @@ int main(int argc, char *argv[])
 #if 0
 	int sid1 = gfa_name2id(gi->g, "MTh0");
 	int sid2 = gfa_name2id(gi->g, "MTh13516");
+	int sid3 = gfa_name2id(gi->g, "MTo8961");
 	int32_t n_pathv;
 	gfa_path_dst_t dst[3];
 	gfa_pathv_t *path;
 	if (sid1 < 0 || sid2 < 0) abort();
 	dst[0].v = sid2<<1|0, dst[0].target_dist = 13516;
-	path = gfa_shortest_k(0, gi->g, sid1<<1|0, 1, dst, 20000, 7, &n_pathv);
+	dst[1].v = sid3<<1|0, dst[1].target_dist = 10000;
+	path = gfa_shortest_k(0, gi->g, sid1<<1|0, 2, dst, 20000, 7, &n_pathv);
 	gfa_sub_print_path(stderr, gi->g, n_pathv, path);
 	free(path);
 #endif
