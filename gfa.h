@@ -99,6 +99,7 @@ typedef struct {
 	uint32_t v;
 	int32_t target_dist;
 	int32_t dist, n_path, path_end;
+	int32_t meta;
 } gfa_path_dst_t;
 
 typedef struct {
