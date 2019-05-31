@@ -3,7 +3,7 @@ CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
 INCLUDES=	-I.
 OBJS=		kalloc.o kthread.o gfa-base.o gfa-io.o gfa-sub.o sketch.o misc.o options.o bseq.o index.o \
-			lchain.o map.o format.o
+			lchain.o gchain1.o map.o format.o
 PROG=		minigraph
 LIBS=		-lz
 
@@ -33,6 +33,7 @@ depend:
 
 bseq.o: bseq.h kvec.h kalloc.h kseq.h
 format.o: kalloc.h mgpriv.h minigraph.h gfa.h
+gchain1.o: mgpriv.h kalloc.h minigraph.h gfa.h ksort.h
 gfa-base.o: gfa.h khash.h kalloc.h ksort.h
 gfa-io.o: kstring.h gfa.h kseq.h
 gfa-sub.o: gfa.h kalloc.h kavl.h khash.h ksort.h

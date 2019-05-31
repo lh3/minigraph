@@ -4,6 +4,59 @@
 #include "mgpriv.h"
 #include "kalloc.h"
 
+// on return, n_u is the number of chains; n_v is the number of anchors in chains
+uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t extra_u, int32_t *n_u_, int32_t *n_v_)
+{
+	uint64_t *u = 0;
+	int64_t i, j;
+	int32_t k, n_u, n_v;
+
+	// find the ending positions of chains
+	memset(t, 0, n * 4);
+	for (i = 0; i < n; ++i)
+		if (p[i] >= 0) t[p[i]] = 1;
+	for (i = n_u = 0; i < n; ++i)
+		if (t[i] == 0 && v[i] >= min_sc)
+			++n_u;
+	*n_u_ = n_u;
+	if (n_u == 0) return 0;
+	u = KMALLOC(km, uint64_t, n_u + extra_u);
+	for (i = n_u = 0; i < n; ++i) {
+		if (t[i] == 0 && v[i] >= min_sc) {
+			j = i;
+			while (j >= 0 && f[j] < v[j]) j = p[j]; // find the peak that maximizes f[]
+			if (j < 0) j = i; // TODO: this should really be assert(j>=0)
+			u[n_u++] = (uint64_t)f[j] << 32 | j;
+		}
+	}
+	radix_sort_64(u, u + n_u);
+	for (i = 0; i < n_u>>1; ++i) { // reverse, s.t. the highest scoring chain is the first
+		uint64_t t = u[i];
+		u[i] = u[n_u - i - 1], u[n_u - i - 1] = t;
+	}
+
+	// backtrack; restuls are written to v[]
+	memset(t, 0, n * 4);
+	for (i = n_v = k = 0; i < n_u; ++i) { // starting from the highest score
+		int32_t n_v0 = n_v, k0 = k;
+		j = (int32_t)u[i];
+		do {
+			v[n_v++] = j;
+			t[j] = 1;
+			j = p[j];
+		} while (j >= 0 && t[j] == 0);
+		if (j < 0) {
+			if (n_v - n_v0 >= min_cnt) u[k++] = u[i]>>32<<32 | (n_v - n_v0);
+		} else if ((int32_t)(u[i]>>32) - f[j] >= min_sc) {
+			if (n_v - n_v0 >= min_cnt) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
+		}
+		if (k0 == k) n_v = n_v0; // no new chain added, reset
+	}
+	*n_u_ = n_u = k;
+
+	return u;
+}
+
 /* Input:
  *   a[].x: tid<<33 | rev<<32 | tpos
  *   a[].y: flags<<40 | q_span<<32 | q_pos
@@ -73,53 +126,13 @@ mg128_t *mg_lchain(int max_dist_x, int max_dist_y, int bw, int max_skip, int min
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 	}
 
-	// find the ending positions of chains
-	memset(t, 0, n * 4);
-	for (i = 0; i < n; ++i)
-		if (p[i] >= 0) t[p[i]] = 1;
-	for (i = n_u = 0; i < n; ++i)
-		if (t[i] == 0 && v[i] >= min_sc)
-			++n_u;
+	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
+	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
+	kfree(km, f); kfree(km, p); kfree(km, t);
 	if (n_u == 0) {
-		kfree(km, a); kfree(km, f); kfree(km, p); kfree(km, t); kfree(km, v);
+		kfree(km, a); kfree(km, v);
 		return 0;
 	}
-	u = (uint64_t*)kmalloc(km, n_u * 8);
-	for (i = n_u = 0; i < n; ++i) {
-		if (t[i] == 0 && v[i] >= min_sc) {
-			j = i;
-			while (j >= 0 && f[j] < v[j]) j = p[j]; // find the peak that maximizes f[]
-			if (j < 0) j = i; // TODO: this should really be assert(j>=0)
-			u[n_u++] = (uint64_t)f[j] << 32 | j;
-		}
-	}
-	radix_sort_64(u, u + n_u);
-	for (i = 0; i < n_u>>1; ++i) { // reverse, s.t. the highest scoring chain is the first
-		uint64_t t = u[i];
-		u[i] = u[n_u - i - 1], u[n_u - i - 1] = t;
-	}
-
-	// backtrack
-	memset(t, 0, n * 4);
-	for (i = n_v = k = 0; i < n_u; ++i) { // starting from the highest score
-		int32_t n_v0 = n_v, k0 = k;
-		j = (int32_t)u[i];
-		do {
-			v[n_v++] = j;
-			t[j] = 1;
-			j = p[j];
-		} while (j >= 0 && t[j] == 0);
-		if (j < 0) {
-			if (n_v - n_v0 >= min_cnt) u[k++] = u[i]>>32<<32 | (n_v - n_v0);
-		} else if ((int32_t)(u[i]>>32) - f[j] >= min_sc) {
-			if (n_v - n_v0 >= min_cnt) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
-		}
-		if (k0 == k) n_v = n_v0; // no new chain added, reset
-	}
-	*n_u_ = n_u = k, *_u = u; // NB: note that u[] may not be sorted by score here
-
-	// free temporary arrays
-	kfree(km, f); kfree(km, p); kfree(km, t);
 
 	// write the result to b[]
 	b = (mg128_t*)kmalloc(km, n_v * sizeof(mg128_t));
