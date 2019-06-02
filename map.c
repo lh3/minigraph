@@ -258,10 +258,8 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	gf = mg_gfrag_gen(b->km, hash, qlen_sum, n_gf, u, a);
 	n_gc = mg_gchain1(b->km, gi->g, n_gf, gf, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, &gc);
 
-	if (1 || (mg_dbg_flag & MG_DBG_PRINT_SEED)) {
-		fprintf(stdout, "n_frag = %d; n_gc = %d\n", n_gf, n_gc);
+	if (1 || (mg_dbg_flag & MG_DBG_PRINT_SEED))
 		mg_print_gfrag(stdout, gi, n_gf, gf, a, qname);
-	}
 	//if (!is_sr) mg_est_err(gi, qlen_sum, n_gf, gf, a, n_mini_pos, mini_pos);
 
 	kfree(b->km, mv.a);

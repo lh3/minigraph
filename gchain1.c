@@ -73,7 +73,7 @@ int32_t mg_gchain1(void *km, const gfa_t *g, int32_t n_frag, mg_gfrag_t *frag, i
 		if (x > qlen) x = qlen;
 		x = j_st + find_max(i - j_st, a + j_st, x);
 		n_dst = 0;
-		for (j = x; j >= j_st; --j) {
+		for (j = x; j >= j_st; --j) { // collect potential destination vertices
 			gc_frag_t *aj = &a[j];
 			mg_gfrag_t *fj = &frag[aj->i];
 			gfa_path_dst_t *q;
@@ -82,15 +82,17 @@ int32_t mg_gchain1(void *km, const gfa_t *g, int32_t n_frag, mg_gfrag_t *frag, i
 			if (min_dist - bw > fi->qs - fj->qe) continue; // TODO: double check this line
 			if (n_dst == m_dst) KEXPAND(km, dst, m_dst); // TODO: watch out the quadratic behavior!
 			q = &dst[n_dst++];
-			q->v = fj->v;
+			q->v = fj->v^1;
 			q->meta = j;
 			q->target_dist = (fi->qs - fj->qe) - min_dist + g->seg[fi->v>>1].len;
 			if (q->target_dist < 0) q->target_dist = 0;
 		}
+		fprintf(stderr, "[%d] q_end=%d, src=%c%s, n_dst=%d, max_dist=%d\n", i, ai->srt, "><"[(fi->v&1)^1], g->seg[fi->v>>1].name, n_dst, max_dist_g + (g->seg[fi->v>>1].len - fi->rs));
 		gfa_shortest_k(km, g, fi->v^1, n_dst, dst, max_dist_g + (g->seg[fi->v>>1].len - fi->rs), GFA_MAX_SHORT_K, 0);
 		for (j = 0; j < n_dst; ++j) {
 			gfa_path_dst_t *dj = &dst[j];
 			int32_t gap, log_gap, sc;
+			fprintf(stderr, "  [%d] dst=%c%s, n_path=%d, target=%d, opt_dist=%d\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->n_path, dj->target_dist, dj->dist);
 			if (dj->n_path == 0) continue;
 			gap = dj->dist - dj->target_dist;
 			if (gap < 0) gap = -gap;
