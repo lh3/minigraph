@@ -124,6 +124,7 @@ int32_t mg_gchain1(void *km, const gfa_t *g, int32_t n_frag, mg_gfrag_t *frag, i
 	}
 	assert(k == n_frag);
 	memcpy(frag, swap, n_frag * sizeof(mg_gfrag_t));
+	*u_ = u;
 
 	kfree(km, a);
 	kfree(km, swap);

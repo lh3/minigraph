@@ -70,7 +70,7 @@ void mg_print_gfrag(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_gfrag_t *lc
 	for (i = 0; i < n_lc; ++i) {
 		const mg_gfrag_t *p = &lc[i];
 		str.l = 0;
-		mg_sprintf_lite(&str, "LC\t%s\t%d\t%d\t%c\t%s\t%d\t%d\t%d\t", qname, p->qs, p->qe, "+-"[p->v&1], gi->g->seg[p->v>>1].name, p->rs, p->re, p->cnt);
+		mg_sprintf_lite(&str, "LC\t%s\t%d\t%d\t%c\t%s\t%d\t%d\t%d\t%d\t", qname, p->qs, p->qe, "+-"[p->v&1], gi->g->seg[p->v>>1].name, gi->g->seg[p->v>>1].len, p->rs, p->re, p->cnt);
 		for (j = 0; j < p->cnt; ++j)
 			mg_sprintf_lite(&str, "%d,", (int32_t)a[p->as + j].y);
 		mg_sprintf_lite(&str, "\t");
