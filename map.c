@@ -17,7 +17,7 @@ mg_tbuf_t *mg_tbuf_init(void)
 {
 	mg_tbuf_t *b;
 	b = (mg_tbuf_t*)calloc(1, sizeof(mg_tbuf_t));
-	if (!(mg_dbg_flag & 1)) b->km = km_init();
+	if (!(mg_dbg_flag & MG_DBG_NO_KALLOC)) b->km = km_init();
 	return b;
 }
 
@@ -185,14 +185,14 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mg_gfrag_t **regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
-	int i, rep_len, qlen_sum, n_lc0, n_mini_pos;
+	int i, rep_len, qlen_sum, n_gf, n_gc = 0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MG_M_SPLICE), is_sr = !!(opt->flag & MG_M_SR);
 	uint32_t hash;
 	int64_t n_a;
-	uint64_t *u, *mini_pos;
+	uint64_t *u, *gc = 0, *mini_pos;
 	mg128_t *a;
 	mg128_v mv = {0,0,0};
-	mg_gfrag_t *lc0;
+	mg_gfrag_t *gf;
 	km_stat_t kmst;
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
@@ -227,13 +227,13 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		if (max_chain_gap_ref < opt->max_gap) max_chain_gap_ref = opt->max_gap;
 	} else max_chain_gap_ref = opt->max_gap;
 
-	a = mg_lchain(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc0, &u, b->km);
+	a = mg_lchain(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_gf, &u, b->km);
 
 	if (opt->max_occ > opt->mid_occ && rep_len > 0) {
 		int rechain = 0;
-		if (n_lc0 > 0) { // test if the best chain has all the segments
+		if (n_gf > 0) { // test if the best chain has all the segments
 			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
-			for (i = 0; i < n_lc0; ++i) { // find the best chain
+			for (i = 0; i < n_gf; ++i) { // find the best chain
 				if (max < (int)(u[i]>>32)) max = u[i]>>32, max_i = i, max_off = off;
 				off += (uint32_t)u[i];
 			}
@@ -249,23 +249,27 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 			kfree(b->km, mini_pos);
 			if (opt->flag & MG_M_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->max_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 			else a = collect_seed_hits(b->km, opt, opt->max_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-			a = mg_lchain(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc0, &u, b->km);
+			a = mg_lchain(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_gc, &u, b->km);
 		}
 	}
 	b->frag_gap = max_chain_gap_ref;
 	b->rep_len = rep_len;
 
-	lc0 = mg_gfrag_gen(b->km, hash, qlen_sum, n_lc0, u, a);
+	gf = mg_gfrag_gen(b->km, hash, qlen_sum, n_gf, u, a);
+	n_gc = mg_gchain1(b->km, gi->g, n_gf, gf, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, &gc);
 
-	if (1 || (mg_dbg_flag & MG_DBG_PRINT_SEED))
-		mg_print_gfrag(stdout, gi, n_lc0, lc0, a, qname);
-	//if (!is_sr) mg_est_err(gi, qlen_sum, n_lc0, lc0, a, n_mini_pos, mini_pos);
+	if (1 || (mg_dbg_flag & MG_DBG_PRINT_SEED)) {
+		fprintf(stdout, "n_frag = %d; n_gc = %d\n", n_gf, n_gc);
+		mg_print_gfrag(stdout, gi, n_gf, gf, a, qname);
+	}
+	//if (!is_sr) mg_est_err(gi, qlen_sum, n_gf, gf, a, n_mini_pos, mini_pos);
 
 	kfree(b->km, mv.a);
 	kfree(b->km, a);
 	kfree(b->km, u);
 	kfree(b->km, mini_pos);
-	kfree(b->km, lc0);
+	kfree(b->km, gf);
+	kfree(b->km, gc);
 
 	if (b->km) {
 		km_stat(b->km, &kmst);

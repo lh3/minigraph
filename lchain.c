@@ -12,13 +12,13 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 	int32_t k, n_u, n_v;
 
 	// find the ending positions of chains
+	*n_u_ = *n_v_ = 0;
 	memset(t, 0, n * 4);
 	for (i = 0; i < n; ++i)
 		if (p[i] >= 0) t[p[i]] = 1;
 	for (i = n_u = 0; i < n; ++i)
 		if (t[i] == 0 && v[i] >= min_sc)
 			++n_u;
-	*n_u_ = n_u;
 	if (n_u == 0) return 0;
 	u = KMALLOC(km, uint64_t, n_u + extra_u);
 	for (i = n_u = 0; i < n; ++i) {
@@ -52,7 +52,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 		}
 		if (k0 == k) n_v = n_v0; // no new chain added, reset
 	}
-	*n_u_ = n_u = k;
+	*n_u_ = n_u = k, *n_v_ = n_v;
 
 	return u;
 }
@@ -139,7 +139,7 @@ mg128_t *mg_lchain(int max_dist_x, int max_dist_y, int bw, int max_skip, int min
 	for (i = 0, k = 0; i < n_u; ++i) {
 		int32_t k0 = k, ni = (int32_t)u[i];
 		for (j = 0; j < ni; ++j)
-			b[k] = a[v[k0 + (ni - j - 1)]], ++k;
+			b[k++] = a[v[k0 + (ni - j - 1)]];
 	}
 	kfree(km, v);
 

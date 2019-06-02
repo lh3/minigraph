@@ -56,6 +56,8 @@ mg_gfrag_t *mg_gfrag_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u
 
 void mg_print_gfrag(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_gfrag_t *lc, const mg128_t *a, const char *qname);
 
+int32_t mg_gchain1(void *km, const gfa_t *g, int32_t n_frag, mg_gfrag_t *frag, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, uint64_t **u_);
+
 void radix_sort_128x(mg128_t *beg, mg128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);
 

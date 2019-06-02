@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "bseq.h"
-#include "minigraph.h"
 #include "mgpriv.h"
 #include "ketopt.h"
 
@@ -22,6 +21,7 @@ void liftrlimit() {}
 
 static ko_longopt_t long_options[] = {
 	{ "print-gfa",    ko_no_argument,       301 },
+	{ "no-kalloc",    ko_no_argument,       302 },
 	{ 0, 0, 0 }
 };
 
@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
 		else if (c == 301) print_gfa = 1;
+		else if (c == 302) mg_dbg_flag |= MG_DBG_NO_KALLOC;
 	}
 	if (mg_opt_check(&ipt, &opt) < 0)
 		return 1;
