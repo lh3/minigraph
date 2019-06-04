@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 #include "mgpriv.h"
 #include "kalloc.h"
 
@@ -65,7 +66,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
  *   u[]: score<<32 | #anchors (sum of lower 32 bits of u[] is the returned length of a[])
  * input a[] is deallocated on return
  */
-mg128_t *mg_lchain(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
+mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t k, *f, *p, *t, *v, n_u, n_v;
 	int64_t i, j, st = 0;
@@ -163,14 +164,14 @@ mg128_t *mg_lchain(int max_dist_x, int max_dist_y, int bw, int max_skip, int min
 	return b;
 }
 
-mg_gfrag_t *mg_gfrag_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mg128_t *a)
+mg_lchain_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mg128_t *a)
 {
 	mg128_t *z;
-	mg_gfrag_t *r;
+	mg_lchain_t *r;
 	int i, k;
 
 	if (n_u == 0) return 0;
-	r = KCALLOC(km, mg_gfrag_t, n_u);
+	r = KCALLOC(km, mg_lchain_t, n_u);
 
 	// sort by query position
 	z = KMALLOC(km, mg128_t, n_u);
@@ -184,11 +185,11 @@ mg_gfrag_t *mg_gfrag_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u
 
 	// populate r[]
 	for (i = 0; i < n_u; ++i) {
-		mg_gfrag_t *ri = &r[i];
+		mg_lchain_t *ri = &r[i];
 		int32_t k = z[i].y >> 32, q_span = a[k].y >> 32 & 0xff;
 		ri->as = k;
 		ri->cnt = (int32_t)z[i].y;
-		ri->sc_chain = (uint32_t)z[i].x;
+		ri->score = (uint32_t)z[i].x;
 		ri->v = a[k].x >> 32;
 		ri->rs = (int32_t)a[k].x + 1 > q_span? (int32_t)a[k].x + 1 - q_span : 0; // for HPC k-mer
 		ri->qs = z[i].x >> 32;
@@ -197,4 +198,37 @@ mg_gfrag_t *mg_gfrag_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u
 	}
 	kfree(km, z);
 	return r;
+}
+
+static int32_t get_mini_idx(const mg128_t *a, int32_t n, const int32_t *mini_pos)
+{
+	int32_t x, L = 0, R = n - 1;
+	x = (int32_t)a->y;
+	while (L <= R) { // binary search
+		int32_t m = ((uint64_t)L + R) >> 1;
+		int32_t y = mini_pos[m];
+		if (y < x) L = m + 1;
+		else if (y > x) R = m - 1;
+		else return m;
+	}
+	return -1;
+}
+
+/* Before:
+ *   a[].x: tid<<33 | rev<<32 | tpos
+ *   a[].y: flags<<40 | q_span<<32 | q_pos
+ * After:
+ *   a[].x: mini_pos<<32 | tpos
+ *   a[].y: same
+ */
+void mg_update_anchors(int32_t n_a, mg128_t *a, int32_t n, const int32_t *mini_pos)
+{
+	int32_t st, j, k;
+	if (n_a <= 0) return;
+	st = get_mini_idx(&a[0], n, mini_pos);
+	assert(st >= 0);
+	for (k = 0, j = st; j < n && k < n_a; ++j)
+		if ((int32_t)a[k].y == mini_pos[j])
+			a[k].x = (uint64_t)j << 32 | (a[k].x & 0xffffffffU), ++k;
+	assert(k == n_a);
 }

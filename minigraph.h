@@ -50,8 +50,27 @@ typedef struct {
 	int32_t as, cnt;
 	uint32_t v;
 	int32_t rs, re, qs, qe;
-	int32_t sc_chain;
-} mg_gfrag_t;
+	int32_t score;
+} mg_lchain_t;
+
+typedef struct {
+	int32_t as, cnt;
+	uint32_t v;
+	int32_t score;
+} mg_llchain_t;
+
+typedef struct {
+	int32_t ls, cnt;
+	int32_t n_anchor, score;
+} mg_gchain_t;
+
+typedef struct {
+	void *km;
+	int32_t n_g, n_l, n_a;
+	mg_gchain_t *g;
+	mg_llchain_t *l;
+	mg128_t *a;
+} mg_gchains_t;
 
 typedef struct mg_tbuf_s mg_tbuf_t;
 
