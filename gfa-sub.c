@@ -231,7 +231,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 		sp_node_t *r;
 
 		r = kavl_erase_first(sp, &root); // take out the closest vertex in the heap (as a binary tree)
-		//fprintf(stderr, "XX\t%d\t%d\t%d\t%s\t%d\n", n_out, kavl_size(head, root), n_finished, g->seg[r->v>>1].name, (int32_t)(r->di>>32));
+		//fprintf(stderr, "XX\t%d\t%d\t%d\t%c%s[%d]\t%d\n", n_out, kavl_size(head, root), n_finished, "><"[(r->v&1)^1], g->seg[r->v>>1].name, r->v, (int32_t)(r->di>>32));
 		if (n_out == m_out) KEXPAND(km, out, m_out);
 		r->di = r->di>>32<<32 | n_out; // lower 32 bits now for position in the out[] array
 		out[n_out++] = r;
@@ -240,15 +240,15 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 		if (k != kh_end(h2)) { // we have reached one dst vertex
 			int32_t finished = 0, j = kh_val(h2, k);
 			gfa_path_dst_t *t = &dst[j];
-			if (t->n_path == 0) {
+			if (t->n_path == 0) { // TODO: when there is only one path, but the distance is smaller than target_dist, the dst won't be finished
 				t->path_end = n_out - 1;
 			} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
 				int32_t d0 = out[t->path_end]->di >> 32, d1 = r->di >> 32;
-				if (d1 >= t->target_dist) finished = 1;
 				d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
 				d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
 				if (d1 < d0) t->path_end = n_out - 1;
 			}
+			if (t->target_dist >= 0 && r->di>>32 >= t->target_dist) finished = 1;
 			++t->n_path;
 			if (t->n_path >= max_k) finished = 1;
 			if (dst_finish[j] == 0 && finished)
