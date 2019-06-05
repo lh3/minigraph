@@ -111,6 +111,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
 	}
+	kfree(km, dst);
 
 	u = mg_chain_backtrack(km, n_ext, f, p, v, t, 0, 0, n_lc - n_ext, &n_u, &n_v);
 	kfree(km, f); kfree(km, p); kfree(km, t);
@@ -145,9 +146,9 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 	(*n_a) += p->cnt;
 }
 
-mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, uint64_t *u, mg_lchain_t *lc, mg128_t *a, int32_t min_gc_cnt, int32_t min_gc_score)
+mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a, int32_t min_gc_cnt, int32_t min_gc_score)
 {
-	mg_gchains_t *gc;
+	mg_gchains_t *gc = 0;
 	mg_llchain_t *tmp;
 	int32_t i, j, k, st, n_g, n_a, s_tmp, n_tmp, m_tmp;
 
@@ -184,7 +185,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 			copy_lchain(&tmp[n_tmp++], &lc[st], &n_a, gc->a, a); // copy the first lchain
 
 			for (j = 1; j < nui; ++j) {
-				mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
+				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
 				gfa_path_dst_t dst;
 				int32_t s, n_pathv;
 				gfa_pathv_t *p;
@@ -214,7 +215,13 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 	memcpy(gc->l, tmp, n_tmp * sizeof(mg_llchain_t));
 	kfree(km, tmp);
 
-	kfree(km, a);
-	kfree(km, lc);
 	return gc;
+}
+
+void mg_gchain_free(mg_gchains_t *gs)
+{
+	void *km;
+	if (gs == 0) return;
+	km = gs->km;
+	kfree(km, gs->g); kfree(km, gs->a); kfree(km, gs->l); kfree(km, gs);
 }

@@ -38,6 +38,7 @@ typedef struct {
 	int bw, max_gap, max_gap_ref, max_frag_len;
 	int max_chain_skip;
 	int min_lc_cnt, min_lc_score;
+	int min_gc_cnt, min_gc_score;
 } mg_mapopt_t;
 
 typedef struct {

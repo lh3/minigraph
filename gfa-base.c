@@ -29,6 +29,7 @@ void gfa_destroy(gfa_t *g)
 	for (i = 0; i < g->n_seg; ++i) {
 		gfa_seg_t *s = &g->seg[i];
 		free(s->name);
+		free(s->seq);
 		free(s->aux.aux);
 		if (s->utg) {
 			for (j = 0; j < s->utg->n; ++j)

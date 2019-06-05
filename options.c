@@ -18,8 +18,9 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->max_gap_ref = -1;
 	mo->max_chain_skip = 25;
 	mo->bw = 500;
-	mo->min_lc_cnt = 3, mo->min_lc_score = 30;
 	mo->mini_batch_size = 500000000;
+	mo->min_lc_cnt = 2, mo->min_lc_score = 30;
+	mo->min_gc_cnt = 3, mo->min_gc_score = 50;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo)
