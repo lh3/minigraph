@@ -66,6 +66,7 @@ typedef struct {
 	int32_t qs, qe;
 	int32_t plen, ps, pe;
 	int32_t blen, mlen;
+	float div;
 } mg_gchain_t;
 
 typedef struct {

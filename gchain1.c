@@ -1,3 +1,4 @@
+#include <math.h>
 #include "mgpriv.h"
 #include "ksort.h"
 
@@ -145,9 +146,9 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		mg_gchain_t *p = &gs->gc[i];
 		const mg_llchain_t *q;
 		const mg128_t *last_a;
-		int32_t q_span, rest_pl;
+		int32_t q_span, rest_pl, tmp;
 
-		p->qs = p->qe = p->ps = p->pe = -1, p->plen = p->blen = p->mlen = 0;
+		p->qs = p->qe = p->ps = p->pe = -1, p->plen = p->blen = p->mlen = 0, p->div = -1.0f;
 		if (p->cnt == 0) continue;
 
 		assert(gs->lc[p->off].cnt > 0 && gs->lc[p->off + p->cnt - 1].cnt > 0); // first and last lchains can't be empty
@@ -155,10 +156,14 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		q_span = (int32_t)(gs->a[q->off].y>>32&0xff);
 		p->qs = (int32_t)gs->a[q->off].y + 1 - q_span;
 		p->ps = (int32_t)gs->a[q->off].x + 1 - q_span;
+		tmp = (int32_t)(gs->a[q->off].x>>32);
 		assert(p->qs >= 0 && p->ps >= 0);
 		q = &gs->lc[p->off + p->cnt - 1];
 		p->qe = (int32_t)gs->a[q->off + q->cnt - 1].y + 1;
 		p->pe = g->seg[q->v>>1].len - (int32_t)gs->a[q->off + q->cnt - 1].x - 1; // this is temporary
+		tmp = (int32_t)(gs->a[q->off + q->cnt - 1].x>>32) - tmp + 1;
+		assert(p->n_anchor > 0 && tmp >= p->n_anchor);
+		p->div = log((double)tmp / p->n_anchor) / q_span;
 
 		rest_pl = 0; // this value is never used if the first lchain is not empty (which should always be true)
 		last_a = &gs->a[gs->lc[p->off].off];

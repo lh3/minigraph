@@ -96,6 +96,12 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
 		mg_sprintf_lite(s, "\t%d\t%d\t0", p->mlen, p->blen);
 		mg_sprintf_lite(s, "\tcm:i:%d\ts1:i:%d", p->n_anchor, p->score);
+		if (p->div >= 0.0f && p->div <= 1.0f) {
+			char buf[16];
+			if (p->div == 0.0f) buf[0] = '0', buf[1] = 0;
+			else snprintf(buf, 16, "%.4f", p->div);
+			mg_sprintf_lite(s, "\tdv:f:%s", buf);
+		}
 		mg_sprintf_lite(s, "\n");
 	}
 }
