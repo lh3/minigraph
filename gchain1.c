@@ -92,12 +92,12 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 			q->target_dist = mg_target_dist(g, lj, li);
 			if (q->target_dist < 0) q->target_dist = 0;
 		}
-		fprintf(stderr, "[%d] q_end=%d, src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, ai->srt, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
+		//fprintf(stderr, "[%d] q_end=%d, src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, ai->srt, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
 		gfa_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, 0);
 		for (j = 0; j < n_dst; ++j) {
 			gfa_path_dst_t *dj = &dst[j];
 			int32_t gap, log_gap, sc;
-			fprintf(stderr, "  [%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist);
+			//fprintf(stderr, "  [%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist);
 			if (dj->n_path == 0) continue;
 			gap = dj->dist - dj->target_dist;
 			if (gap < 0) gap = -gap;
@@ -136,6 +136,27 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 	kfree(km, swap);
 	kfree(km, v);
 	return n_u;
+}
+
+void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
+{
+	int32_t i, j;
+	for (i = 0; i < gs->n_g; ++i) { // iterate over gchains
+		mg_gchain_t *p = &gs->g[i];
+		mg_llchain_t *q;
+		p->qs = p->qe = -1, p->path_len = 0;
+		if (p->cnt == 0) continue;
+		q = &gs->l[p->ls];
+		p->qs = (int32_t)gs->a[q->as].y + 1 - (int32_t)(gs->a[q->as].y>>32&0xff);
+		assert(p->qs >= 0);
+		q = &gs->l[p->ls + p->cnt - 1];
+		assert(q->cnt > 0);
+		p->qe = (int32_t)gs->a[q->as + q->cnt - 1].y + 1;
+		for (j = 0; j < p->cnt; ++j) {
+			q = &gs->l[p->ls + j];
+			p->path_len += g->seg[q->v>>1].len;
+		}
+	}
 }
 
 static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old)
@@ -215,6 +236,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 	memcpy(gc->l, tmp, n_tmp * sizeof(mg_llchain_t));
 	kfree(km, tmp);
 
+	mg_gchain_extra(g, gc);
 	return gc;
 }
 

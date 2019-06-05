@@ -54,11 +54,14 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km);
 mg_lchain_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mg128_t *a);
 
-void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t *lc, const mg128_t *a, const char *qname);
 
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_frag, mg_lchain_t *frag, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, uint64_t **u_);
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a, int32_t min_gc_cnt, int32_t min_gc_score);
 void mg_gchain_free(mg_gchains_t *gs);
+
+void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t *lc, const mg128_t *a, const char *qname);
+void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, void *km);
+void mg_print_paf(FILE *fp, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, void *km);
 
 void radix_sort_128x(mg128_t *beg, mg128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);

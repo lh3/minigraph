@@ -63,6 +63,8 @@ typedef struct {
 typedef struct {
 	int32_t ls, cnt;
 	int32_t n_anchor, score;
+	int32_t qs, qe;
+	int32_t path_len;
 } mg_gchain_t;
 
 typedef struct {

@@ -81,3 +81,26 @@ void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_lchain_t *
 	}
 	free(str.s);
 }
+
+void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, void *km)
+{
+	int32_t i, j;
+	s->l = 0;
+	for (i = 0; i < gs->n_g; ++i) {
+		const mg_gchain_t *p = &gs->g[i];
+		mg_sprintf_lite(s, "%s\t%d\t%d\t%d\t+\t", qname, qlen, p->qs, p->qe);
+		for (j = 0; j < p->cnt; ++j) {
+			const mg_llchain_t *q = &gs->l[p->ls + j];
+			mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
+		}
+		mg_sprintf_lite(s, "\t%d\t%d\t%d\n", p->path_len, 0, 0);
+	}
+}
+
+void mg_print_paf(FILE *fp, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, void *km)
+{
+	kstring_t str = {0,0,0};
+	mg_write_paf(&str, g, gs, qlen, qname, km);
+	fputs(str.s, fp);
+	free(str.s);
+}
