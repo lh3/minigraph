@@ -178,7 +178,7 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 				if (j == 0 && k == 0) { // the first anchor on the first lchain
 					pl = ql = span;
 				} else if (j > 0 && k == 0) { // the first anchor but not on the first lchain
-					pl = (int32_t)gs->a[q->off].y + 1 + rest_pl;
+					pl = (int32_t)r->x + 1 + rest_pl;
 				} else {
 					pl = (int32_t)r->x - (int32_t)last_a->x;
 				}
