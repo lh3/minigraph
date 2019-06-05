@@ -137,37 +137,43 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 	return n_u;
 }
 
-static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p)
+static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old)
 {
-	q->as = p->as, q->cnt = p->cnt;
-	q->score = p->score, q->v = p->v;
+	q->cnt = p->cnt, q->v = p->v, q->score = p->score;
+	memcpy(&a_new[*n_a], &a_old[p->as], p->cnt * sizeof(mg128_t));
+	q->as = *n_a;
+	(*n_a) += p->cnt;
 }
 
-mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, uint64_t *u, mg_lchain_t *lc, mg128_t *a, int32_t min_gc_anchor, int32_t min_gc_score)
+mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, uint64_t *u, mg_lchain_t *lc, mg128_t *a, int32_t min_gc_cnt, int32_t min_gc_score)
 {
 	mg_gchains_t *gc;
 	mg_llchain_t *tmp;
-	int32_t i, j, k, st, n_g = 0, n_l = 0, n_a = 0, s_tmp, n_tmp, m_tmp;
+	int32_t i, j, k, st, n_g, n_a, s_tmp, n_tmp, m_tmp;
 
-	for (i = 0, st = 0; i < n_u; ++i) {
+	// count the number of gchains and remaining anchors
+	for (i = 0, st = 0, n_g = n_a = 0; i < n_u; ++i) {
 		int32_t m = 0, nui = (int32_t)u[i];
-		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
-		if (m >= min_gc_anchor && u[i]>>32 >= min_gc_score)
-			++n_g, n_l += nui, n_a += m;
+		for (j = 0; j < nui; ++j) m += lc[st + j].cnt; // m is the number of anchors in this gchain
+		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score)
+			++n_g, n_a += m;
 		st += nui;
 	}
 	if (n_g == 0) return 0;
 
+	// preallocate
 	gc = KCALLOC(km_dst, mg_gchains_t, 1);
 	gc->km = km_dst;
 	gc->n_g = n_g, gc->n_a = n_a;
 	gc->g = KCALLOC(km_dst, mg_gchain_t, n_g);
+	gc->a = KMALLOC(km_dst, mg128_t, n_a);
 
+	// core loop
 	tmp = 0; s_tmp = n_tmp = m_tmp = 0;
-	for (i = k = 0, st = 0; i < n_u; ++i) {
+	for (i = k = 0, st = 0, n_a = 0; i < n_u; ++i) {
 		int32_t m = 0, nui = (int32_t)u[i];
 		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
-		if (m >= min_gc_anchor && u[i]>>32 >= min_gc_score) {
+		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score) {
 			mg_llchain_t *q;
 
 			gc->g[k].n_anchor = m;
@@ -175,7 +181,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 			gc->g[k].ls = s_tmp;
 
 			if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-			copy_lchain(&tmp[n_tmp++], &lc[st]); // copy the first lchain
+			copy_lchain(&tmp[n_tmp++], &lc[st], &n_a, gc->a, a); // copy the first lchain
 
 			for (j = 1; j < nui; ++j) {
 				mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
@@ -193,7 +199,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 					q->v = p[s].v;
 				}
 				if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-				copy_lchain(&tmp[n_tmp++], l1);
+				copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
 				kfree(km, p);
 			}
 			gc->g[k].cnt = n_tmp - s_tmp;
@@ -201,26 +207,12 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 		}
 		st += nui;
 	}
+	assert(n_a == gc->n_a);
 
 	gc->n_l = n_tmp;
 	gc->l = KMALLOC(km_dst, mg_llchain_t, n_tmp);
 	memcpy(gc->l, tmp, n_tmp * sizeof(mg_llchain_t));
 	kfree(km, tmp);
-
-	gc->a = KMALLOC(km_dst, mg128_t, n_a);
-	n_a = 0;
-	for (i = 0, k = 0; i < gc->n_g; ++i) {
-		mg_gchain_t *g = &gc->g[i];
-		for (j = 0; j < g->cnt; ++j) {
-			mg_llchain_t *q = &gc->l[k + j];
-			if (q->cnt > 0)
-				memcpy(&gc->a[n_a], &a[q->as], q->cnt * sizeof(mg128_t));
-			q->as = n_a;
-			n_a += q->cnt;
-		}
-		k += g->cnt;
-	}
-	assert(n_a == gc->n_a);
 
 	kfree(km, a);
 	kfree(km, lc);
