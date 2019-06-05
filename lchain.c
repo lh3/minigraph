@@ -187,7 +187,7 @@ mg_lchain_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t 
 	for (i = 0; i < n_u; ++i) {
 		mg_lchain_t *ri = &r[i];
 		int32_t k = z[i].y >> 32, q_span = a[k].y >> 32 & 0xff;
-		ri->as = k;
+		ri->off = k;
 		ri->cnt = (int32_t)z[i].y;
 		ri->score = (uint32_t)z[i].x;
 		ri->v = a[k].x >> 32;

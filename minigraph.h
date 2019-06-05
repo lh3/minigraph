@@ -48,20 +48,20 @@ typedef struct {
 } mg_idx_t;
 
 typedef struct {
-	int32_t as, cnt;
+	int32_t off, cnt;
 	uint32_t v;
 	int32_t rs, re, qs, qe;
 	int32_t score;
 } mg_lchain_t;
 
 typedef struct {
-	int32_t as, cnt;
+	int32_t off, cnt;
 	uint32_t v;
 	int32_t score;
 } mg_llchain_t;
 
 typedef struct {
-	int32_t ls, cnt;
+	int32_t off, cnt;
 	int32_t n_anchor, score;
 	int32_t qs, qe;
 	int32_t path_len;
@@ -69,9 +69,9 @@ typedef struct {
 
 typedef struct {
 	void *km;
-	int32_t n_g, n_l, n_a;
-	mg_gchain_t *g;
-	mg_llchain_t *l;
+	int32_t n_gc, n_lc, n_a;
+	mg_gchain_t *gc;
+	mg_llchain_t *lc;
 	mg128_t *a;
 } mg_gchains_t;
 
