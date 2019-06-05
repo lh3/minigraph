@@ -64,7 +64,8 @@ typedef struct {
 	int32_t off, cnt;
 	int32_t n_anchor, score;
 	int32_t qs, qe;
-	int32_t path_len;
+	int32_t plen, ps, pe;
+	int32_t blen, mlen;
 } mg_gchain_t;
 
 typedef struct {

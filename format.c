@@ -93,7 +93,10 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			const mg_llchain_t *q = &gs->lc[p->off + j];
 			mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
 		}
-		mg_sprintf_lite(s, "\t%d\t%d\t%d\n", p->path_len, 0, 0);
+		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
+		mg_sprintf_lite(s, "\t%d\t%d\t0", p->mlen, p->blen);
+		mg_sprintf_lite(s, "\tcm:i:%d\ts1:i:%d", p->n_anchor, p->score);
+		mg_sprintf_lite(s, "\n");
 	}
 }
 

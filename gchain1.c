@@ -140,22 +140,52 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 
 void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 {
-	int32_t i, j;
+	int32_t i, j, k;
 	for (i = 0; i < gs->n_gc; ++i) { // iterate over gchains
 		mg_gchain_t *p = &gs->gc[i];
-		mg_llchain_t *q;
-		p->qs = p->qe = -1, p->path_len = 0;
+		const mg_llchain_t *q;
+		const mg128_t *last_a;
+		int32_t q_span, rest_pl;
+
+		p->qs = p->qe = p->ps = p->pe = -1, p->plen = p->blen = p->mlen = 0;
 		if (p->cnt == 0) continue;
+
+		assert(gs->lc[p->off].cnt > 0 && gs->lc[p->off + p->cnt - 1].cnt > 0); // first and last lchains can't be empty
 		q = &gs->lc[p->off];
-		p->qs = (int32_t)gs->a[q->off].y + 1 - (int32_t)(gs->a[q->off].y>>32&0xff);
-		assert(p->qs >= 0);
+		q_span = (int32_t)(gs->a[q->off].y>>32&0xff);
+		p->qs = (int32_t)gs->a[q->off].y + 1 - q_span;
+		p->ps = (int32_t)gs->a[q->off].x + 1 - q_span;
+		assert(p->qs >= 0 && p->ps >= 0);
 		q = &gs->lc[p->off + p->cnt - 1];
-		assert(q->cnt > 0);
 		p->qe = (int32_t)gs->a[q->off + q->cnt - 1].y + 1;
-		for (j = 0; j < p->cnt; ++j) {
-			q = &gs->lc[p->off + j];
-			p->path_len += g->seg[q->v>>1].len;
+		p->pe = g->seg[q->v>>1].len - (int32_t)gs->a[q->off + q->cnt - 1].x - 1; // this is temporary
+
+		rest_pl = 0; // this value is never used if the first lchain is not empty (which should always be true)
+		last_a = &gs->a[gs->lc[p->off].off];
+		for (j = 0; j < p->cnt; ++j) { // iterate over anchors
+			const mg_llchain_t *q = &gs->lc[p->off + j];
+			int32_t vlen = g->seg[q->v>>1].len;
+			p->plen += vlen;
+			for (k = 0; k < q->cnt; ++k) {
+				const mg128_t *r = &gs->a[q->off + k];
+				int32_t pl, ql = (int32_t)r->y - (int32_t)last_a->y;
+				int32_t span = (int32_t)(r->y>>32&0xff);
+				if (j == 0 && k == 0) { // the first anchor on the first lchain
+					pl = ql = span;
+				} else if (j > 0 && k == 0) { // the first anchor but not on the first lchain
+					pl = (int32_t)gs->a[q->off].y + 1 + rest_pl;
+				} else {
+					pl = (int32_t)r->x - (int32_t)last_a->x;
+				}
+				p->blen += pl > ql? pl : ql;
+				p->mlen += pl > span && ql > span? span : pl < ql? pl : ql;
+				last_a = r;
+			}
+			if (q->cnt == 0) rest_pl += vlen;
+			else rest_pl = vlen - (int32_t)gs->a[q->off + q->cnt - 1].x - 1;
 		}
+		p->pe = p->plen - p->pe;
+		assert(p->pe >= p->ps);
 	}
 }
 
