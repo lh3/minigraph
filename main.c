@@ -38,7 +38,7 @@ static inline int64_t mg_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
