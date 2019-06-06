@@ -43,7 +43,8 @@ int main(int argc, char *argv[])
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
 	int i, c, n_threads = 4, print_gfa = 0;
-//	char *fnw = 0, *rg = 0, *s;
+//	char *fnw = 0, *rg = 0;
+	char *s;
 	FILE *fp_help = stderr;
 	mg_idx_t *gi;
 
@@ -73,8 +74,16 @@ int main(int argc, char *argv[])
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
+		else if (c == 'g') opt.max_gap = mg_parse_num(o.arg);
 		else if (c == 301) print_gfa = 1;
 		else if (c == 302) mg_dbg_flag |= MG_DBG_NO_KALLOC;
+		else if (c == 'n') {
+			opt.min_gc_cnt = strtol(o.arg, &s, 10);
+			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
+		} else if (c == 'm') {
+			opt.min_gc_score = strtol(o.arg, &s, 10);
+			if (*s == ',') opt.min_lc_score = strtol(s + 1, &s, 10);
+		}
 	}
 	if (mg_opt_check(&ipt, &opt) < 0)
 		return 1;
@@ -86,7 +95,10 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minizer window size [%d]\n", ipt.w);
 		fprintf(fp_help, "  Mapping:\n");
+		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
+		fprintf(fp_help, "    -n INT[,INT] minimal number of minimizers on a graph/linear chain [%d,%d]\n", opt.min_gc_cnt, opt.min_lc_cnt);
+		fprintf(fp_help, "    -m INT[,INT] minimal graph/linear chaining score [%d,%d]\n", opt.min_gc_score, opt.min_lc_score);
 		fprintf(fp_help, "  Input/output:\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		return fp_help == stdout? 0 : 1;
