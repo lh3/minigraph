@@ -38,12 +38,12 @@ static inline int64_t mg_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
 	int i, c, n_threads = 4, print_gfa = 0;
-//	char *fnw = 0, *rg = 0;
+//	char *rg = 0;
 	char *s;
 	FILE *fp_help = stderr;
 	mg_idx_t *gi;
@@ -75,6 +75,7 @@ int main(int argc, char *argv[])
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
 		else if (c == 'g') opt.max_gap = mg_parse_num(o.arg);
+		else if (c == 'K') opt.mini_batch_size = mg_parse_num(o.arg);
 		else if (c == 301) print_gfa = 1;
 		else if (c == 302) mg_dbg_flag |= MG_DBG_NO_KALLOC;
 		else if (c == 'n') {
@@ -83,13 +84,20 @@ int main(int argc, char *argv[])
 		} else if (c == 'm') {
 			opt.min_gc_score = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_score = strtol(s + 1, &s, 10);
+		} else if (c == 'o') {
+			if (strcmp(o.arg, "-") != 0) {
+				if (freopen(o.arg, "wb", stdout) == NULL) {
+					fprintf(stderr, "[ERROR]\033[1;31m failed to write the output to file '%s'\033[0m\n", o.arg);
+					exit(1);
+				}
+			}
 		}
 	}
 	if (mg_opt_check(&ipt, &opt) < 0)
 		return 1;
 
 	if (argc == o.ind || fp_help == stdout) {
-		fprintf(fp_help, "Usage: minigraph [options] <target.fa> [query.fa] [...]\n");
+		fprintf(fp_help, "Usage: minigraph [options] <target.gfa> <query.fa> [...]\n");
 		fprintf(fp_help, "Options:\n");
 		fprintf(fp_help, "  Indexing:\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
@@ -101,6 +109,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -m INT[,INT] minimal graph/linear chaining score [%d,%d]\n", opt.min_gc_score, opt.min_lc_score);
 		fprintf(fp_help, "  Input/output:\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
+		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");
+		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
 		return fp_help == stdout? 0 : 1;
 	}
 
