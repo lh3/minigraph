@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 #include "mgpriv.h"
 #include "ksort.h" // for radix sort
 #include "khash.h" // for __ac_Wang_hash()
@@ -168,11 +169,11 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 
 		rest_pl = 0; // this value is never used if the first lchain is not empty (which should always be true)
 		last_a = &gs->a[gs->lc[p->off].off];
-		for (j = 0; j < p->cnt; ++j) { // iterate over anchors
+		for (j = 0; j < p->cnt; ++j) { // iterate over lchains
 			const mg_llchain_t *q = &gs->lc[p->off + j];
 			int32_t vlen = g->seg[q->v>>1].len;
 			p->plen += vlen;
-			for (k = 0; k < q->cnt; ++k) {
+			for (k = 0; k < q->cnt; ++k) { // iterate over anchors
 				const mg128_t *r = &gs->a[q->off + k];
 				int32_t pl, ql = (int32_t)r->y - (int32_t)last_a->y;
 				int32_t span = (int32_t)(r->y>>32&0xff);
@@ -193,6 +194,22 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		p->pe = p->plen - p->pe;
 		assert(p->pe >= p->ps);
 	}
+}
+
+void mg_gchain_sort_by_score(void *km, mg_gchains_t *gcs)
+{
+	mg128_t *z;
+	mg_gchain_t *gc;
+	int32_t i;
+	z = KMALLOC(km, mg128_t, gcs->n_gc);
+	gc = KMALLOC(km, mg_gchain_t, gcs->n_gc);
+	for (i = 0; i < gcs->n_gc; ++i)
+		z[i].x = (uint64_t)gcs->gc[i].score << 32 | gcs->gc[i].hash, z[i].y = i;
+	radix_sort_128x(z, z + gcs->n_gc);
+	for (i = 0; i < gcs->n_gc; ++i)
+		gc[i] = gcs->gc[gcs->n_gc - z[i].y - 1];
+	memcpy(gcs->gc, gc, gcs->n_gc * sizeof(mg_gchain_t));
+	kfree(km, z); kfree(km, gc);
 }
 
 static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old)
@@ -280,6 +297,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 	kfree(km, tmp);
 
 	mg_gchain_extra(g, gc);
+	mg_gchain_sort_by_score(km, gc);
 	return gc;
 }
 
