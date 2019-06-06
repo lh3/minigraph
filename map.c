@@ -183,7 +183,7 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	return a;
 }
 
-void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mg_lchain_t **regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
+void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, mg_gchains_t **gcs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
 	int i, rep_len, qlen_sum, n_lc, n_gc, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MG_M_SPLICE), is_sr = !!(opt->flag & MG_M_SR);
@@ -195,10 +195,9 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	mg128_v mv = {0,0,0};
 	mg_lchain_t *lc;
 	km_stat_t kmst;
-	mg_gchains_t *gs;
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
-		qlen_sum += qlens[i], n_regs[i] = 0, regs[i] = 0;
+		qlen_sum += qlens[i], gcs[i] = 0;
 
 	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MG_MAX_SEG) return;
 	if (opt->max_qlen > 0 && qlen_sum > opt->max_qlen) return;
@@ -264,18 +263,14 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	kfree(b->km, mini_pos);
 	kfree(b->km, u);
 
-	if (0 || (mg_dbg_flag & MG_DBG_PRINT_SEED))
+	if (mg_dbg_flag & MG_DBG_PRINT_SEED)
 		mg_print_lchain(stdout, gi, n_lc, lc, a, qname);
 
 	n_gc = mg_gchain1_dp(b->km, gi->g, n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, &u);
-	gs = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, opt->min_gc_cnt, opt->min_gc_score);
+	gcs[0] = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, opt->min_gc_cnt, opt->min_gc_score);
 	kfree(b->km, a);
 	kfree(b->km, lc);
 	kfree(b->km, u);
-
-	mg_print_paf(stdout, gi->g, gs, qlen_sum, qname, b->km);
-
-	mg_gchain_free(gs);
 
 	if (b->km) {
 		km_stat(b->km, &kmst);
@@ -289,11 +284,11 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	}
 }
 
-mg_lchain_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, int *n_regs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
+mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
-	mg_lchain_t *regs;
-	mg_map_frag(gi, 1, &qlen, &seq, n_regs, &regs, b, opt, qname);
-	return regs;
+	mg_gchains_t *gcs;
+	mg_map_frag(gi, 1, &qlen, &seq, &gcs, b, opt, qname);
+	return gcs;
 }
 
 /**************************
@@ -315,8 +310,8 @@ typedef struct {
 	const pipeline_t *p;
     int n_seq, n_frag;
 	mg_bseq1_t *seq;
-	int *n_reg, *seg_off, *n_seg, *rep_len, *frag_gap;
-	mg_lchain_t **reg;
+	int *seg_off, *n_seg, *rep_len, *frag_gap;
+	mg_gchains_t **gcs;
 	mg_tbuf_t **buf;
 } step_t;
 
@@ -337,17 +332,18 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	}
 	if (s->p->opt->flag & MG_M_INDEPEND_SEG) {
 		for (j = 0; j < s->n_seg[i]; ++j) {
-			mg_map_frag(s->p->gi, 1, &qlens[j], &qseqs[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
+			mg_map_frag(s->p->gi, 1, &qlens[j], &qseqs[j], &s->gcs[off+j], b, s->p->opt, s->seq[off+j].name);
 			s->rep_len[off + j] = b->rep_len;
 			s->frag_gap[off + j] = b->frag_gap;
 		}
 	} else {
-		mg_map_frag(s->p->gi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+		mg_map_frag(s->p->gi, s->n_seg[i], qlens, qseqs, &s->gcs[off], b, s->p->opt, s->seq[off].name);
 		for (j = 0; j < s->n_seg[i]; ++j) {
 			s->rep_len[off + j] = b->rep_len;
 			s->frag_gap[off + j] = b->frag_gap;
 		}
 	}
+	/*
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
 			int k, t;
@@ -360,6 +356,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 				r->v ^= 1;
 			}
 		}
+	*/
 }
 
 static void *worker_pipeline(void *shared, int step, void *in)
@@ -381,12 +378,11 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->buf = (mg_tbuf_t**)calloc(p->n_threads, sizeof(mg_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mg_tbuf_init();
-			s->n_reg = (int*)calloc(5 * s->n_seq, sizeof(int));
-			s->seg_off = s->n_reg + s->n_seq; // seg_off, n_seg, rep_len and frag_gap are allocated together with n_reg
-			s->n_seg = s->seg_off + s->n_seq;
+			s->seg_off = (int*)calloc(4 * s->n_seq, sizeof(int));
+			s->n_seg = s->seg_off + s->n_seq; // n_seg, rep_len and frag_gap are allocated together with seg_off
 			s->rep_len = s->n_seg + s->n_seq;
 			s->frag_gap = s->rep_len + s->n_seq;
-			s->reg = (mg_lchain_t**)calloc(s->n_seq, sizeof(mg_lchain_t*));
+			s->gcs = KCALLOC(0, mg_gchains_t*, s->n_seq);
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mg_qname_same(s->seq[i-1].name, s->seq[i].name)) {
 					s->n_seg[s->n_frag] = i - j;
@@ -407,13 +403,18 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		for (k = 0; k < s->n_frag; ++k) {
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
 			for (i = seg_st; i < seg_en; ++i) {
-				free(s->reg[i]);
+				mg_bseq1_t *t = &s->seq[i];
+				mg_write_paf(&p->str, p->gi->g, s->gcs[i], t->l_seq, t->name, km);
+			}
+			mg_err_fputs(p->str.s, stdout);
+			for (i = seg_st; i < seg_en; ++i) {
+				mg_gchain_free(s->gcs[i]);
 				free(s->seq[i].seq); free(s->seq[i].name);
 				if (s->seq[i].qual) free(s->seq[i].qual);
 				if (s->seq[i].comment) free(s->seq[i].comment);
 			}
 		}
-		free(s->reg); free(s->n_reg); free(s->seq); // seg_off, n_seg, rep_len and frag_gap were allocated with reg; no memory leak here
+		free(s->gcs); free(s->seg_off); free(s->seq); // n_seg, rep_len and frag_gap were allocated with seg_off; no memory leak here
 		if (km) km_destroy(km);
 		if (mg_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] mapped %d sequences\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), s->n_seq);

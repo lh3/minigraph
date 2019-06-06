@@ -120,10 +120,10 @@ double realtime(void)
 	return tp.tv_sec + tp.tv_usec * 1e-6;
 }
 
-void mg_err_puts(const char *str)
+void mg_err_fputs(const char *str, FILE *fp)
 {
 	int ret;
-	ret = puts(str);
+	ret = fputs(str, fp);
 	if (ret == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");
 		exit(EXIT_FAILURE);

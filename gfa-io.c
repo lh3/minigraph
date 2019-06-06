@@ -273,8 +273,8 @@ void gfa_print(const gfa_t *g, FILE *fp, int M_only)
 			fprintf(fp, "\tLN:i:%d", s->len);
 		if (s->aux.l_aux > 0) {
 			char *t = 0;
-			int max = 0, len;
-			len = gfa_aux_format(s->aux.l_aux, s->aux.aux, &t, &max);
+			int max = 0;
+			gfa_aux_format(s->aux.l_aux, s->aux.aux, &t, &max);
 			fputs(t, fp);
 			free(t);
 		}
@@ -303,8 +303,8 @@ void gfa_print(const gfa_t *g, FILE *fp, int M_only)
 		fprintf(fp, "\tL2:i:%d", a->lw);
 		if (aux->l_aux) {
 			char *t = 0;
-			int max = 0, len;
-			len = gfa_aux_format(aux->l_aux, aux->aux, &t, &max);
+			int max = 0;
+			gfa_aux_format(aux->l_aux, aux->aux, &t, &max);
 			if (t) fputs(t, fp);
 			free(t);
 		}

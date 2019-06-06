@@ -66,6 +66,8 @@ void mg_print_paf(FILE *fp, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen
 void radix_sort_128x(mg128_t *beg, mg128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);
 
+void mg_err_fputs(const char *str, FILE *fp);
+
 double realtime(void);
 double cputime(void);
 long peakrss(void);

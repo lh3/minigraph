@@ -5,7 +5,7 @@ INCLUDES=	-I.
 OBJS=		kalloc.o kthread.o gfa-base.o gfa-io.o gfa-sub.o sketch.o misc.o options.o bseq.o index.o \
 			lchain.o gchain1.o map.o format.o
 PROG=		minigraph
-LIBS=		-lz
+LIBS=		-lz -lm
 
 ifneq ($(asan),)
 	CFLAGS+=-fsanitize=address
@@ -41,7 +41,7 @@ index.o: mgpriv.h kalloc.h minigraph.h gfa.h khash.h kthread.h kvec.h
 kalloc.o: kalloc.h
 kthread.o: kthread.h
 lchain.o: mgpriv.h kalloc.h minigraph.h gfa.h
-main.o: bseq.h minigraph.h gfa.h mgpriv.h kalloc.h ketopt.h
+main.o: bseq.h mgpriv.h kalloc.h minigraph.h gfa.h ketopt.h
 map.o: kthread.h kvec.h kalloc.h mgpriv.h minigraph.h gfa.h bseq.h khash.h
 map.o: ksort.h
 misc.o: mgpriv.h kalloc.h minigraph.h gfa.h ksort.h
