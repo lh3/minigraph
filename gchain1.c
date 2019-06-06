@@ -1,6 +1,7 @@
 #include <math.h>
 #include "mgpriv.h"
-#include "ksort.h"
+#include "ksort.h" // for radix sort
+#include "khash.h" // for __ac_Wang_hash()
 
 typedef struct {
 	uint32_t srt;
@@ -202,7 +203,7 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 	(*n_a) += p->cnt;
 }
 
-mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a, int32_t min_gc_cnt, int32_t min_gc_score)
+mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score)
 {
 	mg_gchains_t *gc = 0;
 	mg_llchain_t *tmp;
@@ -232,10 +233,17 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
 		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score) {
 			mg_llchain_t *q;
+			uint32_t h = hash;
 
 			gc->gc[k].n_anchor = m;
 			gc->gc[k].score = u[i]>>32;
 			gc->gc[k].off = s_tmp;
+
+			for (j = 0; j < nui; ++j) {
+				const mg_lchain_t *p = &lc[st + j];
+				h += __ac_Wang_hash(p->qs) + __ac_Wang_hash(p->re) + __ac_Wang_hash(p->v);
+			}
+			gc->gc[k].hash = __ac_Wang_hash(h);
 
 			if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 			copy_lchain(&tmp[n_tmp++], &lc[st], &n_a, gc->a, a); // copy the first lchain

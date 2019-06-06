@@ -67,6 +67,7 @@ typedef struct {
 	int32_t plen, ps, pe;
 	int32_t blen, mlen;
 	float div;
+	uint32_t hash;
 } mg_gchain_t;
 
 typedef struct {
