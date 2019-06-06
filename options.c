@@ -21,6 +21,8 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->mini_batch_size = 500000000;
 	mo->min_lc_cnt = 2, mo->min_lc_score = 30;
 	mo->min_gc_cnt = 3, mo->min_gc_score = 50;
+	mo->mask_level = 0.5f;
+	mo->sub_diff = 6;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo)

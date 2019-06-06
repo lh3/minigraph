@@ -94,8 +94,8 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
 		}
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
-		mg_sprintf_lite(s, "\t%d\t%d\t0", p->mlen, p->blen);
-		mg_sprintf_lite(s, "\tcm:i:%d\ts1:i:%d", p->n_anchor, p->score);
+		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);
+		mg_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d", p->id == p->parent? 'P' : 'S', p->n_anchor, p->score);
 		if (p->div >= 0.0f && p->div <= 1.0f) {
 			char buf[16];
 			if (p->div == 0.0f) buf[0] = '0', buf[1] = 0;
@@ -104,12 +104,4 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 		}
 		mg_sprintf_lite(s, "\n");
 	}
-}
-
-void mg_print_paf(FILE *fp, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, void *km)
-{
-	kstring_t str = {0,0,0};
-	mg_write_paf(&str, g, gs, qlen, qname, km);
-	fputs(str.s, fp);
-	free(str.s);
 }

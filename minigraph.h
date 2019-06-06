@@ -39,6 +39,8 @@ typedef struct {
 	int max_chain_skip;
 	int min_lc_cnt, min_lc_score;
 	int min_gc_cnt, min_gc_score;
+	float mask_level;
+	int sub_diff;
 } mg_mapopt_t;
 
 typedef struct {
@@ -61,6 +63,7 @@ typedef struct {
 } mg_llchain_t;
 
 typedef struct {
+	int32_t id, parent;
 	int32_t off, cnt;
 	int32_t n_anchor, score;
 	int32_t qs, qe;
@@ -68,11 +71,13 @@ typedef struct {
 	int32_t blen, mlen;
 	float div;
 	uint32_t hash;
+	int32_t subsc, n_sub;
+	int32_t mapq;
 } mg_gchain_t;
 
 typedef struct {
 	void *km;
-	int32_t n_gc, n_lc, n_a;
+	int32_t n_gc, n_lc, n_a, rep_len;
 	mg_gchain_t *gc;
 	mg_llchain_t *lc;
 	mg128_t *a;
