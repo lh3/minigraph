@@ -254,6 +254,7 @@ gfa_t *gfa_read(const char *fn)
 	}
 	free(s.s);
 	gfa_finalize(g);
+	gfa_set_persistent(g);
 	ks_destroy(ks);
 	gzclose(fp);
 	return g;

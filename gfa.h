@@ -61,8 +61,8 @@ typedef struct {
 	uint32_t del:16, circ:16;
 	int32_t pnid; // persistent name ID
 	int32_t ppos; // persistent start position
+	int32_t rank; // persistent rank
 	char *name, *seq;
-	char *pname;  // a pointer to aux; not allocated
 	gfa_utg_t *utg;
 	gfa_aux_t aux;
 } gfa_seg_t;
@@ -73,7 +73,11 @@ typedef struct {
 	// segments
 	uint32_t m_seg, n_seg;
 	gfa_seg_t *seg;
-	void *h_names, *h_pnames;
+	void *h_names;
+	// persistent names
+	uint32_t m_pname, n_pname;
+	char **pname;
+	void *h_pnames;
 	// links
 	uint64_t m_arc, n_arc:62, is_srt:1, is_symm:1;
 	gfa_arc_t *arc;
@@ -119,6 +123,7 @@ int32_t gfa_name2id(const gfa_t *g, const char *name);
 uint64_t gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp);
 void gfa_cleanup(gfa_t *g); // permanently delete arcs marked as deleted, sort and then index
 void gfa_finalize(gfa_t *g);
+void gfa_set_persistent(gfa_t *g);
 void gfa_destroy(gfa_t *g);
 
 gfa_t *gfa_read(const char *fn);

@@ -39,9 +39,11 @@ void gfa_destroy(gfa_t *g)
 			free(s->utg);
 		}
 	}
+	for (i = 0; i < g->n_pname; ++i) free(g->pname[i]);
+	kh_destroy(seg, (seghash_t*)g->h_pnames);
 	for (k = 0; k < g->n_arc; ++k)
 		free(g->arc_aux[k].aux);
-	free(g->idx); free(g->seg); free(g->arc); free(g->arc_aux);
+	free(g->idx); free(g->seg); free(g->arc); free(g->arc_aux); free(g->pname);
 	free(g);
 }
 
@@ -62,6 +64,7 @@ int32_t gfa_add_seg(gfa_t *g, const char *name)
 		s = &g->seg[g->n_seg++];
 		kh_key(h, k) = s->name = strdup(name);
 		s->del = s->len = 0;
+		s->pnid = s->ppos = s->rank = -1;
 		kh_val(h, k) = g->n_seg - 1;
 	}
 	return kh_val(h, k);
@@ -300,4 +303,58 @@ int gfa_aux_del(int l_data, uint8_t *data, uint8_t *s)
 	__skip_tag(s);
 	memmove(p, s, l_data - (s - data));
 	return l_data - (s - p);
+}
+
+static inline int64_t gfa_aux_get_int(const uint8_t *p)
+{
+	if (*p == 'i') return *(int32_t*)(p + 1);
+	else if (*p == 'I') return *(uint32_t*)(p + 1);
+	else if (*p == 's') return *(int16_t*)(p + 1);
+	else if (*p == 'S') return *(uint16_t*)(p + 1);
+	else if (*p == 'c') return *(int8_t*)(p + 1);
+	else if (*p == 'C') return *(uint8_t*)(p + 1);
+	return -0x100000000LL;
+}
+
+/************************************
+ * Construct persistent coordinates *
+ ************************************/
+
+int32_t gfa_add_pname(gfa_t *g, const char *pname)
+{
+	khash_t(seg) *h = (khash_t(seg)*)g->h_pnames;
+	khint_t k;
+	int absent;
+	k = kh_put(seg, h, pname, &absent);
+	if (absent) {
+		if (g->n_pname == g->m_pname) {
+			g->m_pname = g->m_pname? g->m_pname<<1 : 16;
+			g->pname = (char**)realloc(g->pname, g->m_pname * sizeof(char*));
+		}
+		kh_val(h, k) = g->n_pname;
+		g->pname[g->n_pname++] = strdup(pname);
+	}
+	return kh_val(h, k);
+}
+
+void gfa_set_persistent(gfa_t *g)
+{
+	uint32_t i;
+	for (i = 0; i < g->n_pname; ++i)
+		free(g->pname[i]);
+	free(g->pname);
+	g->n_pname = g->m_pname = 0, g->pname = 0;
+	g->h_pnames = kh_init(seg);
+	for (i = 0; i < g->n_seg; ++i) {
+		gfa_seg_t *s = &g->seg[i];
+		uint8_t *sn, *ss, *sr;
+		sn = gfa_aux_get(s->aux.l_aux, s->aux.aux, "SN");
+		ss = gfa_aux_get(s->aux.l_aux, s->aux.aux, "SS");
+		if (sn == 0 || ss == 0) continue;
+		if (sn[0] != 'Z') continue;
+		s->pnid = gfa_add_pname(g, (char*)(sn + 1));
+		s->ppos = gfa_aux_get_int(ss);
+		sr = gfa_aux_get(s->aux.l_aux, s->aux.aux, "SR");
+		s->rank = sr == 0? 0 : gfa_aux_get_int(sr);
+	}
 }
