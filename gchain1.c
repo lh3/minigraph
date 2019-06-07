@@ -206,8 +206,8 @@ void mg_gchain_sort_by_score(void *km, mg_gchains_t *gcs)
 	for (i = 0; i < gcs->n_gc; ++i)
 		z[i].x = (uint64_t)gcs->gc[i].score << 32 | gcs->gc[i].hash, z[i].y = i;
 	radix_sort_128x(z, z + gcs->n_gc);
-	for (i = 0; i < gcs->n_gc; ++i)
-		gc[i] = gcs->gc[gcs->n_gc - z[i].y - 1];
+	for (i = gcs->n_gc - 1; i >= 0; --i)
+		gc[gcs->n_gc - 1 - i] = gcs->gc[z[i].y];
 	memcpy(gcs->gc, gc, gcs->n_gc * sizeof(mg_gchain_t));
 	kfree(km, z); kfree(km, gc);
 }

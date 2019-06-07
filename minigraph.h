@@ -12,6 +12,7 @@
 #define MG_M_FOR_ONLY     0x100
 #define MG_M_REV_ONLY     0x200
 #define MG_M_HEAP_SORT    0x400
+#define MG_M_VERTEX_COOR  0x800
 #define MG_M_COPY_COMMENT 0x10000
 #define MG_M_INDEPEND_SEG 0x20000
 #define MG_M_NO_QUAL      0x40000
@@ -23,7 +24,7 @@ typedef struct { uint64_t x, y; } mg128_t;
 typedef struct { size_t n, m; mg128_t *a; } mg128_v;
 
 typedef struct {
-	uint32_t flag;
+	uint64_t flag;
 	int w, k;
 	int bucket_bits;
 } mg_idxopt_t;

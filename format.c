@@ -82,16 +82,46 @@ void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_lchain_t *
 	free(str.s);
 }
 
-void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, void *km)
+void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, uint64_t flag, void *km)
 {
 	int32_t i, j;
 	s->l = 0;
 	for (i = 0; i < gs->n_gc; ++i) {
 		const mg_gchain_t *p = &gs->gc[i];
 		mg_sprintf_lite(s, "%s\t%d\t%d\t%d\t+\t", qname, qlen, p->qs, p->qe);
-		for (j = 0; j < p->cnt; ++j) {
-			const mg_llchain_t *q = &gs->lc[p->off + j];
-			mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
+		assert(p->cnt > 0);
+		if (flag & MG_M_VERTEX_COOR) {
+			for (j = 0; j < p->cnt; ++j) {
+				const mg_llchain_t *q = &gs->lc[p->off + j];
+				mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
+			}
+		} else {
+			int32_t last_pnid = -1, st = -1, en = -1, rev = -1;
+			for (j = 0; j < p->cnt; ++j) {
+				const mg_llchain_t *q = &gs->lc[p->off + j];
+				const gfa_seg_t *t = &g->seg[q->v>>1];
+				if (t->pnid < 0) { // no stable ID; write the vertex coordinate
+					if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pname[last_pnid], st, en);
+					last_pnid = -1, st = -1, en = -1, rev = -1;
+					mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
+				} else {
+					int cont = 0;
+					if (last_pnid >= 0 && t->pnid == last_pnid && (q->v&1) == rev) { // same stable sequence and same strand
+						if (!(q->v&1)) { // forward strand
+							if (t->ppos == en)
+								en = t->ppos + t->len, cont = 1;
+						} else { // reverse strand
+							if (t->ppos + t->len == st)
+								st = t->ppos, cont = 1;
+						}
+					}
+					if (cont == 0) {
+						if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pname[last_pnid], st, en);
+						last_pnid = t->pnid, rev = q->v&1, st = t->ppos, en = st + t->len;
+					}
+				}
+			}
+			if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pname[last_pnid], st, en);
 		}
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);

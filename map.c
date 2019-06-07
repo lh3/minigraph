@@ -408,7 +408,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
 			for (i = seg_st; i < seg_en; ++i) {
 				mg_bseq1_t *t = &s->seq[i];
-				mg_write_paf(&p->str, p->gi->g, s->gcs[i], t->l_seq, t->name, km);
+				mg_write_paf(&p->str, p->gi->g, s->gcs[i], t->l_seq, t->name, p->opt->flag, km);
 			}
 			mg_err_fputs(p->str.s, stdout);
 			for (i = seg_st; i < seg_en; ++i) {

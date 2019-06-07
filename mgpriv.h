@@ -64,7 +64,7 @@ void mg_gchain_set_parent(void *km, float mask_level, int n, mg_gchain_t *r, int
 void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score);
 
 void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t *lc, const mg128_t *a, const char *qname);
-void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, void *km);
+void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, uint64_t flag, void *km);
 
 void radix_sort_128x(mg128_t *beg, mg128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);

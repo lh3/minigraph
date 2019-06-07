@@ -22,6 +22,7 @@ void liftrlimit() {}
 static ko_longopt_t long_options[] = {
 	{ "print-gfa",    ko_no_argument,       301 },
 	{ "no-kalloc",    ko_no_argument,       302 },
+	{ "vcoor",        ko_no_argument,       303 },
 	{ 0, 0, 0 }
 };
 
@@ -78,6 +79,7 @@ int main(int argc, char *argv[])
 		else if (c == 'K') opt.mini_batch_size = mg_parse_num(o.arg);
 		else if (c == 301) print_gfa = 1;
 		else if (c == 302) mg_dbg_flag |= MG_DBG_NO_KALLOC;
+		else if (c == 303) opt.flag |= MG_M_VERTEX_COOR;
 		else if (c == 'n') {
 			opt.min_gc_cnt = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
