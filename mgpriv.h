@@ -61,6 +61,8 @@ void mg_gchain_free(mg_gchains_t *gs);
 
 void mg_gchain_sort_by_score(void *km, mg_gchains_t *gcs);
 void mg_gchain_set_parent(void *km, float mask_level, int n, mg_gchain_t *r, int sub_diff, int hard_mask_level);
+int mg_gchain_flt_sub(float pri_ratio, int min_diff, int best_n, int n, mg_gchain_t *r);
+void mg_gchain_drop_flt(mg_gchains_t *gcs);
 void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score);
 
 void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t *lc, const mg128_t *a, const char *qname);

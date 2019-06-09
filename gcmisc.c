@@ -1,4 +1,6 @@
 #include <math.h>
+#include <assert.h>
+#include <string.h>
 #include "mgpriv.h"
 
 void mg_gchain_set_parent(void *km, float mask_level, int n, mg_gchain_t *r, int sub_diff, int hard_mask_level) // and compute mg_gchain_t::subsc
@@ -55,6 +57,51 @@ set_parent_test:
 	}
 	kfree(km, cov);
 	kfree(km, w);
+}
+
+int mg_gchain_flt_sub(float pri_ratio, int min_diff, int best_n, int n, mg_gchain_t *r)
+{
+	if (pri_ratio > 0.0f && n > 0) {
+		int i, k, n_2nd = 0;
+		for (i = k = 0; i < n; ++i) {
+			int p = r[i].parent;
+			if (p == i) { // primary
+				r[i].flt = 0, ++k;
+			} else if ((r[i].score >= r[p].score * pri_ratio || r[i].score + min_diff >= r[p].score) && n_2nd < best_n) {
+				if (!(r[i].qs == r[p].qs && r[i].qe == r[p].qe && r[i].ps == r[p].ps && r[i].pe == r[p].pe)) // not identical hits; TODO: check path as well
+					r[i].flt = 0, ++n_2nd, ++k;
+				else r[i].flt = 1;
+			} else r[i].flt = 1;
+		}
+		return k;
+	}
+	return n;
+}
+
+void mg_gchain_drop_flt(mg_gchains_t *gcs)
+{
+	int32_t i, n_gc, n_lc, n_a, n_lc0, n_a0;
+	n_gc = n_lc = n_a = 0;
+	n_lc0 = n_a0 = 0;
+	for (i = 0; i < gcs->n_gc; ++i) {
+		mg_gchain_t *r = &gcs->gc[i];
+		if (!r->flt) {
+			if (i > n_gc) {
+				memcpy(&gcs->a[n_a], &gcs->a[n_a0], r->n_anchor * sizeof(mg128_t));
+				memcpy(&gcs->lc[n_lc], &gcs->lc[n_lc0], r->cnt * sizeof(mg_llchain_t));
+				gcs->gc[n_gc] = gcs->gc[i];
+			}
+			++n_gc, n_lc += r->cnt, n_a += r->n_anchor;
+		}
+		n_lc0 += r->cnt, n_a0 += r->n_anchor;
+	}
+	assert(n_lc0 = gcs->n_lc && n_a0 == gcs->n_a);
+	gcs->n_gc = n_gc, gcs->n_lc = n_lc, gcs->n_a = n_a;
+	if (n_a != n_a0) {
+		KREALLOC(gcs->km, gcs->a, gcs->n_a);
+		KREALLOC(gcs->km, gcs->lc, gcs->n_lc);
+		KREALLOC(gcs->km, gcs->gc, gcs->n_gc);
+	}
 }
 
 void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score)

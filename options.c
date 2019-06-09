@@ -23,6 +23,8 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->min_gc_cnt = 3, mo->min_gc_score = 50;
 	mo->mask_level = 0.5f;
 	mo->sub_diff = 6;
+	mo->best_n = 5;
+	mo->pri_ratio = 0.8f;
 }
 
 void mg_ggopt_init(mg_ggopt_t *go)
@@ -40,6 +42,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mg_ggopt_init(go);
 	} else if (strcmp(preset, "ggsimple") == 0) {
 		go->algo = MG_G_GGSIMPLE;
+		mo->best_n = 0;
 	} else return -1;
 	return 0;
 }

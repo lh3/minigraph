@@ -13,6 +13,7 @@
 #define MG_M_REV_ONLY     0x200
 #define MG_M_HEAP_SORT    0x400
 #define MG_M_VERTEX_COOR  0x800
+#define MG_F_ALL_CHAINS   0x1000
 #define MG_M_COPY_COMMENT 0x10000
 #define MG_M_INDEPEND_SEG 0x20000
 #define MG_M_NO_QUAL      0x40000
@@ -44,6 +45,8 @@ typedef struct {
 	int min_gc_cnt, min_gc_score;
 	float mask_level;
 	int sub_diff;
+	int best_n;
+	float pri_ratio;
 } mg_mapopt_t;
 
 typedef struct {
@@ -80,7 +83,7 @@ typedef struct {
 	float div;
 	uint32_t hash;
 	int32_t subsc, n_sub;
-	int32_t mapq;
+	uint32_t mapq:8, flt:1, dummy:23;
 } mg_gchain_t;
 
 typedef struct {
