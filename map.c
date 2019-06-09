@@ -10,7 +10,7 @@
 
 struct mg_tbuf_s {
 	void *km;
-	int rep_len, frag_gap;
+	int frag_gap;
 };
 
 mg_tbuf_t *mg_tbuf_init(void)
@@ -254,7 +254,6 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		}
 	}
 	b->frag_gap = max_chain_gap_ref;
-	b->rep_len = rep_len;
 	kfree(b->km, mv.a);
 
 	lc = mg_lchain_gen(b->km, hash, qlen_sum, n_lc, u, a);
@@ -314,7 +313,7 @@ typedef struct {
 	const pipeline_t *p;
     int n_seq, n_frag;
 	mg_bseq1_t *seq;
-	int *seg_off, *n_seg, *rep_len, *frag_gap;
+	int *seg_off, *n_seg, *frag_gap;
 	mg_gchains_t **gcs;
 	mg_tbuf_t **buf;
 } step_t;
@@ -337,15 +336,12 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	if (s->p->opt->flag & MG_M_INDEPEND_SEG) {
 		for (j = 0; j < s->n_seg[i]; ++j) {
 			mg_map_frag(s->p->gi, 1, &qlens[j], &qseqs[j], &s->gcs[off+j], b, s->p->opt, s->seq[off+j].name);
-			s->rep_len[off + j] = b->rep_len;
 			s->frag_gap[off + j] = b->frag_gap;
 		}
 	} else {
 		mg_map_frag(s->p->gi, s->n_seg[i], qlens, qseqs, &s->gcs[off], b, s->p->opt, s->seq[off].name);
-		for (j = 0; j < s->n_seg[i]; ++j) {
-			s->rep_len[off + j] = b->rep_len;
+		for (j = 0; j < s->n_seg[i]; ++j)
 			s->frag_gap[off + j] = b->frag_gap;
-		}
 	}
 	/*
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
@@ -382,10 +378,9 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->buf = (mg_tbuf_t**)calloc(p->n_threads, sizeof(mg_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mg_tbuf_init();
-			s->seg_off = (int*)calloc(4 * s->n_seq, sizeof(int));
+			s->seg_off = (int*)calloc(3 * s->n_seq, sizeof(int));
 			s->n_seg = s->seg_off + s->n_seq; // n_seg, rep_len and frag_gap are allocated together with seg_off
-			s->rep_len = s->n_seg + s->n_seq;
-			s->frag_gap = s->rep_len + s->n_seq;
+			s->frag_gap = s->n_seg + s->n_seq;
 			s->gcs = KCALLOC(0, mg_gchains_t*, s->n_seq);
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mg_qname_same(s->seq[i-1].name, s->seq[i].name)) {
