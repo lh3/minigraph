@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
+	mg_ggopt_t gpt;
 	int i, c, n_threads = 4, print_gfa = 0;
 //	char *rg = 0;
 	char *s;
@@ -52,11 +53,11 @@ int main(int argc, char *argv[])
 	mg_verbose = 3;
 	liftrlimit();
 	mg_realtime0 = realtime();
-	mg_opt_set(0, &ipt, &opt);
+	mg_opt_set(0, &ipt, &opt, &gpt);
 
 	while ((c = ketopt(&o, argc, argv, 1, opt_str, long_options)) >= 0) { // test command line options and apply option -x/preset first
 		if (c == 'x') {
-			if (mg_opt_set(o.arg, &ipt, &opt) < 0) {
+			if (mg_opt_set(o.arg, &ipt, &opt, &gpt) < 0) {
 				fprintf(stderr, "[ERROR] unknown preset '%s'\n", o.arg);
 				return 1;
 			}
@@ -95,7 +96,7 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	if (mg_opt_check(&ipt, &opt) < 0)
+	if (mg_opt_check(&ipt, &opt, &gpt) < 0)
 		return 1;
 
 	if (argc == o.ind || fp_help == stdout) {
@@ -113,10 +114,13 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
+		fprintf(fp_help, "  Preset:\n");
+		fprintf(fp_help, "    -x STR       preset []\n");
+		fprintf(fp_help, "                 - ggsimple: simple algorithm for graph generation\n");
 		return fp_help == stdout? 0 : 1;
 	}
 
-	gi = mg_index_file(argv[o.ind], ipt.k, ipt.w, ipt.bucket_bits, ipt.flag, n_threads);
+	gi = mg_index_file(argv[o.ind], ipt.k, ipt.w, ipt.bucket_bits, n_threads);
 	if (gi == 0) {
 		fprintf(stderr, "[ERROR] failed to load the graph from file '%s'\n", argv[o.ind]);
 		return 1;
@@ -125,15 +129,6 @@ int main(int argc, char *argv[])
 		gfa_print(gi->g, stdout, 1);
 		goto free_gfa;
 	}
-
-#if 0
-	int sid = gfa_name2id(gi->g, "MTh0");
-	gfa_sub_t *sub;
-	if (sid < 0) abort();
-	sub = gfa_sub_from(0, gi->g, sid<<1|0, 5000);
-	gfa_sub_print(stdout, gi->g, sub);
-	gfa_sub_destroy(sub);
-#endif
 
 #if 0
 	int sid1 = gfa_name2id(gi->g, "MTh0");
@@ -150,8 +145,13 @@ int main(int argc, char *argv[])
 	free(path);
 #endif
 
-	for (i = o.ind + 1; i < argc; ++i)
-		mg_map_file(gi, argv[i], &opt, n_threads);
+	if (gpt.algo == MG_G_NONE) {
+		for (i = o.ind + 1; i < argc; ++i)
+			mg_map_file(gi, argv[i], &opt, n_threads);
+	} else {
+		for (i = o.ind + 1; i < argc; ++i)
+			mg_ggen1(gi, argv[i], &opt, &gpt, n_threads);
+	}
 
 free_gfa:
 	mg_idx_destroy(gi);

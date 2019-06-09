@@ -20,11 +20,13 @@
 
 #define MG_MAX_SEG        255
 
+#define MG_G_NONE         0
+#define MG_G_GGSIMPLE     1
+
 typedef struct { uint64_t x, y; } mg128_t;
 typedef struct { size_t n, m; mg128_t *a; } mg128_v;
 
 typedef struct {
-	uint64_t flag;
 	int w, k;
 	int bucket_bits;
 } mg_idxopt_t;
@@ -45,6 +47,7 @@ typedef struct {
 } mg_mapopt_t;
 
 typedef struct {
+	int algo;
 	int min_map_len;
 } mg_ggopt_t;
 
@@ -97,11 +100,11 @@ extern double mg_realtime0;
 extern "C" {
 #endif
 
-int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo);
-int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo);
+int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go);
+int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t *go);
 
-mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int flag, int n_threads);
-mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int flag, int n_threads);
+mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int n_threads);
+mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int n_threads);
 void mg_idx_destroy(mg_idx_t *gi);
 
 mg_tbuf_t *mg_tbuf_init(void);
@@ -109,6 +112,8 @@ void mg_tbuf_destroy(mg_tbuf_t *b);
 mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname);
 
 int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
+
+int mg_ggen1(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);
 
 #ifdef __cplusplus
 }

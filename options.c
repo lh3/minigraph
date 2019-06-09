@@ -25,16 +25,26 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->sub_diff = 6;
 }
 
-int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo)
+void mg_ggopt_init(mg_ggopt_t *go)
+{
+	memset(go, 0, sizeof(mg_ggopt_t));
+	go->algo = MG_G_NONE;
+	go->min_map_len = 50000;
+}
+
+int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go)
 {
 	if (preset == 0) {
 		mg_idxopt_init(io);
 		mg_mapopt_init(mo);
+		mg_ggopt_init(go);
+	} else if (strcmp(preset, "ggsimple") == 0) {
+		go->algo = MG_G_GGSIMPLE;
 	} else return -1;
 	return 0;
 }
 
-int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo)
+int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t *go)
 {
 	return 0;
 }

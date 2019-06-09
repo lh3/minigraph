@@ -7,7 +7,7 @@
 #include "bseq.h"
 
 typedef struct {
-	int n_processed, n_threads;
+	int n_threads;
 	const mg_mapopt_t *opt;
 	const mg_ggopt_t *go;
 	mg_bseq_file_t *fp;
@@ -39,8 +39,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		s->seq = mg_bseq_read(p->fp, 1ULL<<62, 0, 0, 0, &s->n_seq);
 		if (s->seq) {
 			s->p = p;
-			for (i = 0; i < s->n_seq; ++i)
-				s->seq[i].rid = p->n_processed++;
+			for (i = 0; i < s->n_seq; ++i) s->seq[i].rid = i;
 			s->buf = (mg_tbuf_t**)calloc(p->n_threads, sizeof(mg_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i) s->buf[i] = mg_tbuf_init();
 			s->gcs = KCALLOC(0, mg_gchains_t*, s->n_seq);

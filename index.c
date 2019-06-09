@@ -16,13 +16,13 @@ typedef struct mg_idx_bucket_s {
 	void *h;     // hash table indexing _p_ and minimizers appearing once
 } mg_idx_bucket_t;
 
-mg_idx_t *mg_idx_init(int k, int w, int b, int flag)
+mg_idx_t *mg_idx_init(int k, int w, int b)
 {
 	mg_idx_t *gi;
 	if (k*2 < b) b = k * 2;
 	if (w < 1) w = 1;
 	gi = KCALLOC(0, mg_idx_t, 1);
-	gi->w = w, gi->k = k, gi->b = b, gi->flag = flag;
+	gi->w = w, gi->k = k, gi->b = b;
 	gi->B = KCALLOC(0, mg_idx_bucket_t, 1<<b);
 	return gi;
 }
@@ -155,14 +155,14 @@ int mg_gfa_overlap(const gfa_t *g)
 	return 0;
 }
 
-mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int flag, int n_threads)
+mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int n_threads)
 {
 	mg_idx_t *gi;
 	mg128_v a = {0,0,0};
 	int i;
 
 	if (mg_gfa_overlap(g)) return 0;
-	gi = mg_idx_init(k, w, b, flag);
+	gi = mg_idx_init(k, w, b);
 	gi->g = g;
 
 	for (i = 0; i < g->n_seg; ++i) {
@@ -176,10 +176,10 @@ mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int flag, int n_threads)
 	return gi;
 }
 
-mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int flag, int n_threads)
+mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int n_threads)
 {
 	gfa_t *g;
 	g = gfa_read(fn);
 	if (g == 0) return 0;
-	return mg_index_gfa(g, k, w, b, flag, n_threads);
+	return mg_index_gfa(g, k, w, b, n_threads);
 }
