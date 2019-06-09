@@ -77,7 +77,7 @@ static inline void kseq2bseq(kseq_t *ks, mg_bseq1_t *s, int with_qual, int with_
 	s->l_seq = ks->seq.l;
 }
 
-mg_bseq1_t *mg_bseq_read(mg_bseq_file_t *fp, int chunk_size, int with_qual, int with_comment, int frag_mode, int *n_)
+mg_bseq1_t *mg_bseq_read(mg_bseq_file_t *fp, int64_t chunk_size, int with_qual, int with_comment, int frag_mode, int *n_)
 {
 	int64_t size = 0;
 	int ret;
@@ -116,7 +116,7 @@ mg_bseq1_t *mg_bseq_read(mg_bseq_file_t *fp, int chunk_size, int with_qual, int 
 	return a.a;
 }
 
-mg_bseq1_t *mg_bseq_read_frag(int n_fp, mg_bseq_file_t **fp, int chunk_size, int with_qual, int with_comment, int *n_)
+mg_bseq1_t *mg_bseq_read_frag(int n_fp, mg_bseq_file_t **fp, int64_t chunk_size, int with_qual, int with_comment, int *n_)
 {
 	int i;
 	int64_t size = 0;

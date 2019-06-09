@@ -46,7 +46,7 @@ typedef struct {
 
 typedef struct {
 	int min_map_len;
-} mg_gopt_t;
+} mg_ggopt_t;
 
 typedef struct {
 	int32_t b, w, k, flag;
@@ -103,6 +103,8 @@ int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo);
 mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int flag, int n_threads);
 mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int flag, int n_threads);
 void mg_idx_destroy(mg_idx_t *gi);
+
+mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname);
 
 int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
 

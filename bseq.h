@@ -18,8 +18,8 @@ typedef struct {
 
 mg_bseq_file_t *mg_bseq_open(const char *fn);
 void mg_bseq_close(mg_bseq_file_t *fp);
-mg_bseq1_t *mg_bseq_read(mg_bseq_file_t *fp, int chunk_size, int with_qual, int with_comment, int frag_mode, int *n_);
-mg_bseq1_t *mg_bseq_read_frag(int n_fp, mg_bseq_file_t **fp, int chunk_size, int with_qual, int with_comment, int *n_);
+mg_bseq1_t *mg_bseq_read(mg_bseq_file_t *fp, int64_t chunk_size, int with_qual, int with_comment, int frag_mode, int *n_);
+mg_bseq1_t *mg_bseq_read_frag(int n_fp, mg_bseq_file_t **fp, int64_t chunk_size, int with_qual, int with_comment, int *n_);
 int mg_bseq_eof(mg_bseq_file_t *fp);
 
 extern unsigned char seq_nt4_table[256];
