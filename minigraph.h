@@ -45,6 +45,10 @@ typedef struct {
 } mg_mapopt_t;
 
 typedef struct {
+	int min_map_len;
+} mg_gopt_t;
+
+typedef struct {
 	int32_t b, w, k, flag;
 	gfa_t *g;
 	struct mg_idx_bucket_s *B; // index (hidden)

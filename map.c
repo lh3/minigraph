@@ -304,16 +304,13 @@ typedef struct {
 	mg_bseq_file_t **fp;
 	const mg_idx_t *gi;
 	kstring_t str;
-
-	int n_parts;
-	uint32_t *rid_shift;
 } pipeline_t;
 
 typedef struct {
 	const pipeline_t *p;
     int n_seq, n_frag;
 	mg_bseq1_t *seq;
-	int *seg_off, *n_seg, *frag_gap;
+	int *seg_off, *n_seg;
 	mg_gchains_t **gcs;
 	mg_tbuf_t **buf;
 } step_t;
@@ -334,14 +331,10 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		qseqs[j] = s->seq[off + j].seq;
 	}
 	if (s->p->opt->flag & MG_M_INDEPEND_SEG) {
-		for (j = 0; j < s->n_seg[i]; ++j) {
+		for (j = 0; j < s->n_seg[i]; ++j)
 			mg_map_frag(s->p->gi, 1, &qlens[j], &qseqs[j], &s->gcs[off+j], b, s->p->opt, s->seq[off+j].name);
-			s->frag_gap[off + j] = b->frag_gap;
-		}
 	} else {
 		mg_map_frag(s->p->gi, s->n_seg[i], qlens, qseqs, &s->gcs[off], b, s->p->opt, s->seq[off].name);
-		for (j = 0; j < s->n_seg[i]; ++j)
-			s->frag_gap[off + j] = b->frag_gap;
 	}
 	/*
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
@@ -378,9 +371,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->buf = (mg_tbuf_t**)calloc(p->n_threads, sizeof(mg_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mg_tbuf_init();
-			s->seg_off = (int*)calloc(3 * s->n_seq, sizeof(int));
+			s->seg_off = (int*)calloc(2 * s->n_seq, sizeof(int));
 			s->n_seg = s->seg_off + s->n_seq; // n_seg, rep_len and frag_gap are allocated together with seg_off
-			s->frag_gap = s->n_seg + s->n_seq;
 			s->gcs = KCALLOC(0, mg_gchains_t*, s->n_seq);
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mg_qname_same(s->seq[i-1].name, s->seq[i].name)) {
