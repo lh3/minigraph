@@ -116,7 +116,7 @@ mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b
 
 int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
 
-int mg_ggen1(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);
+int mg_ggen(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);
 
 #ifdef __cplusplus
 }

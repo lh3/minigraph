@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 			mg_map_file(gi, argv[i], &opt, n_threads);
 	} else {
 		for (i = o.ind + 1; i < argc; ++i)
-			mg_ggen1(gi, argv[i], &opt, &gpt, n_threads);
+			mg_ggen(gi, argv[i], &opt, &gpt, n_threads);
 	}
 
 free_gfa:

@@ -70,7 +70,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-int mg_ggen1(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads)
+int mg_ggen(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads)
 {
 	pipeline_t pl;
 	memset(&pl, 0, sizeof(pipeline_t));
