@@ -49,6 +49,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 		mg_lchain_t *r = &lc[i];
 		gc_frag_t *ai = &a[i];
 		int32_t is_isolated = 0;
+		r->dist_pre = -1;
 		if (r->rs > max_dist_g && g->seg[r->v>>1].len - r->re > max_dist_g)
 			is_isolated = 1;
 		ai->srt = (uint32_t)is_isolated<<31 | r->qe;
@@ -75,7 +76,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 		gc_frag_t *ai = &a[i];
 		mg_lchain_t *li = &lc[ai->i];
 		int32_t max_f = li->score;
-		int32_t max_j = -1;
+		int32_t max_j = -1, max_d = -1;
 		int32_t x = li->qs + bw;
 		while (j_st < i && a[j_st].srt + max_dist_q < li->qs) ++j_st;
 		if (x > qlen) x = qlen;
@@ -95,7 +96,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 			q->target_dist = mg_target_dist(g, lj, li);
 			if (q->target_dist < 0) q->target_dist = 0;
 		}
-		fprintf(stderr, "[src:%d] q_end=%d, src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, ai->srt, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
+		//fprintf(stderr, "[src:%d] q_end=%d, src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, ai->srt, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
 		gfa_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, 0);
 		for (j = 0; j < n_dst; ++j) {
 			gfa_path_dst_t *dj = &dst[j];
@@ -108,10 +109,11 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 			sc = li->score;
 			sc -= (int32_t)(gap * 0.2) + (log_gap >> 1);
 			sc += f[dj->meta];
-			fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc);
-			if (sc > max_f) max_f = sc, max_j = dj->meta;
+			//fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc);
+			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist;
 		}
 		f[i] = max_f, p[i] = max_j;
+		li->dist_pre = max_d;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
 	}
 	kfree(km, dst);
@@ -272,9 +274,10 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 				int32_t s, n_pathv;
 				gfa_pathv_t *p;
 				dst.v = l0->v ^ 1;
-				dst.target_dist = mg_target_dist(g, l0, l1);
+				assert(l1->dist_pre >= 0);
+				dst.target_dist = l1->dist_pre;
 				p = gfa_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, &n_pathv);
-				fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
+				//fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
 				assert(n_pathv > 0);
 				for (s = 1; s < n_pathv - 1; ++s) {
 					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);

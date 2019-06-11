@@ -66,7 +66,7 @@ typedef struct {
 	int32_t off, cnt;
 	uint32_t v;
 	int32_t rs, re, qs, qe;
-	int32_t score;
+	int32_t score, dist_pre;
 } mg_lchain_t;
 
 typedef struct {
