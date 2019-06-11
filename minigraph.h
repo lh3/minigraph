@@ -51,6 +51,7 @@ typedef struct {
 
 typedef struct {
 	int algo;
+	int min_mapq;
 	int min_map_len;
 	int min_depth_len;
 } mg_ggopt_t;

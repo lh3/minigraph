@@ -45,7 +45,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
 			const mg_gchain_t *gc = &gt->gc[i];
-			if (gc->blen >= opt->min_depth_len)
+			if (gc->blen >= opt->min_depth_len && gc->mapq >= opt->min_mapq)
 				for (j = 0; j < gc->cnt; ++j)
 					++scnt[gt->lc[gc->off + j].v>>1];
 		}
@@ -61,7 +61,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
 			const mg_gchain_t *gc = &gt->gc[i];
-			if (gc->blen < opt->min_depth_len) continue;
+			if (gc->blen < opt->min_depth_len || gc->mapq < opt->min_mapq) continue;
 			for (j = 0; j < gc->cnt; ++j) {
 				const mg_llchain_t *lc = &gt->lc[gc->off + j];
 				gg_intv_t *p;
@@ -88,6 +88,15 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	for (i = 0; i < g->n_seg; ++i) {
 		radix_sort_gg_intv(&intv[soff[i]], &intv[soff[i+1]]);
 		scnt[i] = gg_intv_index(&intv[soff[i]], soff[i+1] - soff[i]); // scnt[] reused for height
+	}
+
+	// extract poorly regions
+	for (t = 0; t < n_seq; ++t) {
+		const mg_gchains_t *gt = gcs[t];
+		for (i = 0; i < gt->n_gc; ++i) {
+			const mg_gchain_t *gc = &gt->gc[i];
+			if (gc->blen < opt->min_map_len || gc->mapq < opt->min_mapq) continue;
+		}
 	}
 
 	kfree(km, scnt);

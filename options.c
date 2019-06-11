@@ -33,6 +33,7 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->algo = MG_G_NONE;
 	go->min_map_len = 50000;
 	go->min_depth_len = 10000;
+	go->min_mapq = 5;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go)
