@@ -54,7 +54,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		for (i = 0; i < p->n_threads; ++i) mg_tbuf_destroy(s->buf[i]);
 		free(s->buf);
 		if (!(mg_dbg_flag & MG_DBG_NO_KALLOC)) km = km_init();
-		//mg_ggsimple(km, p->go, p->gi->g, s->n_seq, s->seq, s->gcs);
+		mg_ggsimple(km, p->go, p->gi->g, s->n_seq, s->seq, s->gcs);
 		for (i = 0; i < s->n_seq; ++i) {
 			mg_bseq1_t *t = &s->seq[i];
 			mg_write_paf(&p->str, p->gi->g, s->gcs[i], t->l_seq, t->name, p->opt->flag, km);

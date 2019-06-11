@@ -75,6 +75,16 @@ threads when mapping (the extra thread is for I/O, which is frequently idle and
 takes little CPU time).
 .B --version
 Print version number to stdout
+.SS Graph generation options
+.TP 10
+.BI -l \ NUM
+Minimum chain length to consider [50k]
+.TP
+.BI -d \ NUM
+Minimum chain length for depth calculation [10k]
+.TP
+.BI -q \ INT
+Minimum mapping quality [5]
 .SS Preset options
 .SS Miscellaneous options
 .TP 10

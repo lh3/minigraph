@@ -39,7 +39,7 @@ static inline int64_t mg_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:P";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -81,6 +81,9 @@ int main(int argc, char *argv[])
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'N') opt.best_n = mg_parse_num(o.arg);
 		else if (c == 'P') opt.flag |= MG_F_ALL_CHAINS;
+		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
+		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
+		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 301) print_gfa = 1;
 		else if (c == 302) mg_dbg_flag |= MG_DBG_NO_KALLOC;
 		else if (c == 303) opt.flag |= MG_M_VERTEX_COOR;
@@ -115,6 +118,10 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -m INT[,INT] minimal graph/linear chaining score [%d,%d]\n", opt.min_gc_score, opt.min_lc_score);
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(fp_help, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
+		fprintf(fp_help, "  Graph generation:\n");
+		fprintf(fp_help, "    -q INT       min mapping quality [%d]\n", gpt.min_mapq);
+		fprintf(fp_help, "    -l NUM       min alignment length [%d]\n", gpt.min_map_len);
+		fprintf(fp_help, "    -d NUM       min alignment length for depth calculation [%d]\n", gpt.min_depth_len);
 		fprintf(fp_help, "  Input/output:\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");

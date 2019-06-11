@@ -62,7 +62,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	soff = KMALLOC(km, int32_t, g->n_seg + 1);
 	for (soff[0] = 0, i = 1; i <= g->n_seg; ++i)
 		soff[i] = soff[i - 1] + scnt[i - 1];
-	memcpy(scnt, 0, 4 * g->n_seg);
+	memset(scnt, 0, 4 * g->n_seg);
 	intv = KMALLOC(km, gg_intv_t, soff[g->n_seg]);
 	sum_acnt = sum_alen = 0;
 	for (t = 0; t < n_seq; ++t) {
@@ -80,7 +80,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					q = &gt->a[lc->off + lc->cnt - 1];
 					re = (int32_t)q->x;
 					assert(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len);
-					sum_alen += re - rs, sum_acnt += (q->x>>30) - (gt->a[lc->off].x>>32) + 1;
+					sum_alen += re - rs, sum_acnt += (q->x>>32) - (gt->a[lc->off].x>>32) + 1;
 					if (lc->v&1)
 						tmp = rs, rs = g->seg[lc->v>>1].len - 1 - re, re = g->seg[lc->v>>1].len - 1 - tmp;
 				} else rs = 0, re = g->seg[lc->v>>1].len;
@@ -92,6 +92,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 		}
 	}
 	a_dens = (double)sum_acnt / sum_alen;
+	fprintf(stderr, "%g\n", a_dens);
 
 	// sort and index
 	for (i = 0; i < g->n_seg; ++i) {
