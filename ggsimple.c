@@ -37,7 +37,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 {
 	gfa_t *h = 0;
 	int32_t t, i, j, *scnt, *soff, max_acnt;
-	int64_t sum_acnt, sum_alen;
+	int64_t sum_acnt, sum_alen, *sc;
 	gg_intv_t *intv;
 	double a_dens;
 
@@ -92,15 +92,15 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 		}
 	}
 	a_dens = (double)sum_acnt / sum_alen;
-	fprintf(stderr, "%g\n", a_dens);
 
-	// sort and index
+	// sort and index intervals
 	for (i = 0; i < g->n_seg; ++i) {
 		radix_sort_gg_intv(&intv[soff[i]], &intv[soff[i+1]]);
 		scnt[i] = gg_intv_index(&intv[soff[i]], soff[i+1] - soff[i]); // scnt[] reused for height
 	}
 
 	// extract poorly regions
+	sc = KMALLOC(km, int64_t, max_acnt);
 	for (t = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
@@ -108,15 +108,27 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 			int32_t off_a, off_l;
 			if (gc->blen < opt->min_map_len || gc->mapq < opt->min_mapq) continue;
 			assert(gc->cnt > 0);
-			off_l = 0, off_a = gt->lc[gc->off].off;
-			for (j = 0; j < gc->n_anchor; ++j, ++off_a) {
-				if (off_a >= gt->lc[off_l].off) { // we are at the beginning of the next lchain
-					++off_l;
+			off_l = gc->off;
+			off_a = gt->lc[gc->off].off + 1;
+			for (j = 1; j < gc->n_anchor; ++j, ++off_a) {
+				const mg128_t *q = &gt->a[off_a - 1], *p = &gt->a[off_a];
+				const mg_llchain_t *lc = &gt->lc[off_l];
+				int32_t pd, qd = (int32_t)p->y - (int32_t)q->y, c = (int32_t)(p->x>>32) - (int32_t)(q->x>>32) - 1;
+				if (off_a == lc->off + lc->cnt) { // we are at the end of the current lchain
+					pd = g->seg[lc->v>>1].len - (int32_t)q->x - 1;
+					for (++off_l; off_l < gc->off + gc->cnt && gt->lc[off_l].cnt == 0; ++off_l)
+						pd += g->seg[gt->lc[off_l].v>>1].len;
+					assert(off_l < gc->off + gc->cnt);
+					pd += (int32_t)p->x + 1;
+				} else pd = (int32_t)p->x - (int32_t)q->x;
+				if (pd == qd && c == 0) { // a match
+				} else if (pd > qd) {
 				} else {
 				}
 			}
 		}
 	}
+	kfree(km, sc);
 
 	kfree(km, scnt);
 	kfree(km, soff);
