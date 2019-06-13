@@ -35,6 +35,7 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->min_depth_len = 10000;
 	go->min_mapq = 5;
 	go->min_var_len = 250;
+	go->match_pen = 5;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go)

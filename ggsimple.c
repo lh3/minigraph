@@ -1,6 +1,7 @@
 #include "mgpriv.h"
 #include "bseq.h"
 #include "ksort.h"
+#include "mss.h"
 
 typedef struct {
 	uint32_t st, en:31, rev:1;
@@ -108,8 +109,10 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 			int32_t off_a, off_l;
 			if (gc->blen < opt->min_map_len || gc->mapq < opt->min_mapq) continue;
 			assert(gc->cnt > 0);
+
+			// fill sc[]. This part achieves a similar goal to the one in mg_gchain_extra(). It makes more assumptions, but is logically simpler.
 			off_l = gc->off;
-			off_a = gt->lc[gc->off].off + 1;
+			off_a = gt->lc[off_l].off + 1;
 			for (j = 1; j < gc->n_anchor; ++j, ++off_a) {
 				const mg128_t *q = &gt->a[off_a - 1], *p = &gt->a[off_a];
 				const mg_llchain_t *lc = &gt->lc[off_l];
@@ -121,10 +124,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					assert(off_l < gc->off + gc->cnt);
 					pd += (int32_t)p->x + 1;
 				} else pd = (int32_t)p->x - (int32_t)q->x;
-				if (pd == qd && c == 0) { // a match
-				} else if (pd > qd) {
-				} else {
-				}
+				sc[j - 1] = pd == qd && c == 0? -opt->match_pen : pd > qd? (int64_t)(c + (pd - qd) * a_dens + .499) : c;
 			}
 		}
 	}

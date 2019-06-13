@@ -52,9 +52,8 @@ typedef struct {
 typedef struct {
 	int algo;
 	int min_mapq;
-	int min_map_len;
-	int min_depth_len;
-	int min_var_len;
+	int min_map_len, min_depth_len;
+	int min_var_len, match_pen;
 } mg_ggopt_t;
 
 typedef struct {
