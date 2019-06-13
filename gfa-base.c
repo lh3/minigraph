@@ -340,6 +340,7 @@ int32_t gfa_add_pname(gfa_t *g, const char *pname)
 void gfa_set_persistent(gfa_t *g)
 {
 	uint32_t i;
+	g->max_rank = 0;
 	for (i = 0; i < g->n_pname; ++i)
 		free(g->pname[i]);
 	free(g->pname);
@@ -356,5 +357,6 @@ void gfa_set_persistent(gfa_t *g)
 		s->ppos = gfa_aux_get_int(ss);
 		sr = gfa_aux_get(s->aux.l_aux, s->aux.aux, "SR");
 		s->rank = sr == 0? 0 : gfa_aux_get_int(sr);
+		if (s->rank > g->max_rank) g->max_rank = s->rank;
 	}
 }
