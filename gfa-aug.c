@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "gfa-priv.h"
+#include "ksort.h"
 
 typedef struct {
 	uint32_t side;
@@ -11,12 +12,13 @@ KRADIX_SORT_INIT(split, gfa_split_t, split_key, 4)
 
 void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char **name, const char **seq)
 {
-	int32_t i, j, k, *scnt, *soff, *pos, n_ctg_seg, n_old_seg, n_seg, *ins2seg;
-	uint32_t *o2n;
+	int32_t i, j, k, *scnt, *soff, n_ctg_seg, n_old_seg, n_seg, *ins2seg;
 	gfa_split_t *sp;
 	gfa_seg_t *seg;
+	char buf[16];
+	uint64_t *ins_side;
 
-	if (n_ins <= 0 || n_ctg <= 0) return 0;
+	if (n_ins <= 0 || n_ctg <= 0) return;
 
 	// set soff[]
 	GFA_CALLOC(scnt, g->n_seg);
@@ -35,9 +37,9 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 			uint32_t vlen = g->seg[p->v[k]>>1].len;
 			gfa_split_t *q = &sp[soff[p->v[k]>>1] + scnt[p->v[k]>>1]];
 			q->ins = i, q->end = k;
-			q->side = (p->v[k]&1? vlen - q->voff[k] : q->voff[k]) << 1 | ((p->v[k]&1) ^ k);
-			assert((q->side != 0<<1|0) && (q->side != vlen<<1|1)); // not possible to link such sides
-			++scnt[q->v[k]>>1];
+			q->side = (p->v[k]&1? vlen - p->voff[k] : p->voff[k]) << 1 | ((p->v[k]&1) ^ k);
+			assert(q->side != (0<<1|0) && q->side != (vlen<<1|1)); // not possible to link such sides
+			++scnt[p->v[k]>>1];
 		}
 		if (p->coff[1] > p->coff[0])
 			++n_ctg_seg;
@@ -46,7 +48,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	// sort
 	for (j = 0, n_old_seg = 0; j < g->n_seg; ++j)
 		if (soff[j+1] - soff[j] > 1)
-			radix_sort(split, &sp[soff[j]], &sp[soff[j+1]]);
+			radix_sort_split(&sp[soff[j]], &sp[soff[j+1]]);
 
 	// precompute the number of segments after split
 	GFA_BZERO(scnt, g->n_seg);
@@ -68,40 +70,63 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	GFA_MALLOC(ins2seg, n_ins);
 	for (i = 0, k = n_old_seg; i < n_ins; ++i) {
 		const gfa_ins_t *p = &ins[i];
-		char buf[16];
-		gfa_seg_t *s;
+		gfa_seg_t *t;
 		ins2seg[i] = -1;
 		if (p->coff[1] <= p->coff[0]) continue; // no new segment created
-		ins2seq[i] = k;
-		s = &seg[k++];
+		ins2seg[i] = k;
+		t = &seg[k++];
 		snprintf(buf, 15, "v%d", k);
-		s->name = strdup(buf);
-		GFA_MALLOC(s->seq, p->coff[1] - p->coff[0] + 1);
+		t->name = strdup(buf);
+		GFA_MALLOC(t->seq, p->coff[1] - p->coff[0] + 1);
 		for (j = 0; j < p->coff[1] - p->coff[0]; ++j)
-			s->seq[j] = seq[i][p->coff[0] + j];
-		s->seq[j] = 0;
-		s->len = j;
-		s->pnid = gfa_add_pname(g, name[i]);
-		s->ppos = p->coff[0];
-		s->rank = g->max_rank + 1; // TODO: to deal with SN/SS/SR tags somewhere
+			t->seq[j] = seq[i][p->coff[0] + j];
+		t->seq[j] = 0;
+		t->len = j;
+		t->pnid = gfa_add_pname(g, name[i]);
+		t->ppos = p->coff[0];
+		t->rank = g->max_rank + 1; // TODO: to deal with SN/SS/SR tags somewhere
 	}
 
-	// populate seg[]
-	GFA_MALLOC(o2n, g->n_seg * 2);
+	// compute ins_side[]
+	GFA_CALLOC(ins_side, n_ins);
 	for (j = 0, k = 0; j < g->n_seg; ++j) {
-		int32_t i0, l, off = 0, k0 = k;
+		int32_t i0, l, off = 0;
+		gfa_seg_t *s = &g->seg[j];
+		gfa_seg_t *t = &seg[k]; // this is so far a placeholder
+		snprintf(buf, 15, "v%d", k);
+		t->name = strdup(buf);
+		t->pnid = s->pnid, t->ppos = s->ppos, t->rank = s->rank;
 		for (i0 = soff[j], i = i0 + 1; i <= soff[j+1]; ++i) {
 			if (i == soff[j+1] || sp[i].side>>1 != sp[i0].side>>1) {
-				gfa_seg_t *s = &seg[k];
+				gfa_split_t *q0 = &sp[i0];
 				for (l = i0; l < i; ++l) {
+					gfa_split_t *q = &sp[l];
+					int shift = q->end? 32 : 0;
+					if (q->side&1) ins_side[q->ins] |= (uint64_t)(k << 1 | 1) << shift;
+					else ins_side[q->ins] |= (uint64_t)((k - 1) << 1) << shift;
+				}
+				if (q0->side>>1 != 0 && q0->side>>1 != g->seg[j].len) { // create a new segment
+					t->len = (q0->side>>1) - off;
+					GFA_MALLOC(t->seq, t->len + 1);
+					memcpy(t->seq, &s->seq[off], t->len);
+					t->seq[t->len] = 0;
+					off += t->len;
+					t = &seg[k++]; // create a new segment
+					snprintf(buf, 15, "v%d", k);
+					t->name = strdup(buf);
+					t->pnid = s->pnid, t->ppos = s->ppos + off, t->rank = s->rank;
 				}
 				i0 = i;
 			}
 		}
-		o2n[(uint32_t)j<<1] = (uint32_t)n_old_seg<<1;
-		o2n[(uint32_t)j<<1|1] = (uint32_t)(n_old_seg-1)<<1|1;
+		t->len = s->len - off;
+		GFA_MALLOC(t->seq, t->len + 1);
+		memcpy(t->seq, &s->seq[off], t->len);
+		t->seq[t->len] = 0;
 	}
 	assert(k == n_old_seg);
 
 	free(sp); free(soff); free(scnt);
+	gfa_arc_sort(g);
+	gfa_arc_index(g);
 }
