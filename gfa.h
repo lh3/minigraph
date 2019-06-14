@@ -117,8 +117,8 @@ typedef struct {
 
 typedef struct {
 	uint32_t v[2];
-	int32_t vpos[2];
-	int32_t cpos[2], ctg;
+	int32_t voff[2];
+	int32_t coff[2], ctg;
 } gfa_ins_t;
 
 extern int gfa_verbose;
@@ -166,15 +166,6 @@ void gfa_sub_print_path(FILE *fp, const gfa_t *g, int32_t n, gfa_pathv_t *path);
 #ifndef kroundup32
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 #endif
-
-#define GFA_MALLOC(ptr, len) ((ptr) = (__typeof__(ptr))malloc((len) * sizeof(*(ptr))))
-#define GFA_CALLOC(ptr, len) ((ptr) = (__typeof__(ptr))calloc((len), sizeof(*(ptr))))
-#define GFA_REALLOC(ptr, len) ((ptr) = (__typeof__(ptr))realloc((ptr), (len) * sizeof(*(ptr))))
-#define GFA_BZERO(ptr, len) memset((ptr), 0, (len) * sizeof(*(ptr)))
-#define GFA_EXPAND(a, m) do { \
-		(m) = (m)? (m) + ((m)>>1) : 16; \
-		GFA_REALLOC((a), (m)); \
-	} while (0)
 
 static inline void gfa_arc_del(gfa_t *g, uint32_t v, uint32_t w, int del)
 {
