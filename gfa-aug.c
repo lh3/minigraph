@@ -10,14 +10,27 @@ typedef struct {
 #define split_key(p) ((p).side)
 KRADIX_SORT_INIT(split, gfa_split_t, split_key, 4)
 
+static inline void create_first_arc(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w)
+{
+	gfa_arc_t *a;
+	if (g->n_arc == g->m_arc) GFA_EXPAND(g->arc, g->m_arc);
+	a = &g->arc[g->n_arc++];
+	a->v_lv = (uint64_t)v<<32 | seg[v>>1].len;
+	a->w = w;
+	a->lw = seg[w>>1].len;
+	a->ov = a->ow = 0;
+	a->link_id = g->n_arc - 1;
+	a->del = a->comp = 0;
+}
+
 void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char **name, const char **seq)
 {
-	int32_t i, j, k, *scnt, *soff, n_ctg_seg, n_old_seg, n_seg, *ins2seg;
+	int32_t i, j, k, *scnt, *soff, n_ctg_seg, n_old_seg, n_seg;
 	gfa_split_t *sp;
 	gfa_seg_t *seg;
 	char buf[16];
 	uint32_t *old2new;
-	uint64_t t, n_old_arc, *ins_side;
+	uint64_t t, n_old_arc = g->n_arc, *ins_side;
 
 	if (n_ins <= 0 || n_ctg <= 0) return;
 
@@ -64,32 +77,10 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		n_old_seg += k + 1;
 	}
 
-	// create newly inserted segments
+	// compute ins_side[] and split old segments
 	n_seg = n_old_seg + n_ctg_seg;
 	GFA_CALLOC(seg, n_seg);
-	GFA_MALLOC(ins2seg, n_ins);
-	for (i = 0, k = n_old_seg; i < n_ins; ++i) {
-		const gfa_ins_t *p = &ins[i];
-		gfa_seg_t *t;
-		ins2seg[i] = -1;
-		if (p->coff[1] <= p->coff[0]) continue; // no new segment created
-		ins2seg[i] = k;
-		t = &seg[k++];
-		snprintf(buf, 15, "v%d", k);
-		t->name = strdup(buf);
-		GFA_MALLOC(t->seq, p->coff[1] - p->coff[0] + 1);
-		for (j = 0; j < p->coff[1] - p->coff[0]; ++j)
-			t->seq[j] = seq[i][p->coff[0] + j];
-		t->seq[j] = 0;
-		t->len = j;
-		t->pnid = gfa_add_pname(g, name[i]);
-		t->ppos = p->coff[0];
-		t->rank = g->max_rank + 1; // TODO: to deal with SN/SS/SR tags somewhere
-	}
-
-	// compute ins_side[] and split old segments
 	g->is_srt = g->is_symm = 0;
-	n_old_arc = g->n_arc;
 	GFA_CALLOC(ins_side, n_ins);
 	GFA_MALLOC(old2new, g->n_seg * 2);
 	for (j = 0, k = 0; j < g->n_seg; ++j) {
@@ -133,19 +124,12 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		old2new[j<<1|0] = (uint32_t)(k - 1) << 1 | 0;
 		old2new[j<<1|1] = (uint32_t)k0 << 1 | 1;
 		// add new arcs between newly created segments
-		for (i = 0; i < k - k0 - 1; ++i) {
-			gfa_arc_t *a;
-			if (g->n_arc == g->m_arc) GFA_EXPAND(g->arc, g->m_arc);
-			a = &g->arc[g->n_arc++];
-			a->ov = a->ow = 0;
-			a->link_id = g->n_arc - 1;
-			a->del = a->comp = 0;
-			a->v_lv = (uint64_t)(k0 + i) << 33 | seg[k0 + i].len;
-			a->w = (uint32_t)(k0 + i + 1) << 1;
-			a->lw = seg[k0 + i + 1].len;
-		}
+		for (i = 0; i < k - k0 - 1; ++i)
+			create_first_arc(g, seg, (uint32_t)(k0+i)<<1, (uint32_t)(k0+i+1)<<1);
 	}
 	assert(k == n_old_seg);
+	free(soff);
+	free(sp);
 
 	// update existing g->arc[]
 	for (t = 0; t < n_old_arc; ++t) {
@@ -157,7 +141,36 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	}
 	free(old2new);
 
-	free(sp); free(soff);
+	// create newly inserted segments
+	for (i = 0, k = n_old_seg; i < n_ins; ++i) {
+		const gfa_ins_t *p = &ins[i];
+		if (p->coff[0] < p->coff[1]) {
+			gfa_seg_t *t = &seg[k++];
+			snprintf(buf, 15, "v%d", k);
+			t->name = strdup(buf);
+			GFA_MALLOC(t->seq, p->coff[1] - p->coff[0] + 1);
+			for (j = 0; j < p->coff[1] - p->coff[0]; ++j)
+				t->seq[j] = seq[i][p->coff[0] + j];
+			t->seq[j] = 0;
+			t->len = j;
+			t->pnid = gfa_add_pname(g, name[i]);
+			t->ppos = p->coff[0];
+			t->rank = g->max_rank + 1; // TODO: to deal with SN/SS/SR tags somewhere
+			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)(k-1)<<1);
+			create_first_arc(g, seg, (uint32_t)(k-1)<<1, (uint32_t)ins_side[i]);
+		} else {
+			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)ins_side[i]);
+		}
+	}
+	free(ins_side);
+
+	// update *g
+	for (j = 0; j < g->n_seg; ++j)
+		free(g->seg[j].aux.aux);
+	free(g->seg);
+	g->seg = seg, g->n_seg = g->m_seg = n_seg;
+	GFA_REALLOC(g->arc_aux, g->m_arc);
+	GFA_BZERO(&g->arc_aux[n_old_arc], g->m_arc - n_old_arc);
 	gfa_arc_sort(g);
 	gfa_arc_index(g);
 }
