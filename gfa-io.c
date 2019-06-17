@@ -149,19 +149,19 @@ int gfa_parse_S(gfa_t *g, char *s)
 			uint8_t *s_SN = 0, *s_SS = 0, *s_SR = 0;
 			s_SN = gfa_aux_get(l_aux, aux, "SN");
 			if (s_SN && *s_SN == 'Z') { // then parse stable tags
-				s->pnid = gfa_add_pname(g, (char*)(s_SN + 1)), s->ppos = 0, s->rank = 0;
+				s->pnid = gfa_add_pname(g, (char*)(s_SN + 1)), s->ppos = 0;
 				l_aux = gfa_aux_del(l_aux, aux, s_SN);
 				s_SS = gfa_aux_get(l_aux, aux, "SS");
 				if (s_SS && *s_SS == 'i') {
 					s->ppos = *(int32_t*)(s_SS + 1);
 					l_aux = gfa_aux_del(l_aux, aux, s_SS);
 				}
-				s_SR = gfa_aux_get(l_aux, aux, "SR");
-				if (s_SR && *s_SR == 'i') {
-					s->rank = *(int32_t*)(s_SR + 1);
-					if (s->rank > g->max_rank) g->max_rank = s->rank;
-					l_aux = gfa_aux_del(l_aux, aux, s_SR);
-				}
+			}
+			s_SR = gfa_aux_get(l_aux, aux, "SR");
+			if (s_SR && *s_SR == 'i') {
+				s->rank = *(int32_t*)(s_SR + 1);
+				if (s->rank > g->max_rank) g->max_rank = s->rank;
+				l_aux = gfa_aux_del(l_aux, aux, s_SR);
 			}
 		}
 		if (l_aux > 0)
@@ -296,8 +296,10 @@ void gfa_print(const gfa_t *g, FILE *fp, int M_only)
 		if (s->seq) fputs(s->seq, fp);
 		else fputc('*', fp);
 		fprintf(fp, "\tLN:i:%d", s->len);
-		if (s->pnid >= 0 && s->ppos >= 0 && s->rank >= 0)
-			fprintf(fp, "\tSN:Z:%s\tSS:i:%d\tSR:i:%d", g->pname[s->pnid], s->ppos, s->rank);
+		if (s->pnid >= 0 && s->ppos >= 0)
+			fprintf(fp, "\tSN:Z:%s\tSS:i:%d", g->pname[s->pnid], s->ppos);
+		if (s->rank >= 0)
+			fprintf(fp, "\tSR:i:%d", s->rank);
 		if (s->aux.l_aux > 0) {
 			char *t = 0;
 			int max = 0;
