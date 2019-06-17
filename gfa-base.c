@@ -83,7 +83,7 @@ int32_t gfa_add_pname(gfa_t *g, const char *pname)
 			g->pname = (char**)realloc(g->pname, g->m_pname * sizeof(char*));
 		}
 		kh_val(h, k) = g->n_pname;
-		g->pname[g->n_pname++] = strdup(pname);
+		kh_key(h, k) = g->pname[g->n_pname++] = strdup(pname);
 	}
 	return kh_val(h, k);
 }
