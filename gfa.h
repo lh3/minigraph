@@ -129,6 +129,7 @@ extern "C" {
 
 gfa_t *gfa_init(void);
 int32_t gfa_add_seg(gfa_t *g, const char *name);
+int32_t gfa_add_pname(gfa_t *g, const char *pname);
 int32_t gfa_name2id(const gfa_t *g, const char *name);
 uint64_t gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp);
 void gfa_cleanup(gfa_t *g); // permanently delete arcs marked as deleted, sort and then index
