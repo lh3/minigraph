@@ -98,8 +98,9 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 				for (l = i0; l < i; ++l) {
 					gfa_split_t *q = &sp[l];
 					int shift = q->end? 32 : 0;
-					if (q->side&1) ins_side[q->ins] |= (uint64_t)(k << 1 | 1) << shift;
-					else ins_side[q->ins] |= (uint64_t)((k - 1) << 1) << shift;
+					fprintf(stderr, "** [%d] here: %d,%d,%d\n", l, q->ins, q->end, k);
+					if (q->side&1) ins_side[q->ins] |= (uint64_t)((k + 1) << 1 | 1) << shift;
+					else ins_side[q->ins] |= (uint64_t)(k << 1) << shift;
 				}
 				if (q0->side>>1 != 0 && q0->side>>1 != g->seg[j].len) { // create a new segment
 					t->len = (q0->side>>1) - off;
@@ -128,8 +129,6 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		for (i = 0; i < k - k0 - 1; ++i)
 			create_first_arc(g, seg, (uint32_t)(k0+i)<<1, (uint32_t)(k0+i+1)<<1);
 	}
-	if (k != n_old_seg)
-		fprintf(stderr, "%d != %d\n", k, n_old_seg);
 	assert(k == n_old_seg);
 	free(soff);
 	free(sp);
