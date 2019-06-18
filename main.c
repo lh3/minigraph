@@ -157,6 +157,15 @@ int main(int argc, char *argv[])
 	free(path);
 #endif
 
+#if 1
+	int sid1 = gfa_name2id(gi->g, "MTh0");
+	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 0, 10 }, 0 };
+	char *seq = "CGAATATGGCTAAGCATAGC", *name = "ins1";
+	gfa_augment(gi->g, 1, &ins, 1, &name, &seq); // NB: indexing is wrong now
+	gfa_print(gi->g, stdout, 1);
+	exit(0);
+#endif
+
 	if (gpt.algo == MG_G_NONE) {
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_map_file(gi, argv[i], &opt, n_threads);

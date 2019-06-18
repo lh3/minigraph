@@ -134,7 +134,6 @@ int32_t gfa_name2id(const gfa_t *g, const char *name);
 uint64_t gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp);
 void gfa_cleanup(gfa_t *g); // permanently delete arcs marked as deleted, sort and then index
 void gfa_finalize(gfa_t *g);
-void gfa_set_persistent(gfa_t *g);
 void gfa_destroy(gfa_t *g);
 
 gfa_t *gfa_read(const char *fn);
@@ -159,6 +158,8 @@ void gfa_sub_destroy(gfa_sub_t *sub);
 void gfa_sub_print(FILE *fp, const gfa_t *g, const gfa_sub_t *sub);
 gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, gfa_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t *n_pathv);
 void gfa_sub_print_path(FILE *fp, const gfa_t *g, int32_t n, gfa_pathv_t *path);
+
+void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char *const* name, const char *const* seq);
 
 #ifdef __cplusplus
 }

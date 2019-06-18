@@ -23,7 +23,7 @@ static inline void create_first_arc(gfa_t *g, const gfa_seg_t *seg, uint32_t v, 
 	a->del = a->comp = 0;
 }
 
-void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char **name, const char **seq)
+void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char *const* name, const char *const* seq)
 {
 	int32_t i, j, k, *scnt, *soff, n_ctg_seg, n_old_seg, n_seg;
 	gfa_split_t *sp;
@@ -107,7 +107,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 					memcpy(t->seq, &s->seq[off], t->len);
 					t->seq[t->len] = 0;
 					off += t->len;
-					t = &seg[k++]; // create a new segment
+					t = &seg[++k]; // create a new segment
 					snprintf(buf, 15, "v%d", k);
 					t->name = strdup(buf);
 					t->pnid = s->pnid, t->ppos = s->ppos + off, t->rank = s->rank;
@@ -120,6 +120,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		GFA_MALLOC(t->seq, t->len + 1);
 		memcpy(t->seq, &s->seq[off], t->len);
 		t->seq[t->len] = 0;
+		++k;
 		// translate table for old and new vertices
 		old2new[j<<1|0] = (uint32_t)(k - 1) << 1 | 0;
 		old2new[j<<1|1] = (uint32_t)k0 << 1 | 1;
@@ -127,6 +128,8 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		for (i = 0; i < k - k0 - 1; ++i)
 			create_first_arc(g, seg, (uint32_t)(k0+i)<<1, (uint32_t)(k0+i+1)<<1);
 	}
+	if (k != n_old_seg)
+		fprintf(stderr, "%d != %d\n", k, n_old_seg);
 	assert(k == n_old_seg);
 	free(soff);
 	free(sp);
@@ -173,4 +176,5 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	GFA_BZERO(&g->arc_aux[n_old_arc], g->m_arc - n_old_arc);
 	gfa_arc_sort(g);
 	gfa_arc_index(g);
+	gfa_fix_symm(g);
 }
