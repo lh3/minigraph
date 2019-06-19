@@ -127,12 +127,9 @@ uint64_t *gfa_arc_index_core(size_t max_seq, size_t n, const gfa_arc_t *a)
 	size_t i, last;
 	uint64_t *idx;
 	idx = (uint64_t*)calloc(max_seq * 2, 8);
-	fprintf(stderr, "here!\n");
 	for (i = 1, last = 0; i <= n; ++i)
-		if (i == n || gfa_arc_head(a[i-1]) != gfa_arc_head(a[i])) {
-			fprintf(stderr, "%d:%d\n", i, gfa_arc_head(a[i-1]));
+		if (i == n || gfa_arc_head(a[i-1]) != gfa_arc_head(a[i]))
 			idx[gfa_arc_head(a[i-1])] = (uint64_t)last<<32 | (i - last), last = i;
-		}
 	return idx;
 }
 
