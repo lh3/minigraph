@@ -159,7 +159,9 @@ int main(int argc, char *argv[])
 
 #if 1
 	int sid1 = gfa_name2id(gi->g, "MTh0");
-	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 15 }, 0 };
+//	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 15 }, 0 };
+//	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 5 }, 0 };
+	gfa_ins_t ins = { { sid1<<1|1, sid1<<1|1 }, { 3801, 3901 }, { 5, 15 }, 0 };
 	char *seq = "CGAATATGGCTAAGCATAGCCGATATAGC", *name = "ins1";
 	gfa_augment(gi->g, 1, &ins, 1, &name, &seq); // NB: indexing is wrong now
 	gfa_print(gi->g, stdout, 1);

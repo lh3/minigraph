@@ -51,7 +51,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 			uint32_t vlen = g->seg[p->v[k]>>1].len;
 			gfa_split_t *q = &sp[soff[p->v[k]>>1] + scnt[p->v[k]>>1]];
 			q->ins = i, q->end = k;
-			q->side = (p->v[k]&1? vlen - p->voff[k] : p->voff[k]) << 1 | (p->v[k]&1);
+			q->side = (p->v[k]&1? vlen - p->voff[k] : p->voff[k]) << 1 | ((p->v[k]&1) ^ k);
 			assert(q->side != (0<<1|0) && q->side != (vlen<<1|1)); // not possible to link such sides
 			++scnt[p->v[k]>>1];
 		}
@@ -97,10 +97,9 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 				gfa_split_t *q0 = &sp[i0];
 				for (l = i0; l < i; ++l) {
 					gfa_split_t *q = &sp[l];
-					int shift = q->end? 32 : 0;
-					//fprintf(stderr, "** [%d] here: %d,%d,%d\n", l, q->ins, q->end, k);
-					if (q->end) ins_side[q->ins] |= (uint64_t)((k + 1) << 1 | (q->side&1)) << shift;
-					else ins_side[q->ins] |= (uint64_t)(k << 1 | (q->side&1)) << shift;
+					int32_t shift = q->end == 0? 32 : 0; // first end on the higher 32 bits
+					int32_t side = q->side & 1;
+					ins_side[q->ins] |= (uint64_t)((uint32_t)(k + side) << 1 | (side^q->end)) << shift;
 				}
 				if (q0->side>>1 != 0 && q0->side>>1 != g->seg[j].len) { // create a new segment
 					t->len = (q0->side>>1) - off;
@@ -158,8 +157,8 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 			t->pnid = gfa_add_pname(g, name[i]);
 			t->ppos = p->coff[0];
 			t->rank = g->max_rank + 1; // TODO: to deal with SN/SS/SR tags somewhere
-			create_first_arc(g, seg, (uint32_t)k<<1, ins_side[i]>>32);
-			create_first_arc(g, seg, (uint32_t)ins_side[i], (uint32_t)k<<1);
+			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)k<<1);
+			create_first_arc(g, seg, (uint32_t)k<<1, (uint32_t)ins_side[i]);
 			++k;
 		} else {
 			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)ins_side[i]);
