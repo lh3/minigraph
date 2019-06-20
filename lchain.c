@@ -21,7 +21,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 		if (t[i] == 0 && v[i] >= min_sc)
 			++n_u;
 	if (n_u == 0) return 0;
-	u = KMALLOC(km, uint64_t, n_u + extra_u);
+	KMALLOC(km, u, n_u + extra_u);
 	for (i = n_u = 0; i < n; ++i) {
 		if (t[i] == 0 && v[i] >= min_sc) {
 			j = i;
@@ -171,10 +171,10 @@ mg_lchain_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t 
 	int i, k;
 
 	if (n_u == 0) return 0;
-	r = KCALLOC(km, mg_lchain_t, n_u);
+	KCALLOC(km, r, n_u);
 
 	// sort by query position
-	z = KMALLOC(km, mg128_t, n_u);
+	KMALLOC(km, z, n_u);
 	for (i = k = 0; i < n_u; ++i) {
 		int32_t qs = (int32_t)a[k].y + 1 - (a[k].y>>32 & 0xff);
 		z[i].x = (uint64_t)qs << 32 | u[i] >> 32;

@@ -98,8 +98,11 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 		} else {
 			int32_t last_pnid = -1, st = -1, en = -1, rev = -1;
 			for (j = 0; j < p->cnt; ++j) {
-				const mg_llchain_t *q = &gs->lc[p->off + j];
-				const gfa_seg_t *t = &g->seg[q->v>>1];
+				const mg_llchain_t *q;
+				const gfa_seg_t *t;
+				assert(p->off + j < gs->n_lc);
+				q = &gs->lc[p->off + j];
+				t = &g->seg[q->v>>1];
 				if (t->pnid < 0) { // no stable ID; write the vertex coordinate
 					if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pname[last_pnid], st, en);
 					last_pnid = -1, st = -1, en = -1, rev = -1;

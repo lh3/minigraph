@@ -44,7 +44,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 	*u_ = 0;
 	if (n_lc == 0) return 0;
 
-	a = KMALLOC(km, gc_frag_t, n_lc);
+	KMALLOC(km, a, n_lc);
 	for (i = n_ext = 0; i < n_lc; ++i) { // a[] is a view of frag[]; for sorting
 		mg_lchain_t *r = &lc[i];
 		gc_frag_t *ai = &a[i];
@@ -58,7 +58,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 	}
 	if (n_ext < 2) { // no graph chaining needed; early return
 		kfree(km, a);
-		u = KMALLOC(km, uint64_t, n_lc);
+		KMALLOC(km, u, n_lc);
 		for (i = 0; i < n_lc; ++i)
 			u[i] = (uint64_t)lc[i].score<<32 | 1;
 		*u_ = u;
@@ -66,10 +66,10 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 	}
 	radix_sort_gc(a, a + n_lc);
 
-	v = KMALLOC(km, int32_t, n_ext);
-	f = KMALLOC(km, int32_t, n_ext);
-	p = KMALLOC(km, int32_t, n_ext);
-	t = KCALLOC(km, int32_t, n_ext);
+	KMALLOC(km, v, n_lc);
+	KMALLOC(km, f, n_ext);
+	KMALLOC(km, p, n_ext);
+	KCALLOC(km, t, n_ext);
 
 	m_dst = n_dst = 0, dst = 0;
 	for (i = 0, j_st = 0; i < n_ext; ++i) { // core loop
@@ -88,6 +88,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 			gfa_path_dst_t *q;
 			int32_t min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re);
 			if (min_dist > max_dist_g) continue;
+			if (li->v == lj->v) continue;
 			if (min_dist - bw > li->qs - lj->qe) continue; // TODO: double check this line
 			if (n_dst == m_dst) KEXPAND(km, dst, m_dst); // TODO: watch out the quadratic behavior!
 			q = &dst[n_dst++];
@@ -100,7 +101,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 		gfa_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, 0);
 		for (j = 0; j < n_dst; ++j) {
 			gfa_path_dst_t *dj = &dst[j];
-			int32_t gap, log_gap, sc;
+			int32_t gap, log_gap, sc = 0;
 			if (dj->n_path == 0) continue;
 			gap = dj->dist - dj->target_dist;
 			if (gap < 0) gap = -gap;
@@ -127,7 +128,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 		v[n_v++] = n_ext + i;
 	}
 
-	swap = KMALLOC(km, mg_lchain_t, n_lc);
+	KMALLOC(km, swap, n_lc);
 	for (i = 0, k = 0; i < n_u; ++i) {
 		int32_t k0 = k, ni = (int32_t)u[i];
 		for (j = 0; j < ni; ++j)
@@ -203,8 +204,8 @@ void mg_gchain_sort_by_score(void *km, mg_gchains_t *gcs)
 	mg128_t *z;
 	mg_gchain_t *gc;
 	int32_t i;
-	z = KMALLOC(km, mg128_t, gcs->n_gc);
-	gc = KMALLOC(km, mg_gchain_t, gcs->n_gc);
+	KMALLOC(km, z, gcs->n_gc);
+	KMALLOC(km, gc, gcs->n_gc);
 	for (i = 0; i < gcs->n_gc; ++i)
 		z[i].x = (uint64_t)gcs->gc[i].score << 32 | gcs->gc[i].hash, z[i].y = i;
 	radix_sort_128x(z, z + gcs->n_gc);
@@ -212,6 +213,7 @@ void mg_gchain_sort_by_score(void *km, mg_gchains_t *gcs)
 		gc[gcs->n_gc - 1 - i] = gcs->gc[z[i].y];
 	memcpy(gcs->gc, gc, gcs->n_gc * sizeof(mg_gchain_t));
 	kfree(km, z); kfree(km, gc);
+	mg_gchain_restore_order(km, gcs);
 }
 
 static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old)
@@ -240,11 +242,11 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 	if (n_g == 0) return 0;
 
 	// preallocate
-	gc = KCALLOC(km_dst, mg_gchains_t, 1);
+	KCALLOC(km_dst, gc, 1);
 	gc->km = km_dst;
 	gc->n_gc = n_g, gc->n_a = n_a;
-	gc->gc = KCALLOC(km_dst, mg_gchain_t, n_g);
-	gc->a = KMALLOC(km_dst, mg128_t, n_a);
+	KCALLOC(km_dst, gc->gc, n_g);
+	KMALLOC(km_dst, gc->a, n_a);
 
 	// core loop
 	tmp = 0; s_tmp = n_tmp = m_tmp = 0;
@@ -297,7 +299,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 	assert(n_a == gc->n_a);
 
 	gc->n_lc = n_tmp;
-	gc->lc = KMALLOC(km_dst, mg_llchain_t, n_tmp);
+	KMALLOC(km_dst, gc->lc, n_tmp);
 	memcpy(gc->lc, tmp, n_tmp * sizeof(mg_llchain_t));
 	kfree(km, tmp);
 

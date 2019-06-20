@@ -25,8 +25,8 @@ void km_stat(const void *_km, km_stat_t *s);
 }
 #endif
 
-#define KMALLOC(km, type, len) ((type*)kmalloc((km), (len) * sizeof(type)))
-#define KCALLOC(km, type, len) ((type*)kcalloc((km), (len), sizeof(type)))
+#define KMALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))kmalloc((km), (len) * sizeof(*(ptr))))
+#define KCALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))kcalloc((km), (len), sizeof(*(ptr))))
 #define KREALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))krealloc((km), (ptr), (len) * sizeof(*(ptr))))
 
 #define KEXPAND(km, a, m) do { \

@@ -43,7 +43,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	double a_dens;
 
 	// count the number of intervals on each segment
-	scnt = KCALLOC(km, int32_t, g->n_seg);
+	KCALLOC(km, scnt, g->n_seg);
 	for (t = 0, max_acnt = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
@@ -60,11 +60,11 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	}
 
 	// populate the interval list
-	soff = KMALLOC(km, int32_t, g->n_seg + 1);
+	KMALLOC(km, soff, g->n_seg + 1);
 	for (soff[0] = 0, i = 1; i <= g->n_seg; ++i)
 		soff[i] = soff[i - 1] + scnt[i - 1];
 	memset(scnt, 0, 4 * g->n_seg);
-	intv = KMALLOC(km, gg_intv_t, soff[g->n_seg]);
+	KMALLOC(km, intv, soff[g->n_seg]);
 	sum_acnt = sum_alen = 0;
 	for (t = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
@@ -101,12 +101,13 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	}
 
 	// extract poorly regions
-	sc = KMALLOC(km, int64_t, max_acnt);
+	KMALLOC(km, sc, max_acnt);
 	for (t = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
 			const mg_gchain_t *gc = &gt->gc[i];
-			int32_t off_a, off_l;
+			int32_t off_a, off_l, n_ss;
+			msseg_t *ss;
 			if (gc->blen < opt->min_map_len || gc->mapq < opt->min_mapq) continue;
 			assert(gc->cnt > 0);
 
@@ -126,6 +127,11 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 				} else pd = (int32_t)p->x - (int32_t)q->x;
 				sc[j - 1] = pd == qd && c == 0? -opt->match_pen : pd > qd? (int64_t)(c + (pd - qd) * a_dens + .499) : c;
 			}
+
+			ss = mss_find_all(0, gc->n_anchor - 1, sc, 10, 0, &n_ss);
+			for (j = 0; j < n_ss; ++j) {
+			}
+			kfree(0, ss);
 		}
 	}
 	kfree(km, sc);

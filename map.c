@@ -63,7 +63,7 @@ static mg_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mg_id
 	size_t i;
 	mg_match_t *m;
 	*n_mini_pos = 0;
-	*mini_pos = KMALLOC(km, int32_t, mv->n);
+	KMALLOC(km, *mini_pos, mv->n);
 	m = (mg_match_t*)kmalloc(km, mv->n * sizeof(mg_match_t));
 	for (i = 0, n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
 		const uint64_t *cr;
@@ -274,7 +274,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 
 	mg_gchain_set_parent(b->km, opt->mask_level, gcs[0]->n_gc, gcs[0]->gc, opt->sub_diff, 0);
 	mg_gchain_flt_sub(opt->pri_ratio, gi->k * 2, opt->best_n, gcs[0]->n_gc, gcs[0]->gc);
-	mg_gchain_drop_flt(gcs[0]);
+	mg_gchain_drop_flt(b->km, gcs[0]);
 	mg_gchain_set_mapq(b->km, gcs[0], opt->min_gc_score);
 
 	if (b->km) {
@@ -375,7 +375,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				s->buf[i] = mg_tbuf_init();
 			s->seg_off = (int*)calloc(2 * s->n_seq, sizeof(int));
 			s->n_seg = s->seg_off + s->n_seq; // n_seg, rep_len and frag_gap are allocated together with seg_off
-			s->gcs = KCALLOC(0, mg_gchains_t*, s->n_seq);
+			KCALLOC(0, s->gcs, s->n_seq);
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mg_qname_same(s->seq[i-1].name, s->seq[i].name)) {
 					s->n_seg[s->n_frag] = i - j;

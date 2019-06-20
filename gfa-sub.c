@@ -30,7 +30,7 @@ KHASH_MAP_INIT_INT(v, tnode_p)
 static inline tnode_t *gen_tnode(void *km, const gfa_t *g, uint32_t v, int32_t d)
 {
 	tnode_t *p;
-	p = KMALLOC(km, tnode_t, 1);
+	KMALLOC(km, p, 1);
 	p->v = v, p->in_tree = 1;
 	p->nd = (uint64_t)gfa_arc_n(g, v^1) << 32 | d;
 	return p;
@@ -92,12 +92,12 @@ gfa_sub_t *gfa_sub_from(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist
 	}
 	assert(kh_size(h) == n_L);
 
-	sub = KCALLOC(km0, gfa_sub_t, 1);
+	KCALLOC(km0, sub, 1);
 	sub->km = km0;
 	sub->n_v = n_L;
 	sub->n_a = n_arc;
-	sub->v = KCALLOC(sub->km, gfa_subv_t, n_L);
-	sub->a = KCALLOC(sub->km, int32_t, n_arc);
+	KCALLOC(sub->km, sub->v, n_L);
+	KCALLOC(sub->km, sub->a, n_arc);
 	sub->is_dag = 1;
 
 	for (j = 0; j < n_L; ++j) L[j]->in_tree = j;
@@ -178,7 +178,7 @@ KHASH_MAP_INIT_INT(sp2, int32_t)
 static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32_t d, int32_t id)
 {
 	sp_node_t *p;
-	p = KMALLOC(km, sp_node_t, 1);
+	KMALLOC(km, p, 1);
 	p->v = v, p->di = (uint64_t)d<<32 | id<<1, p->pre = -1;
 	return p;
 }
@@ -204,7 +204,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
 	km = km_init2(km0, 0x10000);
 
-	dst_finish = KCALLOC(km, int8_t, n_dst);
+	KCALLOC(km, dst_finish, n_dst);
 	h2 = kh_init2(sp2, km); // this hash table keeps all destinations
 	kh_resize(sp2, h2, n_dst * 2);
 	for (i = 0; i < n_dst; ++i) {
@@ -215,7 +215,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 	h = kh_init2(sp, km); // this hash table keeps visited vertices
 	kh_resize(sp, h, 16);
 	m_out = 16, n_out = 0;
-	out = KMALLOC(km, sp_node_t*, m_out);
+	KMALLOC(km, out, m_out);
 
 	id = 0;
 	p = gen_sp_node(km, g, src, 0, id++);
@@ -295,7 +295,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 		kh_destroy(sp, h);
 		kfree(km, dst_finish);
 
-		trans = KCALLOC(km, int32_t, n_out); // used to squeeze unused elements in out[]
+		KCALLOC(km, trans, n_out); // used to squeeze unused elements in out[]
 		for (i = 0; i < n_dst; ++i) { // mark dst vertices with a target distance
 			gfa_path_dst_t *t = &dst[i];
 			if (t->n_path > 0 && t->target_dist >= 0)
@@ -314,7 +314,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 			else trans[i] = -1;
 
 		*n_pathv = n;
-		ret = KMALLOC(km0, gfa_pathv_t, n);
+		KMALLOC(km0, ret, n);
 		for (i = 0; i < n_out; ++i) { // generate the backtrack array
 			gfa_pathv_t *p;
 			if (trans[i] < 0) continue;

@@ -9,10 +9,10 @@
 #define MSS_NEG_INF INT64_MIN
 
 typedef struct {
-    int st, en;
+    int32_t st, en;
     MSS_TYPE sc;
 } msseg_t;
 
-msseg_t *mss_find_all(void *km, int n, const MSS_TYPE *S, MSS_TYPE min_sc, MSS_TYPE xdrop, int *n_seg);
+msseg_t *mss_find_all(void *km, int32_t n, const MSS_TYPE *S, MSS_TYPE min_sc, MSS_TYPE xdrop, int32_t *n_seg);
 
 #endif

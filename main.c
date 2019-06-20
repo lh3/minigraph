@@ -137,6 +137,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[ERROR] failed to load the graph from file '%s'\n", argv[o.ind]);
 		return 1;
 	}
+	fprintf(stderr, "[M::%s] created the index\n", __func__);
 	if (print_gfa) {
 		gfa_print(gi->g, stdout, 1);
 		goto free_gfa;
@@ -157,13 +158,16 @@ int main(int argc, char *argv[])
 	free(path);
 #endif
 
-#if 1
+#if 0
 	int sid1 = gfa_name2id(gi->g, "MTh0");
 //	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 15 }, 0 };
 //	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 5 }, 0 };
-	gfa_ins_t ins = { { sid1<<1|1, sid1<<1|1 }, { 3801, 3901 }, { 5, 15 }, 0 };
+//	gfa_ins_t ins = { { sid1<<1|1, sid1<<1|1 }, { 3801, 3901 }, { 5, 15 }, 0 };
+	gfa_ins_t ins[2] = { { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 15 }, 0 },
+						 { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 5 }, 0 }
+						};
 	char *seq = "CGAATATGGCTAAGCATAGCCGATATAGC", *name = "ins1";
-	gfa_augment(gi->g, 1, &ins, 1, &name, &seq); // NB: indexing is wrong now
+	gfa_augment(gi->g, 2, ins, 1, &name, &seq); // NB: indexing is wrong now
 	gfa_print(gi->g, stdout, 1);
 	exit(0);
 #endif

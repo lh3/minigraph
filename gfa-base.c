@@ -119,7 +119,7 @@ uint64_t gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, 
 void gfa_arc_sort(gfa_t *g)
 {
 	radix_sort_arc(g->arc, g->arc + g->n_arc);
-	g->is_srt = 1;
+	// g->is_srt = 1; // FIXME: having this line will lead to errors elsewhere. INVESTIGATE!!!
 }
 
 uint64_t *gfa_arc_index_core(size_t max_seq, size_t n, const gfa_arc_t *a)

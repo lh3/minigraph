@@ -3,9 +3,9 @@
 #include "mss.h"
 
 typedef struct {
-    int st, en;
+    int32_t st, en;
     MSS_TYPE L, R;
-    int pre;
+    int32_t pre;
 } msseg_aux_t;
 
 typedef kvec_t(msseg_t) msseg_v;
@@ -13,7 +13,7 @@ typedef kvec_t(msseg_aux_t) msseg_aux_v;
 
 static void move_segs(void *km, msseg_v *ret, msseg_aux_v *seg, MSS_TYPE min_sc)
 {
-    int i;
+    int32_t i;
     for (i = 0; i < seg->n; ++i) {
         msseg_aux_t *p = &seg->a[i];
         if (p->R - p->L >= min_sc) {
@@ -26,9 +26,9 @@ static void move_segs(void *km, msseg_v *ret, msseg_aux_v *seg, MSS_TYPE min_sc)
 }
 
 // Reference: Ruzzo and Tompa (1999) A linear time algorithm for finding all maximal scoring subsequencs
-msseg_t *mss_find_all(void *km, int n, const MSS_TYPE *S, MSS_TYPE min_sc, MSS_TYPE xdrop, int *n_seg)
+msseg_t *mss_find_all(void *km, int32_t n, const MSS_TYPE *S, MSS_TYPE min_sc, MSS_TYPE xdrop, int32_t *n_seg)
 {
-    int i, j;
+    int32_t i, j;
     MSS_TYPE L, max;
     msseg_v ret = {0,0,0};
     msseg_aux_v seg = {0,0,0};
@@ -38,7 +38,7 @@ msseg_t *mss_find_all(void *km, int n, const MSS_TYPE *S, MSS_TYPE min_sc, MSS_T
 	kv_resize(msseg_aux_t, km, seg, 16);
     for (i = 0, L = 0, max = MSS_NEG_INF; i < n;) {
         if (S[i] > 0) {
-            int k;
+            int32_t k;
             MSS_TYPE R = L + S[i];
             for (k = i + 1; k < n && S[k] > 0.; ++k)
                 R += S[k];

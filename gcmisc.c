@@ -3,6 +3,43 @@
 #include <string.h>
 #include "mgpriv.h"
 
+void mg_gchain_restore_order(void *km, mg_gchains_t *gcs)
+{
+	int32_t i, n_a, n_lc;
+	mg_llchain_t *lc;
+	mg128_t *a;
+	KMALLOC(km, lc, gcs->n_lc);
+	KMALLOC(km, a, gcs->n_a);
+	n_a = n_lc = 0;
+	for (i = 0; i < gcs->n_gc; ++i) {
+		mg_gchain_t *gc = &gcs->gc[i];
+		assert(gc->cnt > 0);
+		memcpy(&lc[n_lc], &gcs->lc[gc->off], gc->cnt * sizeof(mg_llchain_t));
+		memcpy(&a[n_a], &gcs->a[gcs->lc[gc->off].off], gc->n_anchor * sizeof(mg128_t));
+		n_lc += gc->cnt, n_a += gc->n_anchor;
+	}
+	memcpy(gcs->lc, lc, gcs->n_lc * sizeof(mg_llchain_t));
+	memcpy(gcs->a, a, gcs->n_a * sizeof(mg128_t));
+	kfree(km, lc); kfree(km, a);
+}
+
+void mg_gchain_restore_offset(mg_gchains_t *gcs)
+{
+	int32_t i, j, n_a, n_lc;
+	for (i = 0, n_a = n_lc = 0; i < gcs->n_gc; ++i) {
+		mg_gchain_t *gc = &gcs->gc[i];
+		gc->off = n_lc;
+		for (j = 0, gc->n_anchor = 0; j < gc->cnt; ++j) {
+			mg_llchain_t *lc = &gcs->lc[n_lc + j];
+			lc->off = n_a;
+			n_a += lc->cnt;
+			gc->n_anchor += lc->cnt;
+		}
+		n_lc += gc->cnt;
+	}
+	assert(n_lc == gcs->n_lc && n_a == gcs->n_a);
+}
+
 void mg_gchain_set_parent(void *km, float mask_level, int n, mg_gchain_t *r, int sub_diff, int hard_mask_level) // and compute mg_gchain_t::subsc
 {
 	int i, j, k, *w;
@@ -78,30 +115,39 @@ int mg_gchain_flt_sub(float pri_ratio, int min_diff, int best_n, int n, mg_gchai
 	return n;
 }
 
-void mg_gchain_drop_flt(mg_gchains_t *gcs)
+void mg_gchain_drop_flt(void *km, mg_gchains_t *gcs)
 {
-	int32_t i, n_gc, n_lc, n_a, n_lc0, n_a0;
+	int32_t i, n_gc, n_lc, n_a, n_lc0, n_a0, *o2n;
+	KMALLOC(km, o2n, gcs->n_gc);
+	for (i = 0, n_gc = 0; i < gcs->n_gc; ++i) {
+		mg_gchain_t *r = &gcs->gc[i];
+		o2n[i] = -1;
+		if (r->flt || r->cnt == 0) continue;
+		o2n[i] = n_gc++;
+	}
 	n_gc = n_lc = n_a = 0;
 	n_lc0 = n_a0 = 0;
 	for (i = 0; i < gcs->n_gc; ++i) {
 		mg_gchain_t *r = &gcs->gc[i];
-		if (!r->flt) {
-			if (i > n_gc) {
-				memcpy(&gcs->a[n_a], &gcs->a[n_a0], r->n_anchor * sizeof(mg128_t));
-				memcpy(&gcs->lc[n_lc], &gcs->lc[n_lc0], r->cnt * sizeof(mg_llchain_t));
-				gcs->gc[n_gc] = gcs->gc[i];
-			}
+		if (o2n[i] >= 0) {
+			memmove(&gcs->a[n_a], &gcs->a[n_a0], r->n_anchor * sizeof(mg128_t));
+			memmove(&gcs->lc[n_lc], &gcs->lc[n_lc0], r->cnt * sizeof(mg_llchain_t));
+			gcs->gc[n_gc] = *r;
+			gcs->gc[n_gc].id = n_gc;
+			gcs->gc[n_gc].parent = o2n[gcs->gc[n_gc].parent];
 			++n_gc, n_lc += r->cnt, n_a += r->n_anchor;
 		}
 		n_lc0 += r->cnt, n_a0 += r->n_anchor;
 	}
 	assert(n_lc0 = gcs->n_lc && n_a0 == gcs->n_a);
+	kfree(km, o2n);
 	gcs->n_gc = n_gc, gcs->n_lc = n_lc, gcs->n_a = n_a;
 	if (n_a != n_a0) {
 		KREALLOC(gcs->km, gcs->a, gcs->n_a);
 		KREALLOC(gcs->km, gcs->lc, gcs->n_lc);
 		KREALLOC(gcs->km, gcs->gc, gcs->n_gc);
 	}
+	mg_gchain_restore_offset(gcs);
 }
 
 void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score)

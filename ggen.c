@@ -42,7 +42,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (i = 0; i < s->n_seq; ++i) s->seq[i].rid = i;
 			s->buf = (mg_tbuf_t**)calloc(p->n_threads, sizeof(mg_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i) s->buf[i] = mg_tbuf_init();
-			s->gcs = KCALLOC(0, mg_gchains_t*, s->n_seq);
+			KCALLOC(0, s->gcs, s->n_seq);
 			return s;
 		} else free(s);
     } else if (step == 1) { // step 1: map

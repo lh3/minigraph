@@ -21,9 +21,9 @@ mg_idx_t *mg_idx_init(int k, int w, int b)
 	mg_idx_t *gi;
 	if (k*2 < b) b = k * 2;
 	if (w < 1) w = 1;
-	gi = KCALLOC(0, mg_idx_t, 1);
+	KCALLOC(0, gi, 1);
 	gi->w = w, gi->k = k, gi->b = b;
-	gi->B = KCALLOC(0, mg_idx_bucket_t, 1<<b);
+	KCALLOC(0, gi->B, 1<<b);
 	return gi;
 }
 
@@ -107,8 +107,8 @@ void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, i
 	}
 	h = kh_init2(idx, km);
 	kh_resize(idx, h, n_keys);
-	*q_ = q = KCALLOC(km, uint64_t, N);
-	*n_ = N;
+	KCALLOC(km, q, N);
+	*q_ = q, *n_ = N;
 
 	// create the hash table
 	for (j = 1, n = 1, start_a = start_q = 0; j <= n_a; ++j) {
