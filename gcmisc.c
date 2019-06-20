@@ -3,6 +3,7 @@
 #include <string.h>
 #include "mgpriv.h"
 
+// reorder gcs->a[] and gcs->lc[] such that they are in the same order as gcs->gc[]
 void mg_gchain_restore_order(void *km, mg_gchains_t *gcs)
 {
 	int32_t i, n_a, n_lc;
@@ -23,6 +24,7 @@ void mg_gchain_restore_order(void *km, mg_gchains_t *gcs)
 	kfree(km, lc); kfree(km, a);
 }
 
+// recompute gcs->gc[].{off,n_anchor} and gcs->lc[].off, ASSUMING they are properly ordered (see mg_gchain_restore_order)
 void mg_gchain_restore_offset(mg_gchains_t *gcs)
 {
 	int32_t i, j, n_a, n_lc;
@@ -40,7 +42,26 @@ void mg_gchain_restore_offset(mg_gchains_t *gcs)
 	assert(n_lc == gcs->n_lc && n_a == gcs->n_a);
 }
 
-void mg_gchain_set_parent(void *km, float mask_level, int n, mg_gchain_t *r, int sub_diff, int hard_mask_level) // and compute mg_gchain_t::subsc
+// sort chains by score
+void mg_gchain_sort_by_score(void *km, mg_gchains_t *gcs)
+{
+	mg128_t *z;
+	mg_gchain_t *gc;
+	int32_t i;
+	KMALLOC(km, z, gcs->n_gc);
+	KMALLOC(km, gc, gcs->n_gc);
+	for (i = 0; i < gcs->n_gc; ++i)
+		z[i].x = (uint64_t)gcs->gc[i].score << 32 | gcs->gc[i].hash, z[i].y = i;
+	radix_sort_128x(z, z + gcs->n_gc);
+	for (i = gcs->n_gc - 1; i >= 0; --i)
+		gc[gcs->n_gc - 1 - i] = gcs->gc[z[i].y];
+	memcpy(gcs->gc, gc, gcs->n_gc * sizeof(mg_gchain_t));
+	kfree(km, z); kfree(km, gc);
+	mg_gchain_restore_order(km, gcs); // this put gcs in the proper order
+}
+
+// set r[].{id,parent,subsc}, ASSUMING r[] is sorted by score
+void mg_gchain_set_parent(void *km, float mask_level, int n, mg_gchain_t *r, int sub_diff, int hard_mask_level)
 {
 	int i, j, k, *w;
 	uint64_t *cov;
@@ -96,6 +117,7 @@ set_parent_test:
 	kfree(km, w);
 }
 
+// set r[].flt, i.e. mark weak suboptimal chains as filtered
 int mg_gchain_flt_sub(float pri_ratio, int min_diff, int best_n, int n, mg_gchain_t *r)
 {
 	if (pri_ratio > 0.0f && n > 0) {
@@ -115,6 +137,7 @@ int mg_gchain_flt_sub(float pri_ratio, int min_diff, int best_n, int n, mg_gchai
 	return n;
 }
 
+// hard drop filtered chains, ASSUMING gcs is properly ordered
 void mg_gchain_drop_flt(void *km, mg_gchains_t *gcs)
 {
 	int32_t i, n_gc, n_lc, n_a, n_lc0, n_a0, *o2n;
@@ -150,6 +173,7 @@ void mg_gchain_drop_flt(void *km, mg_gchains_t *gcs)
 	mg_gchain_restore_offset(gcs);
 }
 
+// estimate mapping quality
 void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score)
 {
 	static const float q_coef = 40.0f;

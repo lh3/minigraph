@@ -199,23 +199,6 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 	}
 }
 
-void mg_gchain_sort_by_score(void *km, mg_gchains_t *gcs)
-{
-	mg128_t *z;
-	mg_gchain_t *gc;
-	int32_t i;
-	KMALLOC(km, z, gcs->n_gc);
-	KMALLOC(km, gc, gcs->n_gc);
-	for (i = 0; i < gcs->n_gc; ++i)
-		z[i].x = (uint64_t)gcs->gc[i].score << 32 | gcs->gc[i].hash, z[i].y = i;
-	radix_sort_128x(z, z + gcs->n_gc);
-	for (i = gcs->n_gc - 1; i >= 0; --i)
-		gc[gcs->n_gc - 1 - i] = gcs->gc[z[i].y];
-	memcpy(gcs->gc, gc, gcs->n_gc * sizeof(mg_gchain_t));
-	kfree(km, z); kfree(km, gc);
-	mg_gchain_restore_order(km, gcs);
-}
-
 static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old)
 {
 	q->cnt = p->cnt, q->v = p->v, q->score = p->score;
