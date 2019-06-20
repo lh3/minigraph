@@ -55,9 +55,9 @@ int mg_ggen(const mg_idx_t *gi, const char *fn, const mg_mapopt_t *opt, const mg
 	}
 	free(str.s);
 	free(s->gcs); free(s->seq);
-	free(s);
 	if (mg_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] processed %d sequences\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), s->n_seq);
+	free(s);
 	mg_bseq_close(fp);
 	return 0;
 }
