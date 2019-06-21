@@ -95,11 +95,12 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		while (st < i && ri > a[st].x + max_dist_x) ++st;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
-			int32_t dq = qi - (int32_t)a[j].y, dd, sc, log_dd;
+			int32_t dq = qi - (int32_t)a[j].y, dd, sc, dg, log_dd;
 			int32_t sidj = (a[j].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
 			if ((sidi == sidj && dr == 0) || dq <= 0) continue; // don't skip if an anchor is used by multiple segments; see below
 			if ((sidi == sidj && dq > max_dist_y) || dq > max_dist_x) continue;
 			dd = dr > dq? dr - dq : dq - dr;
+			dg = dr < dq? dr : dq;
 			if (sidi == sidj && dd > bw) continue;
 			if (n_segs > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) continue;
 			min_d = dq < dr? dq : dr;
@@ -112,7 +113,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 				if (sidi != sidj && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
 				else if (dr > dq || sidi != sidj) sc -= c_lin < c_log? c_lin : c_log;
 				else sc -= c_lin + (c_log>>1);
-			} else sc -= (int)(dd * .01 * avg_qspan) + (log_dd>>1);
+			} else sc -= (int)(dd * .01 * avg_qspan + dg * .02) + (log_dd>>1);
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;
