@@ -158,6 +158,11 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					pd += I.voff[0] - I.voff[1];
 					I.voff[1] = I.voff[0];
 				}
+				for (k = I.coff[0]; k < I.coff[1]; ++k) { // test ambiguous bases
+					int c = seq[t].seq[k];
+					if (c == 'n' || c == 'N') break;
+				}
+				if (k != I.coff[1]) continue; // no ambiguous bases on the insert
 				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
 					continue;
 				fprintf(stderr, "[%u:%d,%u:%d] <=> [%d,%d] pd=%d\n", I.v[0], I.voff[0], I.v[1], I.voff[1], I.coff[0], I.coff[1], pd);
