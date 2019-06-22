@@ -65,7 +65,8 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 	}
 	free(s->gcs); free(s->seq);
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] processed %d sequences\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), s->n_seq);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] augmented the graph with %d sequences in file \"%s\"\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), s->n_seq, fn);
 	free(s);
 	mg_bseq_close(fp);
 	return 0;

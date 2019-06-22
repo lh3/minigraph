@@ -45,6 +45,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mg_mapopt_init(mo);
 		mg_ggopt_init(go);
 	} else if (strcmp(preset, "ggsimple") == 0) {
+		io->k = 19, io->w = 10;
 		go->algo = MG_G_GGSIMPLE;
 		mo->best_n = 0;
 		mo->max_gap = mo->bw = 10000;
