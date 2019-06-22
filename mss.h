@@ -5,8 +5,8 @@
 #define __STDC_LIMIT_MACROS
 #include "kalloc.h"
 
-#define MSS_TYPE    int64_t
-#define MSS_NEG_INF INT64_MIN
+#define MSS_TYPE    int32_t
+#define MSS_NEG_INF INT32_MIN
 
 typedef struct {
     int32_t st, en;

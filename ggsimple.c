@@ -37,8 +37,8 @@ static int32_t gg_intv_index(gg_intv_t *a, int32_t n)
 gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
 	gfa_t *h = 0;
-	int32_t t, i, j, *scnt, *soff, max_acnt;
-	int64_t sum_acnt, sum_alen, *sc;
+	int32_t t, i, j, *scnt, *soff, max_acnt, *sc;
+	int64_t sum_acnt, sum_alen;
 	uint64_t *meta;
 	gg_intv_t *intv;
 	double a_dens;
@@ -84,7 +84,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					assert(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len);
 					sum_alen += re - rs, sum_acnt += (q->x>>32) - (gt->a[lc->off].x>>32) + 1;
 					if (lc->v&1)
-						tmp = rs, rs = g->seg[lc->v>>1].len - 1 - re, re = g->seg[lc->v>>1].len - 1 - tmp;
+						tmp = rs, rs = g->seg[lc->v>>1].len - re, re = g->seg[lc->v>>1].len - tmp;
 				} else rs = 0, re = g->seg[lc->v>>1].len;
 				// save the interval
 				p = &intv[scnt[lc->v>>1]++];
@@ -119,7 +119,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 			for (j = 1; j < gc->n_anchor; ++j, ++off_a) {
 				const mg128_t *q = &gt->a[off_a - 1], *p = &gt->a[off_a];
 				const mg_llchain_t *lc = &gt->lc[off_l];
-				int32_t pd, qd = (int32_t)p->y - (int32_t)q->y, c = (int32_t)(p->x>>32) - (int32_t)(q->x>>32) - 1;
+				int32_t off_l0 = off_l, pd, qd = (int32_t)p->y - (int32_t)q->y, c = (int32_t)(p->x>>32) - (int32_t)(q->x>>32) - 1;
 				if (off_a == lc->off + lc->cnt) { // we are at the end of the current lchain
 					pd = g->seg[lc->v>>1].len - (int32_t)q->x - 1;
 					for (++off_l; off_l < gc->off + gc->cnt && gt->lc[off_l].cnt == 0; ++off_l)
@@ -127,21 +127,25 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					assert(off_l < gc->off + gc->cnt);
 					pd += (int32_t)p->x + 1;
 				} else pd = (int32_t)p->x - (int32_t)q->x;
-				sc[j - 1] = pd == qd && c == 0? -opt->match_pen : pd > qd? (int64_t)(c + (pd - qd) * a_dens + .499) : c;
-				meta[j-1] = (uint64_t)pd << 32 | lc->v;
+				sc[j - 1] = pd == qd && c == 0? -opt->match_pen : pd > qd? (int32_t)(c + (pd - qd) * a_dens + .499) : c;
+				meta[j-1] = (uint64_t)pd << 32 | off_l0;
 			}
 
 			ss = mss_find_all(0, gc->n_anchor - 1, sc, 10, 0, &n_ss);
+			off_a = gt->lc[off_l].off;
 			for (j = 0; j < n_ss; ++j) {
 				const mg128_t *p, *q;
-				int32_t st, en, span, pd, k;
+				int32_t st, en, ls, le, span, pd, k;
 				gfa_ins_t I;
 				if (ss[j].st <= 1 || ss[j].en >= gt->n_a) continue;
 				st = ss[j].st - 1, en = ss[j].en;
-				q = &gt->a[gt->lc[off_l].off + st];
-				p = &gt->a[gt->lc[off_l].off + en];
+				q = &gt->a[off_a + st];
+				p = &gt->a[off_a + en];
 				span = p->y>>32&0xff;
-				I.v[0] = meta[st], I.v[1] = meta[en], I.ctg = t;
+				I.ctg = t;
+				ls = (int32_t)meta[st], le = (int32_t)meta[en];
+				I.v[0] = gt->lc[ls].v;
+				I.v[1] = gt->lc[le].v;
 				I.voff[0] = (int32_t)q->x + 1;
 				I.voff[1] = (int32_t)p->x + 1 - span;
 				I.coff[0] = (int32_t)q->y + 1;
@@ -165,6 +169,20 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 				if (k != I.coff[1]) continue; // no ambiguous bases on the insert
 				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
 					continue;
+				for (k = ls; k <= le; ++k) {
+					uint32_t v = gt->lc[k].v, len = g->seg[v>>1].len;
+					int32_t s = 0, e = len, tmp;
+					if (k == ls && k == le) {
+						s = (int32_t)gt->a[off_a+st].x + 1 - (int32_t)(gt->a[off_a+st].y>>32&0xff);
+						e = (int32_t)gt->a[off_a+en].x + 1;
+					} else if (k == ls) {
+						s = (int32_t)gt->a[off_a+st].x + 1 - (int32_t)(gt->a[off_a+st].y>>32&0xff);
+					} else if (k == le) {
+						e = (int32_t)gt->a[off_a+en].x + 1;
+					}
+					if (v&1) tmp = s, s = len - e, e = len - tmp;
+					fprintf(stderr, "%d,%d\n", s, e);
+				}
 				fprintf(stderr, "[%u:%d,%u:%d] <=> [%d,%d] pd=%d\n", I.v[0], I.voff[0], I.v[1], I.voff[1], I.coff[0], I.coff[1], pd);
 			}
 			kfree(0, ss);
