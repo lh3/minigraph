@@ -151,10 +151,10 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 			t->name = strdup(buf);
 			GFA_MALLOC(t->seq, p->coff[1] - p->coff[0] + 1);
 			for (j = 0; j < p->coff[1] - p->coff[0]; ++j)
-				t->seq[j] = seq[i][p->coff[0] + j];
+				t->seq[j] = seq[p->ctg][p->coff[0] + j];
 			t->seq[j] = 0;
 			t->len = j;
-			t->pnid = gfa_add_pname(g, name[i]);
+			t->pnid = gfa_add_pname(g, name[p->ctg]);
 			t->ppos = p->coff[0];
 			t->rank = g->max_rank + 1; // TODO: to deal with SN/SS/SR tags somewhere
 			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)k<<1);

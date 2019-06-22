@@ -87,14 +87,14 @@ static int32_t gg_intv_overlap(void *km, int32_t n_a, const gg_intv_t *a, int32_
  * Graph augmentation *
  **********************/
 
-gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
+void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
-	gfa_t *h = 0;
-	int32_t t, i, j, *scnt, *soff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0;
+	int32_t t, i, j, *scnt, *soff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins;
 	int64_t sum_acnt, sum_alen;
 	uint64_t *meta;
 	gg_intv_t *intv;
 	double a_dens;
+	gfa_ins_t *ins;
 
 	// count the number of intervals on each segment
 	KCALLOC(km, scnt, g->n_seg);
@@ -110,7 +110,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	}
 	if (max_acnt == 0) { // no gchain
 		kfree(km, scnt);
-		return 0;
+		return;
 	}
 
 	// populate the interval list
@@ -156,6 +156,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	kfree(km, scnt);
 
 	// extract poorly regions
+	m_ins = n_ins = 0, ins = 0;
 	KMALLOC(km, sc, max_acnt);
 	KMALLOC(km, meta, max_acnt);
 	for (t = 0; t < n_seq; ++t) {
@@ -185,19 +186,22 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 				meta[j-1] = (uint64_t)pd << 32 | off_l0;
 			}
 
+			// get regions to insert
 			ss = mss_find_all(0, gc->n_anchor - 1, sc, 10, 0, &n_ss);
 			off_a = gt->lc[off_l].off;
 			for (j = 0; j < n_ss; ++j) {
 				const mg128_t *p, *q;
 				int32_t st, en, ls, le, span, pd, k;
 				gfa_ins_t I;
-				if (ss[j].st <= 1 || ss[j].en >= gt->n_a) continue;
+
+				// find the initial positions
+				if (ss[j].st <= 1 || ss[j].en >= gt->n_a) continue; // not at the ends
 				st = ss[j].st - 1, en = ss[j].en;
 				q = &gt->a[off_a + st];
 				p = &gt->a[off_a + en];
 				span = p->y>>32&0xff;
 				I.ctg = t;
-				ls = (int32_t)meta[st], le = (int32_t)meta[en];
+				ls = (int32_t)meta[st], le = (int32_t)meta[en]; // first and last lchain
 				I.v[0] = gt->lc[ls].v;
 				I.v[1] = gt->lc[le].v;
 				I.voff[0] = (int32_t)q->x + 1;
@@ -206,6 +210,8 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 				I.coff[1] = (int32_t)p->y + 1 - span;
 				for (k = st, pd = 0; k < en; ++k) pd += meta[k] >> 32;
 				pd -= span;
+
+				// adjust for overlapping poistions
 				if (I.coff[0] > I.coff[1]) {
 					I.voff[1] += I.coff[0] - I.coff[1];
 					pd += I.coff[0] - I.coff[1];
@@ -216,14 +222,16 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					pd += I.voff[0] - I.voff[1];
 					I.voff[1] = I.voff[0];
 				}
+
+				// filtering
+				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
+					continue;
 				for (k = I.coff[0]; k < I.coff[1]; ++k) { // test ambiguous bases
 					int c = seq[t].seq[k];
 					if (c == 'n' || c == 'N') break;
 				}
 				if (k != I.coff[1]) continue; // no ambiguous bases on the insert
-				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
-					continue;
-				for (k = ls; k <= le; ++k) {
+				for (k = ls; k <= le; ++k) { // find other mappings overlapping with the insert on the graph
 					uint32_t v = gt->lc[k].v, len = g->seg[v>>1].len;
 					int32_t s = 0, e = len, tmp, n_ovlp;
 					if (k == ls && k == le) {
@@ -236,9 +244,13 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					}
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
 					n_ovlp = gg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &intv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
-					fprintf(stderr, "%d,%d; %d\n", s, e, n_ovlp);
+					assert(n_ovlp > 0);
+					//fprintf(stderr, "%d,%d; %d\n", s, e, n_ovlp);
+					if (n_ovlp > 1) continue;
 				}
 				fprintf(stderr, "[%u:%d,%u:%d] <=> [%d,%d] pd=%d\n", I.v[0], I.voff[0], I.v[1], I.voff[1], I.coff[0], I.coff[1], pd);
+				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
+				ins[n_ins++] = I;
 			}
 			kfree(0, ss);
 		}
@@ -246,8 +258,18 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	kfree(km, ovlp);
 	kfree(km, sc);
 	kfree(km, meta);
-
 	kfree(km, soff);
 	kfree(km, intv);
-	return h;
+
+	if (n_ins > 0) {
+		char **names, **seqs;
+		KMALLOC(km, names, n_seq);
+		KMALLOC(km, seqs, n_seq);
+		for (i = 0; i < n_seq; ++i)
+			names[i] = seq[i].name, seqs[i] = seq[i].seq;
+		gfa_augment(g, n_ins, ins, n_seq, (const char*const*)names, (const char*const*)seqs);
+		kfree(km, ins);
+		kfree(km, names);
+		kfree(km, seqs);
+	}
 }

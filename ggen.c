@@ -41,19 +41,22 @@ int mg_ggen(const mg_idx_t *gi, const char *fn, const mg_mapopt_t *opt, const mg
 
 	// mapping and graph generation
 	kt_for(n_threads, worker_for, s, s->n_seq);
-	mg_ggsimple(0, go, gi->g, s->n_seq, s->seq, s->gcs);
-
-	// free
 	for (i = 0; i < n_threads; ++i) mg_tbuf_destroy(s->buf[i]);
 	free(s->buf);
 	for (i = 0; i < s->n_seq; ++i) {
 		mg_bseq1_t *t = &s->seq[i];
 		mg_write_paf(&str, gi->g, s->gcs[i], t->l_seq, t->name, opt->flag, 0); // TODO: for debugging only for now
 		mg_err_fputs(str.s, stdout);
+	}
+	free(str.s);
+	mg_ggsimple(0, go, gi->g, s->n_seq, s->seq, s->gcs);
+	gfa_print(gi->g, stdout, 1);
+
+	// free the reset
+	for (i = 0; i < s->n_seq; ++i) {
 		mg_gchain_free(s->gcs[i]);
 		free(s->seq[i].seq); free(s->seq[i].name);
 	}
-	free(str.s);
 	free(s->gcs); free(s->seq);
 	if (mg_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] processed %d sequences\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), s->n_seq);
