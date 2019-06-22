@@ -3,6 +3,10 @@
 #include "ksort.h"
 #include "mss.h"
 
+/*********************************
+ * Overlap query (from cgranges) *
+ *********************************/
+
 typedef struct {
 	uint32_t st, en:31, rev:1;
 	int32_t far;
@@ -12,7 +16,7 @@ typedef struct {
 #define sort_key_intv(a) ((a).st)
 KRADIX_SORT_INIT(gg_intv, gg_intv_t, sort_key_intv, 4)
 
-static int32_t gg_intv_index(gg_intv_t *a, int32_t n)
+static int32_t gg_intv_index(int32_t n, gg_intv_t *a)
 {
 	int32_t i, last_i, last, k;
 	if (n <= 0) return -1;
@@ -33,6 +37,55 @@ static int32_t gg_intv_index(gg_intv_t *a, int32_t n)
 	}
 	return k - 1;
 }
+
+typedef struct {
+	int64_t x;
+	int32_t k, w;
+} istack_t;
+
+static int32_t gg_intv_overlap(int32_t n_a, const gg_intv_t *a, int32_t st, int32_t en, int32_t **b_, int32_t *m_b_)
+{
+	int32_t t = 0, h, *b = *b_, m_b = *m_b_, n = 0;
+	istack_t stack[64], *p;
+
+	for (h = 0; 1<<h <= n_a; ++h);
+	--h;
+	p = &stack[t++];
+	p->k = h, p->x = (1LL<<p->k) - 1, p->w = 0; // push the root into the stack
+	while (t) { // stack is not empyt
+		istack_t z = stack[--t];
+		if (z.k <= 3) { // the subtree is no larger than (1<<(z.k+1))-1; do a linear scan
+			int32_t i, i0 = z.x >> z.k << z.k, i1 = i0 + (1LL<<(z.k+1)) - 1;
+			if (i1 >= n_a) i1 = n_a;
+			for (i = i0; i < i1 && a[i].st < en; ++i)
+				if (st < a[i].en) {
+					if (n == m_b) KEXPAND(0, b, m_b);
+					b[n++] = i;
+				}
+		} else if (z.w == 0) { // if left child not processed
+			int32_t y = z.x - (1LL<<(z.k-1));
+			p = &stack[t++];
+			p->k = z.k, p->x = z.x, p->w = 1;
+			if (y >= n_a || a[y].far > st) {
+				p = &stack[t++];
+				p->k = z.k - 1, p->x = y, p->w = 0; // push the left child to the stack
+			}
+		} else if (z.x < n_a && a[z.x].st < en) {
+			if (st < a[z.x].en) { // then z.x overlaps the query; write to the output array
+				if (n == m_b) KEXPAND(0, b, m_b);
+				b[n++] = z.x;
+			}
+			p = &stack[t++];
+			p->k = z.k - 1, p->x = z.x + (1LL<<(z.k-1)), p->w = 0; // push the right child
+		}
+	}
+	*b_ = b, *m_b_ = m_b;
+	return n;
+}
+
+/**********************
+ * Graph augmentation *
+ **********************/
 
 gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
@@ -98,8 +151,9 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	// sort and index intervals
 	for (i = 0; i < g->n_seg; ++i) {
 		radix_sort_gg_intv(&intv[soff[i]], &intv[soff[i+1]]);
-		scnt[i] = gg_intv_index(&intv[soff[i]], soff[i+1] - soff[i]); // scnt[] reused for height
+		gg_intv_index(soff[i+1] - soff[i], &intv[soff[i]]);
 	}
+	kfree(km, scnt);
 
 	// extract poorly regions
 	KMALLOC(km, sc, max_acnt);
@@ -191,7 +245,6 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	kfree(km, sc);
 	kfree(km, meta);
 
-	kfree(km, scnt);
 	kfree(km, soff);
 	kfree(km, intv);
 	return h;
