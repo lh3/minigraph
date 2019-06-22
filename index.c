@@ -39,7 +39,6 @@ void mg_idx_destroy(mg_idx_t *gi)
 		}
 		free(gi->B);
 	}
-	gfa_destroy(gi->g);
 	free(gi);
 }
 

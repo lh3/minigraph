@@ -20,9 +20,8 @@ void liftrlimit() {}
 #endif
 
 static ko_longopt_t long_options[] = {
-	{ "print-gfa",    ko_no_argument,       301 },
+	{ "vcoor",        ko_no_argument,       301 },
 	{ "no-kalloc",    ko_no_argument,       302 },
-	{ "vcoor",        ko_no_argument,       303 },
 	{ 0, 0, 0 }
 };
 
@@ -44,10 +43,11 @@ int main(int argc, char *argv[])
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
 	mg_ggopt_t gpt;
-	int i, c, n_threads = 4, print_gfa = 0;
+	int i, c, n_threads = 4;
 //	char *rg = 0;
 	char *s;
 	FILE *fp_help = stderr;
+	gfa_t *g;
 	mg_idx_t *gi;
 
 	mg_verbose = 3;
@@ -84,9 +84,8 @@ int main(int argc, char *argv[])
 		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
-		else if (c == 301) print_gfa = 1;
+		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;
 		else if (c == 302) mg_dbg_flag |= MG_DBG_NO_KALLOC;
-		else if (c == 303) opt.flag |= MG_M_VERTEX_COOR;
 		else if (c == 'n') {
 			opt.min_gc_cnt = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
@@ -132,34 +131,29 @@ int main(int argc, char *argv[])
 		return fp_help == stdout? 0 : 1;
 	}
 
-	gi = mg_index_file(argv[o.ind], ipt.k, ipt.w, ipt.bucket_bits, n_threads);
-	if (gi == 0) {
+	g = gfa_read(argv[o.ind]);
+	if (g == 0) {
 		fprintf(stderr, "[ERROR] failed to load the graph from file '%s'\n", argv[o.ind]);
 		return 1;
 	}
-	fprintf(stderr, "[M::%s] created the index\n", __func__);
-	if (print_gfa) {
-		gfa_print(gi->g, stdout, 1);
-		goto free_gfa;
-	}
 
 #if 0
-	int sid1 = gfa_name2id(gi->g, "MTh0");
-	int sid2 = gfa_name2id(gi->g, "MTh13516");
-	int sid3 = gfa_name2id(gi->g, "MTo8961");
+	int sid1 = gfa_name2id(g, "MTh0");
+	int sid2 = gfa_name2id(g, "MTh13516");
+	int sid3 = gfa_name2id(g, "MTo8961");
 	int32_t n_pathv;
 	gfa_path_dst_t dst[3];
 	gfa_pathv_t *path;
 	if (sid1 < 0 || sid2 < 0) abort();
 	dst[0].v = sid2<<1|0, dst[0].target_dist = 13516;
 	dst[1].v = sid3<<1|0, dst[1].target_dist = 10000;
-	path = gfa_shortest_k(0, gi->g, sid1<<1|0, 2, dst, 20000, 7, &n_pathv);
-	gfa_sub_print_path(stderr, gi->g, n_pathv, path);
+	path = gfa_shortest_k(0, g, sid1<<1|0, 2, dst, 20000, 7, &n_pathv);
+	gfa_sub_print_path(stderr, g, n_pathv, path);
 	free(path);
 #endif
 
 #if 0
-	int sid1 = gfa_name2id(gi->g, "MTh0");
+	int sid1 = gfa_name2id(g, "MTh0");
 //	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 15 }, 0 };
 //	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 5 }, 0 };
 //	gfa_ins_t ins = { { sid1<<1|1, sid1<<1|1 }, { 3801, 3901 }, { 5, 15 }, 0 };
@@ -167,21 +161,23 @@ int main(int argc, char *argv[])
 						 { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 5 }, 0 }
 						};
 	char *seq = "CGAATATGGCTAAGCATAGCCGATATAGC", *name = "ins1";
-	gfa_augment(gi->g, 2, ins, 1, &name, &seq); // NB: indexing is wrong now
-	gfa_print(gi->g, stdout, 1);
+	gfa_augment(g, 2, ins, 1, &name, &seq); // NB: indexing is wrong now
+	gfa_print(g, stdout, 1);
 	exit(0);
 #endif
 
 	if (gpt.algo == MG_G_NONE) {
+		gi = mg_index_gfa(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_map_file(gi, argv[i], &opt, n_threads);
+		mg_idx_destroy(gi);
 	} else {
 		for (i = o.ind + 1; i < argc; ++i)
-			mg_ggen(gi, argv[i], &opt, &gpt, n_threads);
+			mg_ggen(g, argv[i], &ipt, &opt, &gpt, n_threads);
+		gfa_print(g, stdout, 1);
 	}
 
-free_gfa:
-	mg_idx_destroy(gi);
+	gfa_destroy(g);
 
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");

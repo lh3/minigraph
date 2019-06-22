@@ -57,8 +57,8 @@ typedef struct {
 } mg_ggopt_t;
 
 typedef struct {
+	const gfa_t *g;
 	int32_t b, w, k, flag;
-	gfa_t *g;
 	struct mg_idx_bucket_s *B; // index (hidden)
 } mg_idx_t;
 
@@ -118,7 +118,7 @@ mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b
 
 int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
 
-int mg_ggen(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);
+int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);
 
 #ifdef __cplusplus
 }

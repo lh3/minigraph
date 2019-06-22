@@ -8,8 +8,8 @@
 
 typedef struct {
     int n_seq;
-	const mg_idx_t *gi;
 	const mg_mapopt_t *opt;
+	mg_idx_t *gi;
 	mg_bseq1_t *seq;
 	mg_gchains_t **gcs;
 	mg_tbuf_t **buf;
@@ -21,18 +21,19 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	s->gcs[i] = mg_map(s->gi, s->seq[i].l_seq, s->seq[i].seq, s->buf[tid], s->opt, s->seq[i].name);
 }
 
-int mg_ggen(const mg_idx_t *gi, const char *fn, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads)
+int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads)
 {
 	int i;
 	mg_bseq_file_t *fp;
-	kstring_t str = {0,0,0};
 	step_t *s;
 
 	// read sequences
 	fp = mg_bseq_open(fn);
 	if (fp == 0) return -1;
+
 	KCALLOC(0, s, 1);
-	s->gi = gi, s->opt = opt;
+	s->gi = mg_index_gfa(g, ipt->k, ipt->w, ipt->bucket_bits, n_threads);
+	s->opt = opt;
 	s->seq = mg_bseq_read(fp, 1ULL<<62, 0, 0, 0, &s->n_seq);
 	for (i = 0; i < s->n_seq; ++i) s->seq[i].rid = i;
 	KCALLOC(0, s->buf, n_threads);
@@ -41,18 +42,23 @@ int mg_ggen(const mg_idx_t *gi, const char *fn, const mg_mapopt_t *opt, const mg
 
 	// mapping and graph generation
 	kt_for(n_threads, worker_for, s, s->n_seq);
+	mg_idx_destroy(s->gi);
 	for (i = 0; i < n_threads; ++i) mg_tbuf_destroy(s->buf[i]);
 	free(s->buf);
+
+#if 0 // for debugging
+	kstring_t str = {0,0,0};
 	for (i = 0; i < s->n_seq; ++i) {
 		mg_bseq1_t *t = &s->seq[i];
-		mg_write_paf(&str, gi->g, s->gcs[i], t->l_seq, t->name, opt->flag, 0); // TODO: for debugging only for now
+		mg_write_paf(&str, g, s->gcs[i], t->l_seq, t->name, opt->flag, 0);
 		mg_err_fputs(str.s, stdout);
 	}
 	free(str.s);
-	mg_ggsimple(0, go, gi->g, s->n_seq, s->seq, s->gcs);
-	gfa_print(gi->g, stdout, 1);
+#endif
 
-	// free the reset
+	mg_ggsimple(0, go, g, s->n_seq, s->seq, s->gcs);
+
+	// free the rest
 	for (i = 0; i < s->n_seq; ++i) {
 		mg_gchain_free(s->gcs[i]);
 		free(s->seq[i].seq); free(s->seq[i].name);
