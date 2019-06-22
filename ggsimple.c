@@ -43,7 +43,7 @@ typedef struct {
 	int32_t k, w;
 } istack_t;
 
-static int32_t gg_intv_overlap(int32_t n_a, const gg_intv_t *a, int32_t st, int32_t en, int32_t **b_, int32_t *m_b_)
+static int32_t gg_intv_overlap(void *km, int32_t n_a, const gg_intv_t *a, int32_t st, int32_t en, int32_t **b_, int32_t *m_b_)
 {
 	int32_t t = 0, h, *b = *b_, m_b = *m_b_, n = 0;
 	istack_t stack[64], *p;
@@ -59,7 +59,7 @@ static int32_t gg_intv_overlap(int32_t n_a, const gg_intv_t *a, int32_t st, int3
 			if (i1 >= n_a) i1 = n_a;
 			for (i = i0; i < i1 && a[i].st < en; ++i)
 				if (st < a[i].en) {
-					if (n == m_b) KEXPAND(0, b, m_b);
+					if (n == m_b) KEXPAND(km, b, m_b);
 					b[n++] = i;
 				}
 		} else if (z.w == 0) { // if left child not processed
@@ -72,7 +72,7 @@ static int32_t gg_intv_overlap(int32_t n_a, const gg_intv_t *a, int32_t st, int3
 			}
 		} else if (z.x < n_a && a[z.x].st < en) {
 			if (st < a[z.x].en) { // then z.x overlaps the query; write to the output array
-				if (n == m_b) KEXPAND(0, b, m_b);
+				if (n == m_b) KEXPAND(km, b, m_b);
 				b[n++] = z.x;
 			}
 			p = &stack[t++];
@@ -90,7 +90,7 @@ static int32_t gg_intv_overlap(int32_t n_a, const gg_intv_t *a, int32_t st, int3
 gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
 	gfa_t *h = 0;
-	int32_t t, i, j, *scnt, *soff, max_acnt, *sc;
+	int32_t t, i, j, *scnt, *soff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0;
 	int64_t sum_acnt, sum_alen;
 	uint64_t *meta;
 	gg_intv_t *intv;
@@ -225,7 +225,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					continue;
 				for (k = ls; k <= le; ++k) {
 					uint32_t v = gt->lc[k].v, len = g->seg[v>>1].len;
-					int32_t s = 0, e = len, tmp;
+					int32_t s = 0, e = len, tmp, n_ovlp;
 					if (k == ls && k == le) {
 						s = (int32_t)gt->a[off_a+st].x + 1 - (int32_t)(gt->a[off_a+st].y>>32&0xff);
 						e = (int32_t)gt->a[off_a+en].x + 1;
@@ -235,13 +235,15 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 						e = (int32_t)gt->a[off_a+en].x + 1;
 					}
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
-					fprintf(stderr, "%d,%d\n", s, e);
+					n_ovlp = gg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &intv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
+					fprintf(stderr, "%d,%d; %d\n", s, e, n_ovlp);
 				}
 				fprintf(stderr, "[%u:%d,%u:%d] <=> [%d,%d] pd=%d\n", I.v[0], I.voff[0], I.v[1], I.voff[1], I.coff[0], I.coff[1], pd);
 			}
 			kfree(0, ss);
 		}
 	}
+	kfree(km, ovlp);
 	kfree(km, sc);
 	kfree(km, meta);
 
