@@ -20,7 +20,7 @@ void liftrlimit() {}
 #endif
 
 static ko_longopt_t long_options[] = {
-	{ "vcoor",        ko_no_argument,       301 },
+	{ "vc",           ko_no_argument,       301 },
 	{ "no-kalloc",    ko_no_argument,       302 },
 	{ 0, 0, 0 }
 };

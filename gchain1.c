@@ -32,9 +32,9 @@ static int32_t mg_target_dist(const gfa_t *g, const mg_lchain_t *l0, const mg_lc
 	return (l1->qs - l0->qe) - (g->seg[l0->v>>1].len - l0->re) + (g->seg[l1->v>>1].len - l1->rs);
 }
 
-int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, uint64_t **u_)
+int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, uint64_t **u_)
 {
-	int32_t i, j, k, m_dst, n_dst, n_ext, j_st, n_u, n_v;
+	int32_t i, j, k, m_dst, n_dst, n_ext, j_st, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *p, *v, *t;
 	uint64_t *u;
 	gfa_path_dst_t *dst;
@@ -121,21 +121,23 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t n_lc, mg_lchain_t *lc, i
 
 	u = mg_chain_backtrack(km, n_ext, f, p, v, t, 0, 0, n_lc - n_ext, &n_u, &n_v);
 	kfree(km, f); kfree(km, p); kfree(km, t);
-	assert(n_v == n_ext && n_u > 0);
+	fprintf(stderr, "n_lc0=%d,n_u=%d,n_v=%d,n_ext=%d\n", n_lc, n_u, n_v, n_ext);
+	assert(n_u > 0);
 
 	for (i = 0; i < n_lc - n_ext; ++i) {
 		u[n_u++] = (uint64_t)lc[a[n_ext + i].i].score << 32 | 1;
 		v[n_v++] = n_ext + i;
 	}
 
-	KMALLOC(km, swap, n_lc);
+	KMALLOC(km, swap, n_v);
 	for (i = 0, k = 0; i < n_u; ++i) {
 		int32_t k0 = k, ni = (int32_t)u[i];
 		for (j = 0; j < ni; ++j)
 			swap[k++] = lc[a[v[k0 + (ni - j - 1)]].i];
 	}
-	assert(k == n_lc);
-	memcpy(lc, swap, n_lc * sizeof(mg_lchain_t));
+	assert(k == n_v);
+	memcpy(lc, swap, n_v * sizeof(mg_lchain_t));
+	*n_lc_ = n_v;
 	*u_ = u;
 
 	kfree(km, a);
@@ -167,6 +169,8 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		p->qe = (int32_t)gs->a[q->off + q->cnt - 1].y + 1;
 		p->pe = g->seg[q->v>>1].len - (int32_t)gs->a[q->off + q->cnt - 1].x - 1; // this is temporary
 		tmp = (int32_t)(gs->a[q->off + q->cnt - 1].x>>32) - tmp + 1;
+		if (!(p->n_anchor > 0 && tmp >= p->n_anchor))
+			fprintf(stderr, "n_anchor=%d,tmp=%d\n", p->n_anchor, tmp);
 		assert(p->n_anchor > 0 && tmp >= p->n_anchor);
 		p->div = log((double)tmp / p->n_anchor) / q_span;
 
