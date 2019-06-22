@@ -39,6 +39,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 	gfa_t *h = 0;
 	int32_t t, i, j, *scnt, *soff, max_acnt;
 	int64_t sum_acnt, sum_alen, *sc;
+	uint64_t *meta;
 	gg_intv_t *intv;
 	double a_dens;
 
@@ -102,6 +103,7 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 
 	// extract poorly regions
 	KMALLOC(km, sc, max_acnt);
+	KMALLOC(km, meta, max_acnt);
 	for (t = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
@@ -126,15 +128,45 @@ gfa_t *mg_ggsimple(void *km, const mg_ggopt_t *opt, const gfa_t *g, int32_t n_se
 					pd += (int32_t)p->x + 1;
 				} else pd = (int32_t)p->x - (int32_t)q->x;
 				sc[j - 1] = pd == qd && c == 0? -opt->match_pen : pd > qd? (int64_t)(c + (pd - qd) * a_dens + .499) : c;
+				meta[j-1] = (uint64_t)pd << 32 | lc->v;
 			}
 
 			ss = mss_find_all(0, gc->n_anchor - 1, sc, 10, 0, &n_ss);
 			for (j = 0; j < n_ss; ++j) {
+				const mg128_t *p, *q;
+				int32_t st, en, span, pd, k;
+				gfa_ins_t I;
+				if (ss[j].st <= 1 || ss[j].en >= gt->n_a) continue;
+				st = ss[j].st - 1, en = ss[j].en;
+				q = &gt->a[gt->lc[off_l].off + st];
+				p = &gt->a[gt->lc[off_l].off + en];
+				span = p->y>>32&0xff;
+				I.v[0] = meta[st], I.v[1] = meta[en], I.ctg = t;
+				I.voff[0] = (int32_t)q->x + 1;
+				I.voff[1] = (int32_t)p->x + 1 - span;
+				I.coff[0] = (int32_t)q->y + 1;
+				I.coff[1] = (int32_t)p->y + 1 - span;
+				for (k = st, pd = 0; k < en; ++k) pd += meta[k] >> 32;
+				pd -= span;
+				if (I.coff[0] > I.coff[1]) {
+					I.voff[1] += I.coff[0] - I.coff[1];
+					pd += I.coff[0] - I.coff[1];
+					I.coff[1] = I.coff[0];
+				}
+				if (I.v[0] == I.v[1] && I.voff[0] > I.voff[1]) {
+					I.coff[1] += I.voff[0] - I.voff[1];
+					pd += I.voff[0] - I.voff[1];
+					I.voff[1] = I.voff[0];
+				}
+				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
+					continue;
+				fprintf(stderr, "[%u:%d,%u:%d] <=> [%d,%d] pd=%d\n", I.v[0], I.voff[0], I.v[1], I.voff[1], I.coff[0], I.coff[1], pd);
 			}
 			kfree(0, ss);
 		}
 	}
 	kfree(km, sc);
+	kfree(km, meta);
 
 	kfree(km, scnt);
 	kfree(km, soff);
