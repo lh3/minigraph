@@ -268,11 +268,11 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 				p = gfa_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, &n_pathv);
 				//fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
 				assert(n_pathv > 0);
-				for (s = 1; s < n_pathv - 1; ++s) {
+				for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
 					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 					q = &tmp[n_tmp++];
 					q->off = q->cnt = q->score = 0;
-					q->v = p[s].v;
+					q->v = p[s].v^1; // when reversing a path, we also need to flip the orientation
 				}
 				if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 				copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
