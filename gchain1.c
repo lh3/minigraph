@@ -34,7 +34,7 @@ static int32_t mg_target_dist(const gfa_t *g, const mg_lchain_t *l0, const mg_lc
 
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, uint64_t **u_)
 {
-	int32_t i, j, k, m_dst, n_dst, n_ext, j_st, n_u, n_v, n_lc = *n_lc_;
+	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *p, *v, *t;
 	uint64_t *u;
 	gfa_path_dst_t *dst;
@@ -72,21 +72,21 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 	KCALLOC(km, t, n_ext);
 
 	m_dst = n_dst = 0, dst = 0;
-	for (i = 0, j_st = 0; i < n_ext; ++i) { // core loop
+	for (i = 0; i < n_ext; ++i) { // core loop
 		gc_frag_t *ai = &a[i];
 		mg_lchain_t *li = &lc[ai->i];
 		int32_t max_f = li->score;
 		int32_t max_j = -1, max_d = -1;
 		int32_t x = li->qs + bw;
-		while (j_st < i && a[j_st].srt + max_dist_q < li->qs) ++j_st;
 		if (x > qlen) x = qlen;
-		x = j_st + find_max(i - j_st, a + j_st, x);
+		x = find_max(i, a, x);
 		n_dst = 0;
-		for (j = x; j >= j_st; --j) { // collect potential destination vertices
+		for (j = x; j >= 0; --j) { // collect potential destination vertices
 			gc_frag_t *aj = &a[j];
 			mg_lchain_t *lj = &lc[aj->i];
 			gfa_path_dst_t *q;
 			int32_t min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re);
+			if (aj->srt + max_dist_q < li->qs) break; // if gap too large, stop
 			if (min_dist > max_dist_g) continue;
 			if (li->v == lj->v) continue;
 			if (min_dist - bw > li->qs - lj->qe) continue; // TODO: double check this line
