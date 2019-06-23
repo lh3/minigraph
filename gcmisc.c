@@ -190,7 +190,7 @@ void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score)
 		if (r->parent == r->id) {
 			int mapq, subsc;
 			float pen_s1 = (r->score > 100? 1.0f : 0.01f * r->score) * uniq_ratio;
-			float x, pen_cm = r->cnt > 10? 1.0f : 0.1f * r->cnt;
+			float x, pen_cm = r->n_anchor > 10? 1.0f : 0.1f * r->n_anchor;
 			pen_cm = pen_s1 < pen_cm? pen_s1 : pen_cm;
 			subsc = r->subsc > min_gc_score? r->subsc : min_gc_score;
 			x = (float)subsc / r->score;

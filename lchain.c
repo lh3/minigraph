@@ -5,56 +5,45 @@
 #include "mgpriv.h"
 #include "kalloc.h"
 
-// on return, n_u is the number of chains; n_v is the number of anchors in chains
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t extra_u, int32_t *n_u_, int32_t *n_v_)
 {
-	uint64_t *u = 0;
-	int64_t i, j;
-	int32_t k, n_u, n_v;
+	mg128_t *z;
+	uint64_t *u;
+	int64_t i, k, n_z;
+	int32_t n_u, n_v;
 
-	// find the ending positions of chains
 	*n_u_ = *n_v_ = 0;
+	for (i = 0, n_z = 0; i < n; ++i) // precompute n_z
+		if (f[i] >= min_sc) ++n_z;
+	if (n_z == 0) return 0;
+	KMALLOC(km, z, n_z);
+	for (i = 0, k = 0; i < n; ++i) // populate z[]
+		if (f[i] >= min_sc) z[k].x = f[i], z[k++].y = i;
+	radix_sort_128x(z, z + n_z);
+
 	memset(t, 0, n * 4);
-	for (i = 0; i < n; ++i)
-		if (p[i] >= 0) t[p[i]] = 1;
-	for (i = n_u = 0; i < n; ++i)
-		if (t[i] == 0 && v[i] >= min_sc)
+	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // precompute n_u
+		int32_t n_v0 = n_v, sc;
+		for (i = z[k].y; i >= 0 && t[i] == 0; i = p[i])
+			++n_v, t[i] = 1;
+		sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
+		if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
 			++n_u;
-	if (n_u == 0) return 0;
+		else n_v = n_v0;
+	}
 	KMALLOC(km, u, n_u + extra_u);
-	for (i = n_u = 0; i < n; ++i) {
-		if (t[i] == 0 && v[i] >= min_sc) {
-			j = i;
-			while (j >= 0 && f[j] < v[j]) j = p[j]; // find the peak that maximizes f[]
-			if (j < 0) j = i; // TODO: this should really be assert(j>=0)
-			u[n_u++] = (uint64_t)f[j] << 32 | j;
-		}
-	}
-	radix_sort_64(u, u + n_u);
-	for (i = 0; i < n_u>>1; ++i) { // reverse, s.t. the highest scoring chain is the first
-		uint64_t t = u[i];
-		u[i] = u[n_u - i - 1], u[n_u - i - 1] = t;
-	}
-
-	// backtrack; restuls are written to v[]
 	memset(t, 0, n * 4);
-	for (i = n_v = k = 0; i < n_u; ++i) { // starting from the highest score
-		int32_t n_v0 = n_v, k0 = k;
-		j = (int32_t)u[i];
-		do {
-			v[n_v++] = j;
-			t[j] = 1;
-			j = p[j];
-		} while (j >= 0 && t[j] == 0);
-		if (j < 0) {
-			if (n_v - n_v0 >= min_cnt) u[k++] = u[i]>>32<<32 | (n_v - n_v0);
-		} else if ((int32_t)(u[i]>>32) - f[j] >= min_sc) {
-			if (n_v - n_v0 >= min_cnt) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
-		}
-		if (k0 == k) n_v = n_v0; // no new chain added, reset
+	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // populate u[]
+		int32_t n_v0 = n_v, sc;
+		for (i = z[k].y; i >= 0 && t[i] == 0; i = p[i])
+			v[n_v++] = i, t[i] = 1;
+		sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
+		if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
+			u[n_u++] = (uint64_t)sc << 32 | (n_v - n_v0);
+		else n_v = n_v0;
 	}
-	*n_u_ = n_u = k, *n_v_ = n_v;
-
+	kfree(km, z);
+	*n_u_ = n_u, *n_v_ = n_v;
 	return u;
 }
 

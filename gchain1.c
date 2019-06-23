@@ -116,12 +116,12 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		f[i] = max_f, p[i] = max_j;
 		li->dist_pre = max_d;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
+		//fprintf(stderr, "[%d] %d\t%d\tv=%d\ti=%d\tscore=%d\tf[i]=%d\tmax_j=%d\tv[i]=%d\tp[i]=%d\n", i, li->qs, li->qe, li->v, a[i].i, li->score, max_f, max_j, v[i], p[i]);
 	}
 	kfree(km, dst);
 
 	u = mg_chain_backtrack(km, n_ext, f, p, v, t, 0, 0, n_lc - n_ext, &n_u, &n_v);
 	kfree(km, f); kfree(km, p); kfree(km, t);
-	fprintf(stderr, "n_lc0=%d,n_u=%d,n_v=%d,n_ext=%d\n", n_lc, n_u, n_v, n_ext);
 	assert(n_u > 0);
 
 	for (i = 0; i < n_lc - n_ext; ++i) {
