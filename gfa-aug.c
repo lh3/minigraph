@@ -167,8 +167,11 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	free(ins_side);
 
 	// update *g
-	for (j = 0; j < g->n_seg; ++j)
+	for (j = 0; j < g->n_seg; ++j) {
+		free(g->seg[j].name);
+		free(g->seg[j].seq);
 		free(g->seg[j].aux.aux);
+	}
 	free(g->seg);
 	g->seg = seg, g->n_seg = g->m_seg = n_seg;
 	GFA_REALLOC(g->arc_aux, g->m_arc);
