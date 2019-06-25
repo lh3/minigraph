@@ -131,7 +131,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				int32_t rs, re, tmp;
 				if (lc->cnt > 0) { // compute start and end on the forward strand on the segment
 					const mg128_t *q = &gt->a[lc->off];
-					rs = (int32_t)q->x - (int32_t)(q->y>>32&0xff) + 1;
+					rs = (int32_t)q->x + 1 - (int32_t)(q->y>>32&0xff);
 					q = &gt->a[lc->off + lc->cnt - 1];
 					re = (int32_t)q->x;
 					assert(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len);
@@ -139,8 +139,10 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (lc->v&1)
 						tmp = rs, rs = g->seg[lc->v>>1].len - re, re = g->seg[lc->v>>1].len - tmp;
 				} else rs = 0, re = g->seg[lc->v>>1].len;
+				if (t == 0 && i == 0 && j == 0) fprintf(stderr, "%c%d\t%d\t%d\n", "><"[lc->v&1], lc->v>>1, rs, re);
 				// save the interval
-				p = &intv[scnt[lc->v>>1]++];
+				p = &intv[soff[lc->v>>1] + scnt[lc->v>>1]];
+				++scnt[lc->v>>1];
 				p->st = rs, p->en = re, p->rev = lc->v&1, p->far = -1;
 				p->t = t, p->i = i, p->j = gc->off + j;
 			}
@@ -150,6 +152,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 
 	// sort and index intervals
 	for (i = 0; i < g->n_seg; ++i) {
+		assert(soff[i+1] - soff[i] == scnt[i]);
 		radix_sort_gg_intv(&intv[soff[i]], &intv[soff[i+1]]);
 		gg_intv_index(soff[i+1] - soff[i], &intv[soff[i]]);
 	}
@@ -247,6 +250,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					}
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
 					n_ovlp = gg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &intv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
+					if (n_ovlp == 0) fprintf(stderr, "[%d,%d,%d] %c%d\t%d\t%d\n", t, i, k, "><"[v&1], v>>1, s, e);
 					assert(n_ovlp > 0);
 					//fprintf(stderr, "%d,%d; %d\n", s, e, n_ovlp);
 					if (n_ovlp > 1) continue;
