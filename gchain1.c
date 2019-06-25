@@ -170,11 +170,7 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		p->pe = g->seg[q->v>>1].len - (int32_t)gs->a[q->off + q->cnt - 1].x - 1; // this is temporary
 		tmp = (int32_t)(gs->a[q->off + q->cnt - 1].x>>32) - tmp + 1;
 		assert(p->n_anchor > 0);
-		if (tmp > p->n_anchor) { // this may happen when there are overlaps on query
-			tmp = p->n_anchor - (tmp - p->n_anchor);
-			if (tmp < 0) tmp = 1;
-		}
-		p->div = log((double)tmp / p->n_anchor) / q_span;
+		p->div = tmp > p->n_anchor? log((double)tmp / p->n_anchor) / q_span : log((double)p->n_anchor / tmp) / q_span;
 
 		rest_pl = 0; // this value is never used if the first lchain is not empty (which should always be true)
 		last_a = &gs->a[gs->lc[p->off].off];
