@@ -139,7 +139,6 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (lc->v&1)
 						tmp = rs, rs = g->seg[lc->v>>1].len - re, re = g->seg[lc->v>>1].len - tmp;
 				} else rs = 0, re = g->seg[lc->v>>1].len;
-				if (t == 0 && i == 0 && j == 0) fprintf(stderr, "%c%d\t%d\t%d\n", "><"[lc->v&1], lc->v>>1, rs, re);
 				// save the interval
 				p = &intv[soff[lc->v>>1] + scnt[lc->v>>1]];
 				++scnt[lc->v>>1];
@@ -194,7 +193,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 
 			// get regions to insert
 			ss = mss_find_all(0, gc->n_anchor - 1, sc, 10, 0, &n_ss);
-			off_a = gt->lc[off_l].off;
+			off_a = gt->lc[gc->off].off;
 			for (j = 0; j < n_ss; ++j) {
 				const mg128_t *p, *q;
 				int32_t st, en, ls, le, span, pd, k;
@@ -250,9 +249,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					}
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
 					n_ovlp = gg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &intv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
-					if (n_ovlp == 0) fprintf(stderr, "[%d,%d,%d] %c%d\t%d\t%d\n", t, i, k, "><"[v&1], v>>1, s, e);
 					assert(n_ovlp > 0);
-					//fprintf(stderr, "%d,%d; %d\n", s, e, n_ovlp);
 					if (n_ovlp > 1) continue;
 				}
 				//fprintf(stderr, "IN\t[%u:%d,%u:%d|%d] <=> [%d,%d|%d]\n", I.v[0], I.voff[0], I.v[1], I.voff[1], pd, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
