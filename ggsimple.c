@@ -131,7 +131,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				int32_t rs, re, tmp;
 				if (lc->cnt > 0) { // compute start and end on the forward strand on the segment
 					const mg128_t *q = &gt->a[lc->off];
-					rs = (int32_t)q->x - (int32_t)(q->y>>32&0xff);
+					rs = (int32_t)q->x - (int32_t)(q->y>>32&0xff) + 1;
 					q = &gt->a[lc->off + lc->cnt - 1];
 					re = (int32_t)q->x;
 					assert(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len);
