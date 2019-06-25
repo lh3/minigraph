@@ -97,7 +97,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			q->target_dist = mg_target_dist(g, lj, li);
 			if (q->target_dist < 0) q->target_dist = 0;
 		}
-		//fprintf(stderr, "[src:%d] q_end=%d, src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, ai->srt, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
+		//fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
 		gfa_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, 0);
 		for (j = 0; j < n_dst; ++j) {
 			gfa_path_dst_t *dj = &dst[j];
@@ -110,7 +110,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			sc = li->score;
 			sc -= (int32_t)(gap * 0.2) + (log_gap >> 1);
 			sc += f[dj->meta];
-			//fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc);
+			//fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc, lc[dj->meta].qs, lc[dj->meta].qe);
 			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist;
 		}
 		f[i] = max_f, p[i] = max_j;
@@ -169,9 +169,11 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		p->qe = (int32_t)gs->a[q->off + q->cnt - 1].y + 1;
 		p->pe = g->seg[q->v>>1].len - (int32_t)gs->a[q->off + q->cnt - 1].x - 1; // this is temporary
 		tmp = (int32_t)(gs->a[q->off + q->cnt - 1].x>>32) - tmp + 1;
-		if (!(p->n_anchor > 0 && tmp >= p->n_anchor))
-			fprintf(stderr, "n_anchor=%d,tmp=%d\n", p->n_anchor, tmp);
-		assert(p->n_anchor > 0 && tmp >= p->n_anchor);
+		assert(p->n_anchor > 0);
+		if (tmp > p->n_anchor) { // this may happen when there are overlaps on query
+			tmp = p->n_anchor - (tmp - p->n_anchor);
+			if (tmp < 0) tmp = 1;
+		}
 		p->div = log((double)tmp / p->n_anchor) / q_span;
 
 		rest_pl = 0; // this value is never used if the first lchain is not empty (which should always be true)

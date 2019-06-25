@@ -174,7 +174,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 			for (j = 1; j < gc->n_anchor; ++j, ++off_a) {
 				const mg128_t *q = &gt->a[off_a - 1], *p = &gt->a[off_a];
 				const mg_llchain_t *lc = &gt->lc[off_l];
-				int32_t off_l0 = off_l, pd, qd = (int32_t)p->y - (int32_t)q->y, c = (int32_t)(p->x>>32) - (int32_t)(q->x>>32) - 1;
+				int32_t s, off_l0 = off_l, pd, qd = (int32_t)p->y - (int32_t)q->y, c = (int32_t)(p->x>>32) - (int32_t)(q->x>>32) - 1;
 				if (off_a == lc->off + lc->cnt) { // we are at the end of the current lchain
 					pd = g->seg[lc->v>>1].len - (int32_t)q->x - 1;
 					for (++off_l; off_l < gc->off + gc->cnt && gt->lc[off_l].cnt == 0; ++off_l)
@@ -182,7 +182,10 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					assert(off_l < gc->off + gc->cnt);
 					pd += (int32_t)p->x + 1;
 				} else pd = (int32_t)p->x - (int32_t)q->x;
-				sc[j - 1] = pd == qd && c == 0? -opt->match_pen : pd > qd? (int32_t)(c + (pd - qd) * a_dens + .499) : c;
+				if (pd == qd && c == 0) s = -opt->match_pen;
+				else if (pd > qd) s = (int32_t)(c + (pd - qd) * a_dens + .499);
+				else s = c; // TODO: check if this is an underestimate when there are overlaps on the query; perhaps the line above has addressed this.
+				sc[j - 1] = s;
 				meta[j-1] = (uint64_t)pd << 32 | off_l0;
 			}
 
