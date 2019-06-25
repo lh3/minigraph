@@ -159,6 +159,7 @@ void gfa_sub_print(FILE *fp, const gfa_t *g, const gfa_sub_t *sub);
 gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, gfa_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t *n_pathv);
 void gfa_sub_print_path(FILE *fp, const gfa_t *g, int32_t n, gfa_pathv_t *path);
 
+void gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq);
 void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char *const* name, const char *const* seq);
 
 #ifdef __cplusplus

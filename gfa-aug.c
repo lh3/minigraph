@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include "gfa-priv.h"
 #include "ksort.h"
 
@@ -179,4 +180,37 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	gfa_arc_sort(g);
 	gfa_arc_index(g);
 	gfa_fix_symm(g);
+}
+
+void gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) // min_len is NOT used for now
+{
+	int32_t i, len, max;
+	// left
+	max = ins->coff[1] - ins->coff[0];
+	if (ins->v[0] == ins->v[1] && ins->voff[1] - ins->voff[0] < max)
+		max = ins->voff[1] - ins->voff[0];
+	len = g->seg[ins->v[0]>>1].len;
+	for (i = 1; i <= max; ++i) {
+		int32_t s, q, x = ins->voff[0] + i;
+		if (x >= len) break;
+		if (ins->v[0]&1) x = len - 1 - x;
+		s = tolower(g->seg[ins->v[0]>>1].seq[x]);
+		q = tolower(seq[ins->coff[0] + i]);
+		if (s == q) ++ins->voff[0], ++ins->coff[0];
+		else break;
+	}
+	// right
+	max = ins->coff[1] - ins->coff[0]; // coff[0] and voff[0] may have been changed
+	if (ins->v[0] == ins->v[1] && ins->voff[1] - ins->voff[0] < max)
+		max = ins->voff[1] - ins->voff[0];
+	len = g->seg[ins->v[1]>>1].len;
+	for (i = 1; i <= max; ++i) {
+		int32_t s, q, x = (int32_t)ins->voff[i] - i;
+		if (x < 0) break;
+		if (ins->v[1]&1) x = len - 1 - x;
+		s = tolower(g->seg[ins->v[1]>>1].seq[x]);
+		q = tolower(seq[ins->coff[1] - i]);
+		if (s == q) --ins->voff[1], --ins->coff[1];
+		else break;
+	}
 }
