@@ -211,6 +211,9 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				I.v[1] = gt->lc[le].v;
 				I.voff[0] = (int32_t)q->x + 1;
 				I.voff[1] = (int32_t)p->x + 1 - span;
+				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
+				if (I.voff[1] > g->seg[I.v[1]>>1].len) fprintf(stderr, "ls=%d,le=%d,st=%d,en=%d t1=%d,t2=[%d,%d)\n", ls, le, st, en, off_a + en, gt->lc[le].off, gt->lc[le].off + gt->lc[le].cnt);
+				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
 				I.coff[0] = (int32_t)q->y + 1;
 				I.coff[1] = (int32_t)p->y + 1 - span;
 				for (k = st, pd = 0; k < en; ++k) pd += meta[k] >> 32;
@@ -227,6 +230,8 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					pd += I.voff[0] - I.voff[1];
 					I.voff[1] = I.voff[0];
 				}
+				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
+				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
 				pd -= gfa_ins_adj(g, 3, &I, seq[t].seq); // "3" is not used for now
 
 				// filtering
