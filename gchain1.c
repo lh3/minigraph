@@ -153,7 +153,7 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		mg_gchain_t *p = &gs->gc[i];
 		const mg_llchain_t *q;
 		const mg128_t *last_a;
-		int32_t q_span, rest_pl, tmp;
+		int32_t q_span, rest_pl, tmp, n_mini;
 
 		p->qs = p->qe = p->ps = p->pe = -1, p->plen = p->blen = p->mlen = 0, p->div = -1.0f;
 		if (p->cnt == 0) continue;
@@ -168,9 +168,8 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		q = &gs->lc[p->off + p->cnt - 1];
 		p->qe = (int32_t)gs->a[q->off + q->cnt - 1].y + 1;
 		p->pe = g->seg[q->v>>1].len - (int32_t)gs->a[q->off + q->cnt - 1].x - 1; // this is temporary
-		tmp = (int32_t)(gs->a[q->off + q->cnt - 1].x>>32) - tmp + 1;
+		n_mini = (int32_t)(gs->a[q->off + q->cnt - 1].x>>32) - tmp + 1;
 		assert(p->n_anchor > 0);
-		p->div = tmp > p->n_anchor? log((double)tmp / p->n_anchor) / q_span : log((double)p->n_anchor / tmp) / q_span;
 
 		rest_pl = 0; // this value is never used if the first lchain is not empty (which should always be true)
 		last_a = &gs->a[gs->lc[p->off].off];
@@ -189,6 +188,7 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 				} else {
 					pl = (int32_t)r->x - (int32_t)last_a->x;
 				}
+				if (ql < 0) ql = -ql, n_mini += (int32_t)(last_a->x>>32) - (int32_t)(r->x>>32); // dealing with overlapping query at junctions
 				p->blen += pl > ql? pl : ql;
 				p->mlen += pl > span && ql > span? span : pl < ql? pl : ql;
 				last_a = r;
@@ -198,6 +198,8 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 		}
 		p->pe = p->plen - p->pe;
 		assert(p->pe >= p->ps);
+		// here n_mini >= p->n_anchor should stand almost all the time
+		p->div = n_mini >= p->n_anchor? log((double)n_mini / p->n_anchor) / q_span : log((double)p->n_anchor / n_mini) / q_span;
 	}
 }
 
