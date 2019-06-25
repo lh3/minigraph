@@ -182,9 +182,9 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	gfa_fix_symm(g);
 }
 
-void gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) // min_len is NOT used for now
+int gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) // min_len is NOT used for now
 {
-	int32_t i, len, max;
+	int32_t i, len, max, shrunk_len = 0;
 	// left
 	max = ins->coff[1] - ins->coff[0];
 	if (ins->v[0] == ins->v[1] && ins->voff[1] - ins->voff[0] < max)
@@ -196,7 +196,7 @@ void gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) /
 		if (ins->v[0]&1) x = len - 1 - x;
 		s = tolower(g->seg[ins->v[0]>>1].seq[x]);
 		q = tolower(seq[ins->coff[0] + i]);
-		if (s == q) ++ins->voff[0], ++ins->coff[0];
+		if (s == q) ++ins->voff[0], ++ins->coff[0], ++shrunk_len;
 		else break;
 	}
 	// right
@@ -210,7 +210,8 @@ void gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) /
 		if (ins->v[1]&1) x = len - 1 - x;
 		s = tolower(g->seg[ins->v[1]>>1].seq[x]);
 		q = tolower(seq[ins->coff[1] - i]);
-		if (s == q) --ins->voff[1], --ins->coff[1];
+		if (s == q) --ins->voff[1], --ins->coff[1], ++shrunk_len;
 		else break;
 	}
+	return shrunk_len;
 }
