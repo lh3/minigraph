@@ -6,7 +6,7 @@ OBJS=		kalloc.o kthread.o gfa-base.o gfa-io.o gfa-sub.o gfa-aug.o \
             sketch.o misc.o mss.o bseq.o options.o \
 			index.o lchain.o gchain1.o gcmisc.o map.o ggen.o ggsimple.o format.o
 PROG=		minigraph
-LIBS=		-lz -lm
+LIBS=		-lz -lpthread -lm
 
 ifneq ($(asan),)
 	CFLAGS+=-fsanitize=address
