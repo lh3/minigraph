@@ -205,7 +205,7 @@ void gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) /
 		max = ins->voff[1] - ins->voff[0];
 	len = g->seg[ins->v[1]>>1].len;
 	for (i = 1; i <= max; ++i) {
-		int32_t s, q, x = (int32_t)ins->voff[i] - i;
+		int32_t s, q, x = (int32_t)ins->voff[1] - i;
 		if (x < 0) break;
 		if (ins->v[1]&1) x = len - 1 - x;
 		s = tolower(g->seg[ins->v[1]>>1].seq[x]);
