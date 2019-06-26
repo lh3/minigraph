@@ -258,7 +258,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					assert(n_ovlp > 0);
 					if (n_ovlp > 1) continue;
 				}
-				fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> [%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
+				//fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> [%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 				ins[n_ins++] = I;
 			}

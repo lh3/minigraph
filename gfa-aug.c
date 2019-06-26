@@ -99,7 +99,8 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 					gfa_split_t *q = &sp[l];
 					int32_t shift = q->end == 0? 32 : 0; // first end on the higher 32 bits
 					int32_t side = q->side & 1;
-					ins_side[q->ins] |= (uint64_t)((uint32_t)(k + side) << 1 | (side^q->end)) << shift;
+					int32_t which = q->side>>1 == 0? 0 : side; // special-casing when q->side==1, because no new segment created in this case
+					ins_side[q->ins] |= (uint64_t)((uint32_t)(k + which) << 1 | (side^q->end)) << shift;
 				}
 				if (q0->side>>1 != 0 && q0->side>>1 != g->seg[j].len) { // create a new segment
 					t->len = (q0->side>>1) - off;
