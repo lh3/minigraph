@@ -30,8 +30,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	gfa_split_t *sp;
 	gfa_seg_t *seg;
 	char buf[16];
-	uint32_t *old2new;
-	uint64_t t, n_old_arc = g->n_arc, *ins_side;
+	uint64_t t, n_old_arc = g->n_arc, *ins_side, *oldcnt;
 
 	if (n_ins <= 0 || n_ctg <= 0) return;
 
@@ -83,13 +82,13 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	GFA_CALLOC(seg, n_seg);
 	g->is_srt = g->is_symm = 0;
 	GFA_CALLOC(ins_side, n_ins);
-	GFA_MALLOC(old2new, g->n_seg * 2);
+	GFA_MALLOC(oldcnt, g->n_seg);
 	for (j = 0, k = 0; j < g->n_seg; ++j) {
 		int32_t i0, l, off = 0, k0 = k;
 		gfa_seg_t *s = &g->seg[j];
 		gfa_seg_t *t = &seg[k]; // this is so far a placeholder
 		// create the first half of a new segment
-		snprintf(buf, 15, "v%d", k + 1);
+		snprintf(buf, 15, "s%d", k + 1);
 		t->name = strdup(buf);
 		t->pnid = s->pnid, t->ppos = s->ppos, t->rank = s->rank;
 		// iterate over splits
@@ -109,7 +108,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 					t->seq[t->len] = 0;
 					off += t->len;
 					t = &seg[++k]; // create a new segment
-					snprintf(buf, 15, "v%d", k + 1);
+					snprintf(buf, 15, "s%d", k + 1);
 					t->name = strdup(buf);
 					t->pnid = s->pnid, t->ppos = s->ppos + off, t->rank = s->rank;
 				}
@@ -122,9 +121,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		memcpy(t->seq, &s->seq[off], t->len);
 		t->seq[t->len] = 0;
 		++k;
-		// translate table for old and new vertices
-		old2new[j<<1|0] = (uint32_t)(k - 1) << 1 | 0;
-		old2new[j<<1|1] = (uint32_t)k0 << 1 | 1;
+		oldcnt[j] = (uint64_t)k0 << 32 | (k - k0);
 		// add new arcs between newly created segments
 		for (i = 0; i < k - k0 - 1; ++i)
 			create_first_arc(g, seg, (uint32_t)(k0+i)<<1, (uint32_t)(k0+i+1)<<1);
@@ -136,19 +133,22 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	// update existing g->arc[]
 	for (t = 0; t < n_old_arc; ++t) {
 		gfa_arc_t *a = &g->arc[t];
-		uint32_t v = old2new[a->v_lv>>32];
+		uint32_t v = a->v_lv >> 32;
+		uint32_t off = oldcnt[v>>1]>>32, cnt = (uint32_t)oldcnt[v>>1];
+		v = (v&1) == 0? (off+cnt-1)<<1 : off<<1 | 1;
 		a->v_lv = (uint64_t)v << 32 | seg[v>>1].len;
-		a->w = old2new[a->w];
+		off = oldcnt[a->w>>1]>>32, cnt = (uint32_t)oldcnt[a->w>>1];
+		a->w = (a->w&1) == 0? off<<1 : (off+cnt-1)<<1 | 1;
 		a->lw = seg[a->w>>1].len;
 	}
-	free(old2new);
+	free(oldcnt);
 
 	// create newly inserted segments
 	for (i = 0, k = n_old_seg; i < n_ins; ++i) {
 		const gfa_ins_t *p = &ins[i];
 		if (p->coff[0] < p->coff[1]) {
 			gfa_seg_t *t = &seg[k];
-			snprintf(buf, 15, "v%d", k + 1);
+			snprintf(buf, 15, "s%d", k + 1);
 			t->name = strdup(buf);
 			GFA_MALLOC(t->seq, p->coff[1] - p->coff[0] + 1);
 			for (j = 0; j < p->coff[1] - p->coff[0]; ++j)
