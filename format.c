@@ -88,6 +88,7 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 	s->l = 0;
 	for (i = 0; i < gs->n_gc; ++i) {
 		const mg_gchain_t *p = &gs->gc[i];
+		if (p->id != p->parent && !(flag&MG_M_PRINT_2ND)) continue;
 		mg_sprintf_lite(s, "%s\t%d\t%d\t%d\t+\t", qname, qlen, p->qs, p->qe);
 		assert(p->cnt > 0);
 		if (flag & MG_M_VERTEX_COOR) {
@@ -128,7 +129,7 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 		}
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);
-		mg_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d", p->id == p->parent? 'P' : 'S', p->n_anchor, p->score);
+		mg_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d\ts2:i:%d", p->id == p->parent? 'P' : 'S', p->n_anchor, p->score, p->subsc);
 		if (p->div >= 0.0f && p->div <= 1.0f) {
 			char buf[16];
 			if (p->div == 0.0f) buf[0] = '0', buf[1] = 0;

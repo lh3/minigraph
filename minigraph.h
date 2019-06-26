@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "r121"
+#define MG_VERSION "r122"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -13,7 +13,8 @@
 #define MG_M_REV_ONLY     0x200
 #define MG_M_HEAP_SORT    0x400
 #define MG_M_VERTEX_COOR  0x800
-#define MG_F_ALL_CHAINS   0x1000
+#define MG_M_ALL_CHAINS   0x1000
+#define MG_M_PRINT_2ND    0x2000
 #define MG_M_COPY_COMMENT 0x10000
 #define MG_M_INDEPEND_SEG 0x20000
 #define MG_M_NO_QUAL      0x40000

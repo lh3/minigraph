@@ -20,8 +20,10 @@ void liftrlimit() {}
 #endif
 
 static ko_longopt_t long_options[] = {
+	{ "version",      ko_no_argument,       300 },
 	{ "vc",           ko_no_argument,       301 },
 	{ "no-kalloc",    ko_no_argument,       302 },
+	{ "secondary",    ko_required_argument, 303 },
 	{ 0, 0, 0 }
 };
 
@@ -34,6 +36,19 @@ static inline int64_t mg_parse_num(const char *str)
 	else if (*p == 'M' || *p == 'm') x *= 1e6;
 	else if (*p == 'K' || *p == 'k') x *= 1e3;
 	return (int64_t)(x + .499);
+}
+
+static inline void yes_or_no(mg_mapopt_t *opt, int flag, int long_idx, const char *arg, int yes_to_set)
+{
+	if (yes_to_set) {
+		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) opt->flag |= flag;
+		else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) opt->flag &= ~flag;
+		else fprintf(stderr, "[WARNING]\033[1;31m option '--%s' only accepts 'yes' or 'no'.\033[0m\n", long_options[long_idx].name);
+	} else {
+		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) opt->flag &= ~flag;
+		else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) opt->flag |= flag;
+		else fprintf(stderr, "[WARNING]\033[1;31m option '--%s' only accepts 'yes' or 'no'.\033[0m\n", long_options[long_idx].name);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -80,7 +95,7 @@ int main(int argc, char *argv[])
 		else if (c == 'K') opt.mini_batch_size = mg_parse_num(o.arg);
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'N') opt.best_n = mg_parse_num(o.arg);
-		else if (c == 'P') opt.flag |= MG_F_ALL_CHAINS;
+		else if (c == 'P') opt.flag |= MG_M_ALL_CHAINS;
 		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
@@ -99,6 +114,11 @@ int main(int argc, char *argv[])
 					exit(1);
 				}
 			}
+		} else if (c == 303) { // --secondary
+			yes_or_no(&opt, MG_M_PRINT_2ND, o.longidx, o.arg, 1);
+		} else if (c == 300) {
+			puts(MG_VERSION);
+			return 0;
 		}
 	}
 	if (mg_opt_check(&ipt, &opt, &gpt) < 0)
