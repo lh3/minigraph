@@ -11,7 +11,7 @@ void mg_idxopt_init(mg_idxopt_t *io)
 
 void mg_mapopt_init(mg_mapopt_t *mo)
 {
-	memset(mo, 0, sizeof(mg_idxopt_t));
+	memset(mo, 0, sizeof(mg_mapopt_t));
 	mo->seed = 11;
 	mo->mid_occ = 200;
 	mo->max_gap = 5000;
