@@ -11,7 +11,7 @@ typedef struct {
 #define split_key(p) ((p).side)
 KRADIX_SORT_INIT(split, gfa_split_t, split_key, 4)
 
-static inline void create_first_arc(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w)
+static inline void create_first_arc_semi(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w)
 {
 	gfa_arc_t *a;
 	if (g->n_arc == g->m_arc) GFA_EXPAND(g->arc, g->m_arc);
@@ -22,6 +22,12 @@ static inline void create_first_arc(gfa_t *g, const gfa_seg_t *seg, uint32_t v, 
 	a->ov = a->ow = 0;
 	a->link_id = g->n_arc - 1;
 	a->del = a->comp = 0;
+}
+
+static inline void create_first_arc(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w)
+{
+	create_first_arc_semi(g, seg, v, w);
+	create_first_arc_semi(g, seg, w^1, v^1);
 }
 
 void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char *const* name, const char *const* seq)
@@ -180,7 +186,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	GFA_BZERO(&g->arc_aux[n_old_arc], g->m_arc - n_old_arc);
 	gfa_arc_sort(g);
 	gfa_arc_index(g);
-	gfa_fix_symm(g);
+	// k = gfa_fix_symm(g); assert(k == 0); // for debugging; the graph should be symmetric
 }
 
 int gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) // min_len is NOT used for now

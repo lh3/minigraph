@@ -282,4 +282,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 		kfree(km, names);
 		kfree(km, seqs);
 	}
+	if (mg_verbose >= 3)
+		fprintf(stderr, "[M::%s::%.3f*%.2f] inserted %d events\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), n_ins);
 }

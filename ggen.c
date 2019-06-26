@@ -35,6 +35,9 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 	s->gi = mg_index_gfa(g, ipt->k, ipt->w, ipt->bucket_bits, n_threads);
 	s->opt = opt;
 	s->seq = mg_bseq_read(fp, 1ULL<<62, 0, 0, 0, &s->n_seq);
+	if (mg_verbose >= 3)
+		fprintf(stderr, "[M::%s::%.3f*%.2f] processing file \"%s\"\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), fn);
 	for (i = 0; i < s->n_seq; ++i) s->seq[i].rid = i;
 	KCALLOC(0, s->buf, n_threads);
 	for (i = 0; i < n_threads; ++i) s->buf[i] = mg_tbuf_init();
@@ -42,6 +45,9 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 
 	// mapping and graph generation
 	kt_for(n_threads, worker_for, s, s->n_seq);
+	if (mg_verbose >= 3)
+		fprintf(stderr, "[M::%s::%.3f*%.2f] mapped %d sequence(s) to the graph\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), s->n_seq);
 	mg_idx_destroy(s->gi);
 	for (i = 0; i < n_threads; ++i) mg_tbuf_destroy(s->buf[i]);
 	free(s->buf);
@@ -64,9 +70,6 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 		free(s->seq[i].seq); free(s->seq[i].name);
 	}
 	free(s->gcs); free(s->seq);
-	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] augmented the graph with %d sequences in file \"%s\"\n", __func__,
-				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), s->n_seq, fn);
 	free(s);
 	mg_bseq_close(fp);
 	return 0;
