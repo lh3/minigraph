@@ -33,6 +33,9 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 
 	KCALLOC(0, s, 1);
 	s->gi = mg_index_gfa(g, ipt->k, ipt->w, ipt->bucket_bits, n_threads);
+	if (mg_verbose >= 3)
+		fprintf(stderr, "[M::%s::%.3f*%.2f] indexed the graph\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0));
 	s->opt = opt;
 	s->seq = mg_bseq_read(fp, 1ULL<<62, 0, 0, 0, &s->n_seq);
 	if (mg_verbose >= 3)
