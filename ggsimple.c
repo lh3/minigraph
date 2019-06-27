@@ -97,7 +97,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 
 	// count the number of intervals on each segment
 	KCALLOC(km, scnt, g->n_seg);
-	KCALLOC(km, qcnt, g->n_seg);
+	KCALLOC(km, qcnt, n_seq);
 	for (t = 0, max_acnt = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
