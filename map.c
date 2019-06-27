@@ -264,7 +264,6 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	kfree(b->km, mini_pos);
 	kfree(b->km, u);
 
-	fprintf(stderr, "here! %x,n_lc=%d\n", mg_dbg_flag, n_lc);
 	if (mg_dbg_flag & MG_DBG_LCHAIN)
 		mg_print_lchain(stdout, gi, n_lc, lc, a, qname);
 
