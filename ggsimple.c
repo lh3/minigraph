@@ -270,8 +270,8 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				}
 				if (k != I.coff[1]) continue; // no ambiguous bases on the insert
 				n_ovlp = gg_intv_overlap(km, qoff[t+1] - qoff[t], &qintv[qoff[t]], I.coff[0], I.coff[1], &ovlp, &m_ovlp); // test overlapping on the query
-				assert(n_ovlp > 0);
-				if (n_ovlp > 1) continue;
+				if (n_ovlp == 0) fprintf(stderr, "[W::%s] query interval %s:%d-%d is not covered\n", __func__, seq[t].name, I.coff[0], I.coff[1]);
+				if (n_ovlp != 1) continue;
 				for (k = ls; k <= le; ++k) { // find other mappings overlapping with the insert on the graph
 					uint32_t v = gt->lc[k].v, len = g->seg[v>>1].len;
 					int32_t s = 0, e = len, tmp;
@@ -285,8 +285,8 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					}
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
 					n_ovlp = gg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &sintv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
-					assert(n_ovlp > 0);
-					if (n_ovlp > 1) break;
+					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %s:%d-%d is not covered\n", __func__, g->seg[v>>1].name, s, e);
+					if (n_ovlp != 1) break;
 				}
 				if (k <= le) continue;
 				//fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
