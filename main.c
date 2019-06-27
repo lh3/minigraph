@@ -22,8 +22,9 @@ void liftrlimit() {}
 static ko_longopt_t long_options[] = {
 	{ "version",      ko_no_argument,       300 },
 	{ "vc",           ko_no_argument,       301 },
-	{ "no-kalloc",    ko_no_argument,       302 },
-	{ "secondary",    ko_required_argument, 303 },
+	{ "secondary",    ko_required_argument, 302 },
+	{ "no-kalloc",    ko_no_argument,       303 },
+	{ "dbg-qname",    ko_no_argument,       304 },
 	{ 0, 0, 0 }
 };
 
@@ -100,8 +101,9 @@ int main(int argc, char *argv[])
 		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
-		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;
-		else if (c == 302) mg_dbg_flag |= MG_DBG_NO_KALLOC;
+		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
+		else if (c == 303) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
+		else if (c == 304) mg_dbg_flag |= MG_DBG_PRINT_QNAME; // --dbg-qname
 		else if (c == 'n') {
 			opt.min_gc_cnt = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
@@ -115,9 +117,9 @@ int main(int argc, char *argv[])
 					exit(1);
 				}
 			}
-		} else if (c == 303) { // --secondary
+		} else if (c == 302) { // --secondary
 			yes_or_no(&opt, MG_M_PRINT_2ND, o.longidx, o.arg, 1);
-		} else if (c == 300) {
+		} else if (c == 300) { // --version
 			puts(MG_VERSION);
 			return 0;
 		}

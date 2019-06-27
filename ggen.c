@@ -18,6 +18,8 @@ typedef struct {
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *s = (step_t*)_data;
+	if (mg_dbg_flag & MG_DBG_PRINT_QNAME)
+		fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[i].name, tid, s->seq[i].l_seq);
 	s->gcs[i] = mg_map(s->gi, s->seq[i].l_seq, s->seq[i].seq, s->buf[tid], s->opt, s->seq[i].name);
 }
 
@@ -39,7 +41,7 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 	s->opt = opt;
 	s->seq = mg_bseq_read(fp, 1ULL<<62, 0, 0, 0, &s->n_seq);
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] processing file \"%s\"\n", __func__,
+		fprintf(stderr, "[M::%s::%.3f*%.2f] loaded file \"%s\"\n", __func__,
 				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), fn);
 	for (i = 0; i < s->n_seq; ++i) s->seq[i].rid = i;
 	KCALLOC(0, s->buf, n_threads);

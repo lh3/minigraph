@@ -126,7 +126,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	}
 
 	// write the result to b[]
-	b = (mg128_t*)kmalloc(km, n_v * sizeof(mg128_t));
+	KMALLOC(km, b, n_v);
 	for (i = 0, k = 0; i < n_u; ++i) {
 		int32_t k0 = k, ni = (int32_t)u[i];
 		for (j = 0; j < ni; ++j)
@@ -135,13 +135,13 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	kfree(km, v);
 
 	// sort u[] and a[] by the target position, such that adjacent chains may be joined
-	w = (mg128_t*)kmalloc(km, n_u * sizeof(mg128_t));
+	KMALLOC(km, w, n_u);
 	for (i = k = 0; i < n_u; ++i) {
 		w[i].x = b[k].x, w[i].y = (uint64_t)k<<32|i;
 		k += (int32_t)u[i];
 	}
 	radix_sort_128x(w, w + n_u);
-	u2 = (uint64_t*)kmalloc(km, n_u * 8);
+	KMALLOC(km, u2, n_u);
 	for (i = k = 0; i < n_u; ++i) {
 		int32_t j = (int32_t)w[i].y, n = (int32_t)u[j];
 		u2[i] = u[j];
