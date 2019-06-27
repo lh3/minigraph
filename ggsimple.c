@@ -9,8 +9,7 @@
 
 typedef struct {
 	uint32_t st, en:31, rev:1;
-	int32_t far;
-	int32_t t, i, j;
+	int32_t far, i;
 } gg_intv_t;
 
 #define sort_key_intv(a) ((a).st)
@@ -89,45 +88,59 @@ static int32_t gg_intv_overlap(void *km, int32_t n_a, const gg_intv_t *a, int32_
 
 void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
-	int32_t t, i, j, *scnt, *soff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins;
+	int32_t t, i, j, *scnt, *soff, *qcnt, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins;
 	int64_t sum_acnt, sum_alen;
 	mg128_t *meta;
-	gg_intv_t *intv;
+	gg_intv_t *sintv, *qintv;
 	double a_dens;
 	gfa_ins_t *ins;
 
 	// count the number of intervals on each segment
 	KCALLOC(km, scnt, g->n_seg);
+	KCALLOC(km, qcnt, g->n_seg);
 	for (t = 0, max_acnt = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
 			const mg_gchain_t *gc = &gt->gc[i];
+			if (gc->id != gc->parent) continue;
 			if (gc->blen < opt->min_depth_len || gc->mapq < opt->min_mapq) continue;
 			if (gc->n_anchor > max_acnt) max_acnt = gc->n_anchor;
+			++qcnt[t];
 			for (j = 0; j < gc->cnt; ++j)
 				++scnt[gt->lc[gc->off + j].v>>1];
 		}
 	}
 	if (max_acnt == 0) { // no gchain
-		kfree(km, scnt);
+		kfree(km, scnt); kfree(km, qcnt);
 		return;
 	}
 
-	// populate the interval list
+	// compute soff[] and qoff[]
 	KMALLOC(km, soff, g->n_seg + 1);
+	KMALLOC(km, qoff, n_seq + 1);
 	for (soff[0] = 0, i = 1; i <= g->n_seg; ++i)
 		soff[i] = soff[i - 1] + scnt[i - 1];
+	for (qoff[0] = 0, i = 1; i <= n_seq; ++i)
+		qoff[i] = qoff[i - 1] + qcnt[i - 1];
+
+	// populate the interval list
 	memset(scnt, 0, 4 * g->n_seg);
-	KMALLOC(km, intv, soff[g->n_seg]);
+	memset(qcnt, 0, 4 * n_seq);
+	KMALLOC(km, sintv, soff[g->n_seg]);
+	KMALLOC(km, qintv, qoff[n_seq]);
 	sum_acnt = sum_alen = 0;
 	for (t = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
 			const mg_gchain_t *gc = &gt->gc[i];
+			gg_intv_t *p;
+			if (gc->id != gc->parent) continue;
 			if (gc->blen < opt->min_depth_len || gc->mapq < opt->min_mapq) continue;
+			p = &qintv[qoff[t] + qcnt[t]];
+			++qcnt[t];
+			p->st = gc->qs, p->en = gc->qe, p->rev = 0, p->far = -1, p->i = -1;
 			for (j = 0; j < gc->cnt; ++j) {
 				const mg_llchain_t *lc = &gt->lc[gc->off + j];
-				gg_intv_t *p;
 				int32_t rs, re, tmp;
 				if (lc->cnt > 0) { // compute start and end on the forward strand on the segment
 					const mg128_t *q = &gt->a[lc->off];
@@ -140,10 +153,9 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 						tmp = rs, rs = g->seg[lc->v>>1].len - re, re = g->seg[lc->v>>1].len - tmp;
 				} else rs = 0, re = g->seg[lc->v>>1].len;
 				// save the interval
-				p = &intv[soff[lc->v>>1] + scnt[lc->v>>1]];
+				p = &sintv[soff[lc->v>>1] + scnt[lc->v>>1]];
 				++scnt[lc->v>>1];
-				p->st = rs, p->en = re, p->rev = lc->v&1, p->far = -1;
-				p->t = t, p->i = i, p->j = gc->off + j;
+				p->st = rs, p->en = re, p->rev = lc->v&1, p->far = -1, p->i = -1;
 			}
 		}
 	}
@@ -152,10 +164,16 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 	// sort and index intervals
 	for (i = 0; i < g->n_seg; ++i) {
 		assert(soff[i+1] - soff[i] == scnt[i]);
-		radix_sort_gg_intv(&intv[soff[i]], &intv[soff[i+1]]);
-		gg_intv_index(soff[i+1] - soff[i], &intv[soff[i]]);
+		radix_sort_gg_intv(&sintv[soff[i]], &sintv[soff[i+1]]);
+		gg_intv_index(soff[i+1] - soff[i], &sintv[soff[i]]);
 	}
 	kfree(km, scnt);
+	for (i = 0; i < n_seq; ++i) {
+		assert(qoff[i+1] - qoff[i] == qcnt[i]);
+		radix_sort_gg_intv(&qintv[qoff[i]], &qintv[qoff[i+1]]);
+		gg_intv_index(qoff[i+1] - qoff[i], &qintv[qoff[i]]);
+	}
+	kfree(km, qcnt);
 
 	// extract poorly regions
 	m_ins = n_ins = 0, ins = 0;
@@ -167,6 +185,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 			const mg_gchain_t *gc = &gt->gc[i];
 			int32_t off_a, off_l, n_ss;
 			msseg_t *ss;
+			if (gc->id != gc->parent) continue;
 			if (gc->blen < opt->min_map_len || gc->mapq < opt->min_mapq) continue;
 			assert(gc->cnt > 0);
 
@@ -196,7 +215,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 			off_a = gt->lc[gc->off].off;
 			for (j = 0; j < n_ss; ++j) {
 				const mg128_t *p, *q;
-				int32_t st, en, ls, le, span, pd, k;
+				int32_t st, en, ls, le, span, pd, k, n_ovlp;
 				gfa_ins_t I;
 
 				// find the initial positions
@@ -242,9 +261,12 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (c == 'n' || c == 'N') break;
 				}
 				if (k != I.coff[1]) continue; // no ambiguous bases on the insert
+				n_ovlp = gg_intv_overlap(km, qoff[t+1] - qoff[t], &qintv[qoff[t]], I.coff[0], I.coff[1], &ovlp, &m_ovlp); // test overlapping on the query
+				assert(n_ovlp > 0);
+				if (n_ovlp > 1) continue;
 				for (k = ls; k <= le; ++k) { // find other mappings overlapping with the insert on the graph
 					uint32_t v = gt->lc[k].v, len = g->seg[v>>1].len;
-					int32_t s = 0, e = len, tmp, n_ovlp;
+					int32_t s = 0, e = len, tmp;
 					if (k == ls && k == le) {
 						s = (int32_t)gt->a[off_a+st].x + 1 - (int32_t)(gt->a[off_a+st].y>>32&0xff);
 						e = (int32_t)gt->a[off_a+en].x + 1;
@@ -254,10 +276,11 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 						e = (int32_t)gt->a[off_a+en].x + 1;
 					}
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
-					n_ovlp = gg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &intv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
+					n_ovlp = gg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &sintv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
 					assert(n_ovlp > 0);
-					if (n_ovlp > 1) continue;
+					if (n_ovlp > 1) break;
 				}
+				if (k <= le) continue;
 				//fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> [%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 				ins[n_ins++] = I;
@@ -268,8 +291,8 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 	kfree(km, ovlp);
 	kfree(km, sc);
 	kfree(km, meta);
-	kfree(km, soff);
-	kfree(km, intv);
+	kfree(km, soff); kfree(km, qoff);
+	kfree(km, sintv); kfree(km, qintv);
 
 	if (n_ins > 0) {
 		char **names, **seqs;
