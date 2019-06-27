@@ -207,7 +207,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				else if (pd > qd) s = (int32_t)(c + (pd - qd) * a_dens + .499);
 				else s = c; // TODO: check if this is an underestimate when there are overlaps on the query; perhaps the line above has addressed this.
 				sc[j - 1] = s;
-				meta[j-1].x = pd, meta[j-1].y = (uint64_t)off_l0 << 32 | off_l;
+				meta[j-1].x = pd, meta[j-1].y = (uint64_t)off_l0 << 32 | off_l; // TODO: we actually only need off_l0, not off_l
 			}
 
 			// get regions to insert
@@ -225,7 +225,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				p = &gt->a[off_a + en];
 				span = p->y>>32&0xff;
 				I.ctg = t;
-				ls = (int32_t)(meta[st].y>>32), le = (int32_t)meta[en].y; // first and last lchain
+				ls = (int32_t)(meta[st].y>>32), le = (int32_t)(meta[en].y>>32); // first and last lchain
 				assert(ls <= le);
 				I.v[0] = gt->lc[ls].v;
 				I.v[1] = gt->lc[le].v;
@@ -240,8 +240,16 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 
 				// adjust for overlapping poistions
 				if (I.coff[0] > I.coff[1]) {
-					I.voff[1] += I.coff[0] - I.coff[1];
-					pd += I.coff[0] - I.coff[1];
+					int d = I.coff[0] - I.coff[1];
+					if (I.voff[1] + d <= g->seg[I.v[1]>>1].len) {
+						I.voff[1] += d, pd += d;
+					} else if (I.voff[0] - d >= 0) {
+						I.voff[0] -= d, pd += d;
+					} else {
+						if (mg_verbose >= 2)
+							fprintf(stderr, "[W::%s] failed to resolve overlap [%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", __func__, "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
+						continue;
+					}
 					I.coff[1] = I.coff[0];
 				}
 				if (I.v[0] == I.v[1] && I.voff[0] > I.voff[1]) {
@@ -281,7 +289,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (n_ovlp > 1) break;
 				}
 				if (k <= le) continue;
-				//fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> [%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
+				//fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 				ins[n_ins++] = I;
 			}
