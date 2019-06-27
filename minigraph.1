@@ -1,4 +1,4 @@
-.TH minigraph 1 "26 June 2019" "minigraph (r123)" "Bioinformatics tools"
+.TH minigraph 1 "27 June 2019" "minigraph (r128)" "Bioinformatics tools"
 .SH NAME
 .PP
 minigraph - mapping and graph generation
@@ -15,6 +15,11 @@ Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer
 in a window of w consecutive k-mers.
 .SS Mapping options
 .TP 10
+.BI -U \ INT
+ignore minimizers with occurrences above
+.I INT
+[100].
+.TP
 .BI -g \ INT
 Stop chain enlongation if there are no minimizers within
 .IR INT -bp

@@ -13,7 +13,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 {
 	memset(mo, 0, sizeof(mg_mapopt_t));
 	mo->seed = 11;
-	mo->mid_occ = 200;
+	mo->mid_occ = 100;
 	mo->max_gap = 5000;
 	mo->max_gap_ref = -1;
 	mo->max_chain_skip = 25;
