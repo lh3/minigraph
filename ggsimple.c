@@ -308,6 +308,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 		KMALLOC(km, seqs, n_seq);
 		for (i = 0; i < n_seq; ++i)
 			names[i] = seq[i].name, seqs[i] = seq[i].seq;
+		n_ins = gfa_ins_filter(g, n_ins, ins);
 		gfa_augment(g, n_ins, ins, n_seq, (const char*const*)names, (const char*const*)seqs);
 		kfree(km, ins);
 		kfree(km, names);

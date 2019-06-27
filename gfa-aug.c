@@ -238,3 +238,19 @@ int gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) //
 	}
 	return shrunk_len;
 }
+
+int32_t gfa_ins_filter(const gfa_t *g, int32_t n_ins, gfa_ins_t *ins) // filter out impossible inserts
+{
+	int32_t i, k, n;
+	for (i = 0, n = 0; i < n_ins; ++i) {
+		gfa_ins_t *p = &ins[i];
+		for (k = 0; k < 2; ++k) {
+			uint32_t vlen = g->seg[p->v[k]>>1].len;
+			uint32_t side = (p->v[k]&1? vlen - p->voff[k] : p->voff[k]) << 1 | ((p->v[k]&1) ^ k);
+			if (side == (0<<1|0) || side == (vlen<<1|1))
+				break;
+		}
+		if (k == 2) ins[n++] = ins[i];
+	}
+	return n;
+}
