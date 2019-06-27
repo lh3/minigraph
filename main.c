@@ -25,6 +25,7 @@ static ko_longopt_t long_options[] = {
 	{ "secondary",    ko_required_argument, 302 },
 	{ "no-kalloc",    ko_no_argument,       303 },
 	{ "dbg-qname",    ko_no_argument,       304 },
+	{ "dbg-lchain",   ko_no_argument,       305 },
 	{ 0, 0, 0 }
 };
 
@@ -103,7 +104,8 @@ int main(int argc, char *argv[])
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
 		else if (c == 303) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
-		else if (c == 304) mg_dbg_flag |= MG_DBG_PRINT_QNAME; // --dbg-qname
+		else if (c == 304) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
+		else if (c == 305) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
 		else if (c == 'n') {
 			opt.min_gc_cnt = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
@@ -151,7 +153,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset []\n");
-		fprintf(fp_help, "                 - ggsimple: simple algorithm for graph generation\n");
+		fprintf(fp_help, "                 - ggs: simple algorithm for graph generation\n");
 		return fp_help == stdout? 0 : 1;
 	}
 

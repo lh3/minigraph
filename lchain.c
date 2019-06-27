@@ -9,8 +9,8 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 {
 	mg128_t *z;
 	uint64_t *u;
-	int64_t i, k, n_z;
-	int32_t n_u, n_v;
+	int64_t i, k, n_z, n_v;
+	int32_t n_u;
 
 	*n_u_ = *n_v_ = 0;
 	for (i = 0, n_z = 0; i < n; ++i) // precompute n_z
@@ -23,7 +23,8 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 
 	memset(t, 0, n * 4);
 	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // precompute n_u
-		int32_t n_v0 = n_v, sc;
+		int64_t n_v0 = n_v;
+		int32_t sc;
 		for (i = z[k].y; i >= 0 && t[i] == 0; i = p[i])
 			++n_v, t[i] = 1;
 		sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
@@ -34,7 +35,8 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 	KMALLOC(km, u, n_u + extra_u);
 	memset(t, 0, n * 4);
 	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // populate u[]
-		int32_t n_v0 = n_v, sc;
+		int64_t n_v0 = n_v;
+		int32_t sc;
 		for (i = z[k].y; i >= 0 && t[i] == 0; i = p[i])
 			v[n_v++] = i, t[i] = 1;
 		sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
@@ -43,6 +45,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 		else n_v = n_v0;
 	}
 	kfree(km, z);
+	assert(n_v < INT32_MAX);
 	*n_u_ = n_u, *n_v_ = n_v;
 	return u;
 }

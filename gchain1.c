@@ -122,7 +122,6 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 
 	u = mg_chain_backtrack(km, n_ext, f, p, v, t, 0, 0, n_lc - n_ext, &n_u, &n_v);
 	kfree(km, f); kfree(km, p); kfree(km, t);
-	assert(n_u > 0);
 
 	for (i = 0; i < n_lc - n_ext; ++i) {
 		u[n_u++] = (uint64_t)lc[a[n_ext + i].i].score << 32 | 1;
@@ -214,9 +213,11 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score)
 {
-	mg_gchains_t *gc = 0;
+	mg_gchains_t *gc;
 	mg_llchain_t *tmp;
 	int32_t i, j, k, st, n_g, n_a, s_tmp, n_tmp, m_tmp;
+
+	KCALLOC(km_dst, gc, 1);
 
 	// count the number of gchains and remaining anchors
 	for (i = 0, st = 0, n_g = n_a = 0; i < n_u; ++i) {
@@ -226,10 +227,9 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 			++n_g, n_a += m;
 		st += nui;
 	}
-	if (n_g == 0) return 0;
+	if (n_g == 0) return gc;
 
 	// preallocate
-	KCALLOC(km_dst, gc, 1);
 	gc->km = km_dst;
 	gc->n_gc = n_g, gc->n_a = n_a;
 	KCALLOC(km_dst, gc->gc, n_g);

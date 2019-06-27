@@ -7,8 +7,9 @@
 #include "minigraph.h"
 
 #define MG_DBG_NO_KALLOC   0x1
-#define MG_DBG_PRINT_QNAME 0x2
-#define MG_DBG_PRINT_SEED  0x4
+#define MG_DBG_QNAME       0x2
+#define MG_DBG_SEED        0x4
+#define MG_DBG_LCHAIN      0x8
 
 #define MG_SEED_IGNORE     (1ULL<<41)
 #define MG_SEED_TANDEM     (1ULL<<42)

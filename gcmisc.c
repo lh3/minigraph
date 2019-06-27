@@ -141,6 +141,7 @@ int mg_gchain_flt_sub(float pri_ratio, int min_diff, int best_n, int n, mg_gchai
 void mg_gchain_drop_flt(void *km, mg_gchains_t *gcs)
 {
 	int32_t i, n_gc, n_lc, n_a, n_lc0, n_a0, *o2n;
+	if (gcs->n_gc == 0) return;
 	KMALLOC(km, o2n, gcs->n_gc);
 	for (i = 0, n_gc = 0; i < gcs->n_gc; ++i) {
 		mg_gchain_t *r = &gcs->gc[i];
@@ -162,7 +163,7 @@ void mg_gchain_drop_flt(void *km, mg_gchains_t *gcs)
 		}
 		n_lc0 += r->cnt, n_a0 += r->n_anchor;
 	}
-	assert(n_lc0 = gcs->n_lc && n_a0 == gcs->n_a);
+	assert(n_lc0 == gcs->n_lc && n_a0 == gcs->n_a);
 	kfree(km, o2n);
 	gcs->n_gc = n_gc, gcs->n_lc = n_lc, gcs->n_a = n_a;
 	if (n_a != n_a0) {

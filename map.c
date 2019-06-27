@@ -210,7 +210,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	if (opt->flag & MG_M_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->mid_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 	else a = collect_seed_hits(b->km, opt, opt->mid_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 
-	if (mg_dbg_flag & MG_DBG_PRINT_SEED) {
+	if (mg_dbg_flag & MG_DBG_SEED) {
 		fprintf(stderr, "RS\t%d\n", rep_len);
 		for (i = 0; i < n_a; ++i)
 			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", gi->g->seg[a[i].x>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>32&1], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
@@ -230,6 +230,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 
 	a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
 
+#if 0 // re-chaining; mostly for short reads
 	if (opt->max_occ > opt->mid_occ && rep_len > 0) {
 		int rechain = 0;
 		if (n_lc > 0) { // test if the best chain has all the segments
@@ -253,6 +254,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
 		}
 	}
+#endif
 	b->frag_gap = max_chain_gap_ref;
 	kfree(b->km, mv.a);
 
@@ -262,7 +264,8 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	kfree(b->km, mini_pos);
 	kfree(b->km, u);
 
-	if (mg_dbg_flag & MG_DBG_PRINT_SEED)
+	fprintf(stderr, "here! %x,n_lc=%d\n", mg_dbg_flag, n_lc);
+	if (mg_dbg_flag & MG_DBG_LCHAIN)
 		mg_print_lchain(stdout, gi, n_lc, lc, a, qname);
 
 	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, &u);
@@ -279,7 +282,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 
 	if (b->km) {
 		km_stat(b->km, &kmst);
-		if (mg_dbg_flag & MG_DBG_PRINT_QNAME)
+		if (mg_dbg_flag & MG_DBG_QNAME)
 			fprintf(stderr, "QM\t%s\t%d\tcap=%ld,nCore=%ld,largest=%ld\n", qname, qlen_sum, kmst.capacity, kmst.n_cores, kmst.largest);
 		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
 		if (kmst.largest > 1U<<28) {
@@ -324,7 +327,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	const char *qseqs[MG_MAX_SEG];
 	mg_tbuf_t *b = s->buf[tid];
 	assert(s->n_seg[i] <= MG_MAX_SEG);
-	if (mg_dbg_flag & MG_DBG_PRINT_QNAME)
+	if (mg_dbg_flag & MG_DBG_QNAME)
 		fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[off].name, tid, s->seq[off].l_seq);
 	for (j = 0; j < s->n_seg[i]; ++j) {
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1))))
@@ -338,7 +341,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	} else {
 		mg_map_frag(s->p->gi, s->n_seg[i], qlens, qseqs, &s->gcs[off], b, s->p->opt, s->seq[off].name);
 	}
-	/*
+#if 0 // for paired-end reads
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
 			int k, t;
@@ -351,7 +354,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 				r->v ^= 1;
 			}
 		}
-	*/
+#endif
 }
 
 static void *worker_pipeline(void *shared, int step, void *in)

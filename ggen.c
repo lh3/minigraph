@@ -18,7 +18,7 @@ typedef struct {
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *s = (step_t*)_data;
-	if (mg_dbg_flag & MG_DBG_PRINT_QNAME)
+	if (mg_dbg_flag & MG_DBG_QNAME)
 		fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[i].name, tid, s->seq[i].l_seq);
 	s->gcs[i] = mg_map(s->gi, s->seq[i].l_seq, s->seq[i].seq, s->buf[tid], s->opt, s->seq[i].name);
 }
