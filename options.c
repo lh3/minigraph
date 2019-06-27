@@ -49,6 +49,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		go->algo = MG_G_GGSIMPLE;
 		mo->best_n = 0;
 		mo->max_gap = mo->bw = 10000;
+		mo->min_lc_cnt = 3, mo->min_lc_score = 30;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 	} else return -1;
 	return 0;
