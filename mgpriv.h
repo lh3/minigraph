@@ -25,6 +25,11 @@ typedef struct __kstring_t {
 } kstring_t;
 #endif
 
+typedef struct {
+	uint32_t st, en:31, rev:1;
+	int32_t far, i;
+} mg_intv_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -71,6 +76,9 @@ void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score);
 
 void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t *lc, const mg128_t *a, const char *qname);
 void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, uint64_t flag, void *km);
+
+int32_t mg_intv_index(int32_t n, mg_intv_t *a);
+int32_t mg_intv_overlap(void *km, int32_t n_a, const mg_intv_t *a, int32_t st, int32_t en, int32_t **b_, int32_t *m_b_);
 
 void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs);
 
