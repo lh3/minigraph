@@ -192,6 +192,14 @@ int main(int argc, char *argv[])
 	exit(0);
 #endif
 
+#if 0
+	const char *s1 = "CCAGAGCATCGATAGgGATGATCGATG";
+	const char *s2 = "CCAGAGCATCGATAGTGATGATCGATGCA";
+	int32_t mlen = mg_fastcmp(0, strlen(s1), s1, strlen(s2), s2, 9, 10);
+	fprintf(stderr, "%d\n", mlen);
+	exit(1);
+#endif
+
 	if (gpt.algo == MG_G_NONE) {
 		gi = mg_index_gfa(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);
 		for (i = o.ind + 1; i < argc; ++i)

@@ -32,7 +32,7 @@ static int32_t mg_fc_kmer(int32_t len, const char *seq, int32_t rid, int32_t k, 
 		int32_t c = seq_nt4_table[(uint8_t)seq[i]];
 		if (c < 4) {
 			x = (x << 2 | c) & mask;
-			if (++l >= k) a[n].x = x<<1 | rid, a[n].y = i;
+			if (++l >= k) a[n].x = x<<1 | rid, a[n].y = i, ++n;
 		} else l = 0, x = 0;
 	}
 	return n;
@@ -60,7 +60,7 @@ int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char 
 					for (s = i0; s < j; ++s)
 						for (t = j; t < i; ++t) {
 							if (n_b == m_b) KEXPAND(km, b, m_b);
-							b[n_b++] = (uint64_t)s<<32 | t;
+							b[n_b++] = (uint64_t)a[s].y<<32 | a[t].y;
 						}
 				}
 			}
