@@ -10,11 +10,13 @@
 void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
 	int32_t t, i, j, *scnt, *soff, *qcnt, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins;
+	int32_t l_pseq, m_pseq;
 	int64_t sum_acnt, sum_alen;
 	uint64_t *meta;
 	mg_intv_t *sintv, *qintv;
 	double a_dens;
 	gfa_ins_t *ins;
+	char *pseq;
 
 	// count the number of intervals on each segment
 	KCALLOC(km, scnt, g->n_seg);
@@ -95,6 +97,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 	kfree(km, qcnt);
 
 	// extract poorly regions
+	m_pseq = l_pseq = 0, pseq = 0;
 	m_ins = n_ins = 0, ins = 0;
 	KMALLOC(km, sc, max_acnt);
 	KMALLOC(km, meta, max_acnt);
@@ -212,13 +215,20 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (n_ovlp != 1) break;
 				}
 				if (k <= le) continue;
-				//fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
+				l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
+				if (mg_dbg_flag & MG_DBG_INSERT) {
+					fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
+					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
+					fwrite(&seq[t].seq[I.coff[0]], 1, I.coff[1] - I.coff[0], stderr);
+					fprintf(stderr, "\nIS\t%d\n", mg_fastcmp(km, l_pseq, pseq, I.coff[1] - I.coff[0], &seq[t].seq[I.coff[0]], 9, 10));
+				}
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 				ins[n_ins++] = I;
 			}
 			kfree(0, ss);
 		}
 	}
+	kfree(km, pseq);
 	kfree(km, ovlp);
 	kfree(km, sc);
 	kfree(km, meta);

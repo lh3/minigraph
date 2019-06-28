@@ -45,6 +45,8 @@ int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char 
 	uint64_t *b;
 	int32_t n_lis, *lis, mlen;
 
+	if (l1 < k || l2 < k) return 0;
+
 	KMALLOC(km, a, l1 + l2);
 	n_a = mg_fc_kmer(l1, s1, 0, k, a);
 	n_a += mg_fc_kmer(l2, s2, 1, k, &a[n_a]);

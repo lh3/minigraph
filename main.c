@@ -23,9 +23,10 @@ static ko_longopt_t long_options[] = {
 	{ "version",      ko_no_argument,       300 },
 	{ "vc",           ko_no_argument,       301 },
 	{ "secondary",    ko_required_argument, 302 },
-	{ "no-kalloc",    ko_no_argument,       303 },
-	{ "dbg-qname",    ko_no_argument,       304 },
-	{ "dbg-lchain",   ko_no_argument,       305 },
+	{ "no-kalloc",    ko_no_argument,       401 },
+	{ "dbg-qname",    ko_no_argument,       402 },
+	{ "dbg-lchain",   ko_no_argument,       403 },
+	{ "dbg-insert",   ko_no_argument,       404 },
 	{ 0, 0, 0 }
 };
 
@@ -103,9 +104,10 @@ int main(int argc, char *argv[])
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
-		else if (c == 303) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
-		else if (c == 304) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
-		else if (c == 305) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
+		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
+		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
+		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
+		else if (c == 404) mg_dbg_flag |= MG_DBG_INSERT;      // --dbg-insert
 		else if (c == 'n') {
 			opt.min_gc_cnt = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
