@@ -8,6 +8,8 @@
 extern "C" {
 #endif
 
+extern unsigned char gfa_comp_table[256];
+
 struct mg_bseq_file_s;
 typedef struct mg_bseq_file_s mg_bseq_file_t;
 
@@ -23,7 +25,7 @@ mg_bseq1_t *mg_bseq_read_frag(int n_fp, mg_bseq_file_t **fp, int64_t chunk_size,
 int mg_bseq_eof(mg_bseq_file_t *fp);
 
 extern unsigned char seq_nt4_table[256];
-extern unsigned char seq_comp_table[256];
+extern unsigned char gfa_comp_table[256];
 
 static inline int mg_qname_len(const char *s)
 {
@@ -45,10 +47,10 @@ static inline void mg_revcomp_bseq(mg_bseq1_t *s)
 	int i, t, l = s->l_seq;
 	for (i = 0; i < l>>1; ++i) {
 		t = s->seq[l - i - 1];
-		s->seq[l - i - 1] = seq_comp_table[(uint8_t)s->seq[i]];
-		s->seq[i] = seq_comp_table[t];
+		s->seq[l - i - 1] = gfa_comp_table[(uint8_t)s->seq[i]];
+		s->seq[i] = gfa_comp_table[t];
 	}
-	if (l&1) s->seq[l>>1] = seq_comp_table[(uint8_t)s->seq[l>>1]];
+	if (l&1) s->seq[l>>1] = gfa_comp_table[(uint8_t)s->seq[l>>1]];
 	if (s->qual)
 		for (i = 0; i < l>>1; ++i)
 			t = s->qual[l - i - 1], s->qual[l - i - 1] = s->qual[i], s->qual[i] = t;

@@ -144,7 +144,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				p = &gt->a[off_a + en];
 				span = p->y>>32&0xff;
 				I.ctg = t;
-				ls = (int32_t)(meta[st].y>>32), le = (int32_t)(meta[en].y>>32); // first and last lchain
+				ls = (int32_t)(meta[st].y>>32), le = (int32_t)(meta[en].y>>32); // first and last lchain; CLOSED interval
 				assert(ls <= le);
 				I.v[0] = gt->lc[ls].v;
 				I.v[1] = gt->lc[le].v;
@@ -194,17 +194,11 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				for (k = ls; k <= le; ++k) { // find other mappings overlapping with the insert on the graph
 					uint32_t v = gt->lc[k].v, len = g->seg[v>>1].len;
 					int32_t s = 0, e = len, tmp;
-					if (k == ls && k == le) {
-						s = (int32_t)gt->a[off_a+st].x + 1 - (int32_t)(gt->a[off_a+st].y>>32&0xff);
-						e = (int32_t)gt->a[off_a+en].x + 1;
-					} else if (k == ls) {
-						s = (int32_t)gt->a[off_a+st].x + 1 - (int32_t)(gt->a[off_a+st].y>>32&0xff);
-					} else if (k == le) {
-						e = (int32_t)gt->a[off_a+en].x + 1;
-					}
+					if (k == ls) s = (int32_t)gt->a[off_a+st].x + 1 - (int32_t)(gt->a[off_a+st].y>>32&0xff);
+					if (k == le) e = (int32_t)gt->a[off_a+en].x + 1;
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
 					n_ovlp = mg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &sintv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
-					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %s:%d-%d is not covered\n", __func__, g->seg[v>>1].name, s, e);
+					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %s:%d-%d is not covered\n", __func__, g->seg[v>>1].name, s, e); // this should be an assert()
 					if (n_ovlp != 1) break;
 				}
 				if (k <= le) continue;

@@ -11,17 +11,6 @@ typedef struct {
 #define split_key(p) ((p).side)
 KRADIX_SORT_INIT(split, gfa_split_t, split_key, 4)
 
-char gfa_comp_tab[] = {
-	  0,   1,	2,	 3,	  4,   5,	6,	 7,	  8,   9,  10,	11,	 12,  13,  14,	15,
-	 16,  17,  18,	19,	 20,  21,  22,	23,	 24,  25,  26,	27,	 28,  29,  30,	31,
-	 32,  33,  34,	35,	 36,  37,  38,	39,	 40,  41,  42,	43,	 44,  45,  46,	47,
-	 48,  49,  50,	51,	 52,  53,  54,	55,	 56,  57,  58,	59,	 60,  61,  62,	63,
-	 64, 'T', 'V', 'G', 'H', 'E', 'F', 'C', 'D', 'I', 'J', 'M', 'L', 'K', 'N', 'O',
-	'P', 'Q', 'Y', 'S', 'A', 'A', 'B', 'W', 'X', 'R', 'Z',	91,	 92,  93,  94,	95,
-	 64, 't', 'v', 'g', 'h', 'e', 'f', 'c', 'd', 'i', 'j', 'm', 'l', 'k', 'n', 'o',
-	'p', 'q', 'y', 's', 'a', 'a', 'b', 'w', 'x', 'r', 'z', 123, 124, 125, 126, 127
-};
-
 static inline void create_first_arc_semi(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w, int is_comp)
 {
 	gfa_arc_t *a;
@@ -214,7 +203,7 @@ int gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) //
 		if (x >= len) break;
 		if (ins->v[0]&1) x = len - 1 - x;
 		s = g->seg[ins->v[0]>>1].seq[x];
-		if (ins->v[0]&1) s = s < 0 || s >= 128? s : gfa_comp_tab[s];
+		if (ins->v[0]&1) s = gfa_comp_table[(uint8_t)s];
 		s = tolower(s);
 		q = tolower(seq[ins->coff[0] + i]);
 		if (s == q) ++ins->voff[0], ++ins->coff[0], ++shrunk_len;
@@ -230,7 +219,7 @@ int gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) //
 		if (x < 0) break;
 		if (ins->v[1]&1) x = len - 1 - x;
 		s = g->seg[ins->v[1]>>1].seq[x];
-		if (ins->v[1]&1) s = s < 0 || s >= 128? s : gfa_comp_tab[s];
+		if (ins->v[1]&1) s = gfa_comp_table[(uint8_t)s];
 		s = tolower(s);
 		q = tolower(seq[ins->coff[1] - i]);
 		if (s == q) --ins->voff[1], --ins->coff[1], ++shrunk_len;

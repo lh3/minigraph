@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <ctype.h>
 #include "kthread.h"
 #include "kalloc.h"
 #include "mgpriv.h"
@@ -78,4 +79,40 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 	free(s);
 	mg_bseq_close(fp);
 	return 0;
+}
+
+int32_t mg_path2seq(void *km, const gfa_t *g, const mg_gchains_t *gcs, int32_t ls, int32_t le, int32_t voff[2], char **seq_, int32_t *cap_) // NB: [ls,le] is a CLOSED interval
+{
+	extern unsigned char gfa_comp_table[256];
+	int32_t i, k, l = 0, cap = *cap_;
+	char *seq = *seq_;
+	assert(0 <= ls && ls <= le && le < gcs->n_lc);
+	for (k = ls; k <= le; ++k) {
+		uint32_t v = gcs->lc[k].v, len = g->seg[v>>1].len;
+		int32_t st = 0, en = len, tmp;
+		if (k == ls) st = voff[0];
+		if (k == le) en = voff[1];
+		assert(0 <= st && st <= en && en <= len);
+		if (en - st + l + 1 > cap) {
+			cap = en - st + l + 1;
+			kroundup32(cap);
+			KREALLOC(km, seq, cap);
+		}
+		if (v&1) {
+			uint8_t *ss = (uint8_t*)&g->seg[v>>1].seq;
+			tmp = st, st = len - en, en = len - tmp;
+			for (i = en - 1; i >= st; --i)
+				seq[l++] = gfa_comp_table[ss[i]];
+		} else {
+			memcpy(&seq[l], &g->seg[v>>1].seq[st], en - st);
+			l += en - st;
+		}
+	}
+	if (l == 0 && cap == 0) {
+		cap = 8;
+		KREALLOC(km, seq, cap);
+	}
+	seq[l] = 0;
+	*seq_ = seq, *cap_ = cap;
+	return l;
 }
