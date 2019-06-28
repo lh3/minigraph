@@ -190,42 +190,30 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	// k = gfa_fix_symm(g); assert(k == 0); // for debugging; the graph should be symmetric
 }
 
+static int32_t gfa_ins_shrink_semi(const gfa_t *g, uint32_t v, int32_t voff, int32_t coff, uint32_t vv, int32_t vend, int32_t cend, const char *seq)
+{
+	int32_t i, j, l, dir;
+	if (cend == coff) return 0;
+	dir = cend > coff? +1 : -1;
+	for (i = coff, j = voff, l = 0; i != cend; i += dir, j += dir) {
+		int32_t cg, vlen = g->seg[v>>1].len;
+		if (j == vlen || j == -1) break;
+		if (vv == v && j == vend) break;
+		cg = (v&1) == 0? g->seg[v>>1].seq[j] : gfa_comp_table[(uint8_t)g->seg[v>>1].seq[vlen - 1 - j]];
+		if (tolower(cg) == tolower(seq[i])) ++l;
+		else break;
+	}
+	return l;
+}
+
 int gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) // min_len is NOT used for now
 {
-	int32_t i, len, max, shrunk_len = 0;
-	// left
-	max = ins->coff[1] - ins->coff[0];
-	if (ins->v[0] == ins->v[1] && ins->voff[1] - ins->voff[0] < max)
-		max = ins->voff[1] - ins->voff[0];
-	len = g->seg[ins->v[0]>>1].len;
-	for (i = 1; i <= max; ++i) {
-		int32_t s, q, x = ins->voff[0] + i;
-		if (x >= len) break;
-		if (ins->v[0]&1) x = len - 1 - x;
-		s = g->seg[ins->v[0]>>1].seq[x];
-		if (ins->v[0]&1) s = gfa_comp_table[(uint8_t)s];
-		s = tolower(s);
-		q = tolower(seq[ins->coff[0] + i]);
-		if (s == q) ++ins->voff[0], ++ins->coff[0], ++shrunk_len;
-		else break;
-	}
-	// right
-	max = ins->coff[1] - ins->coff[0]; // coff[0] and voff[0] may have been changed
-	if (ins->v[0] == ins->v[1] && ins->voff[1] - ins->voff[0] < max)
-		max = ins->voff[1] - ins->voff[0];
-	len = g->seg[ins->v[1]>>1].len;
-	for (i = 1; i <= max; ++i) {
-		int32_t s, q, x = (int32_t)ins->voff[1] - i;
-		if (x < 0) break;
-		if (ins->v[1]&1) x = len - 1 - x;
-		s = g->seg[ins->v[1]>>1].seq[x];
-		if (ins->v[1]&1) s = gfa_comp_table[(uint8_t)s];
-		s = tolower(s);
-		q = tolower(seq[ins->coff[1] - i]);
-		if (s == q) --ins->voff[1], --ins->coff[1], ++shrunk_len;
-		else break;
-	}
-	return shrunk_len;
+	int32_t l, tot = 0;
+	l = gfa_ins_shrink_semi(g, ins->v[0], ins->voff[0], ins->coff[0], ins->v[1], ins->voff[1], ins->coff[1], seq);
+	ins->voff[0] += l, ins->coff[0] += l, tot += l;
+	l = gfa_ins_shrink_semi(g, ins->v[1], ins->voff[1] - 1, ins->coff[1] - 1, ins->v[0], ins->voff[0] - 1, ins->coff[0] - 1, seq);
+	ins->voff[1] -= l, ins->coff[1] -= l, tot += l;
+	return tot;
 }
 
 int32_t gfa_ins_filter(const gfa_t *g, int32_t n_ins, gfa_ins_t *ins) // filter out impossible inserts

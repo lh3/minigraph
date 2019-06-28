@@ -220,7 +220,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
 					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
 					fwrite(&seq[t].seq[I.coff[0]], 1, I.coff[1] - I.coff[0], stderr);
-					fprintf(stderr, "\nIS\t%d\n", mg_fastcmp(km, l_pseq, pseq, I.coff[1] - I.coff[0], &seq[t].seq[I.coff[0]], 9, 10));
+					fprintf(stderr, "\nIS\t%d==%d\t%d\n", pd, l_pseq, mg_fastcmp(km, l_pseq, pseq, I.coff[1] - I.coff[0], &seq[t].seq[I.coff[0]], 9, 10));
 				}
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 				ins[n_ins++] = I;

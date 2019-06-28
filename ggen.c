@@ -99,7 +99,7 @@ int32_t mg_path2seq(void *km, const gfa_t *g, const mg_gchains_t *gcs, int32_t l
 			KREALLOC(km, seq, cap);
 		}
 		if (v&1) {
-			uint8_t *ss = (uint8_t*)&g->seg[v>>1].seq;
+			uint8_t *ss = (uint8_t*)g->seg[v>>1].seq;
 			tmp = st, st = len - en, en = len - tmp;
 			for (i = en - 1; i >= st; --i)
 				seq[l++] = gfa_comp_table[ss[i]];
