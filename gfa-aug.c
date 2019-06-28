@@ -192,10 +192,10 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 
 static int32_t gfa_ins_shrink_semi(const gfa_t *g, int32_t pen, uint32_t v, int32_t voff, int32_t coff, uint32_t vv, int32_t vend, int32_t cend, const char *seq)
 {
-	int32_t i, j, l, dir, score, max = 0, max_l;
+	int32_t i, j, l, dir, score, max, max_l;
 	if (cend == coff) return 0;
 	dir = cend > coff? +1 : -1;
-	for (i = coff, j = voff, l = max_l = 0, score = 0; i != cend; i += dir, j += dir) {
+	for (i = coff, j = voff, l = max_l = 0, score = max = 0; i != cend; i += dir, j += dir) {
 		int32_t cg, vlen = g->seg[v>>1].len;
 		if (j == vlen || j == -1) break;
 		if (vv == v && j == vend) break;
@@ -203,7 +203,7 @@ static int32_t gfa_ins_shrink_semi(const gfa_t *g, int32_t pen, uint32_t v, int3
 		cg = (v&1) == 0? g->seg[v>>1].seq[j] : gfa_comp_table[(uint8_t)g->seg[v>>1].seq[vlen - 1 - j]];
 		score += tolower(cg) == tolower(seq[i])? +1 : -pen;
 		if (score > max) max = score, max_l = l;
-		if (score < 0) break;
+		if (score < max - pen * pen) break; // X-drop
 	}
 	return max_l;
 }
