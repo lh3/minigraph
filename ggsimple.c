@@ -158,23 +158,29 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				pd -= span;
 
 				// adjust for overlapping poistions
-				if (I.coff[0] > I.coff[1]) {
-					int d = I.coff[0] - I.coff[1];
-					if (I.voff[1] + d <= g->seg[I.v[1]>>1].len) {
-						I.voff[1] += d, pd += d;
-					} else if (I.voff[0] - d >= 0) {
-						I.voff[0] -= d, pd += d;
-					} else {
-						if (mg_verbose >= 2)
-							fprintf(stderr, "[W::%s] failed to resolve overlap [%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", __func__, "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
-						continue;
-					}
-					I.coff[1] = I.coff[0];
-				}
 				if (I.v[0] == I.v[1] && I.voff[0] > I.voff[1]) {
 					I.coff[1] += I.voff[0] - I.voff[1];
 					pd += I.voff[0] - I.voff[1];
 					I.voff[1] = I.voff[0];
+				}
+				if (I.coff[0] > I.coff[1]) {
+					int32_t d = I.coff[0] - I.coff[1];
+					int32_t l1 = g->seg[I.v[1]>>1].len;
+					if (I.voff[0] + (l1 - I.voff[1]) < d) {
+						if (mg_verbose >= 2)
+							fprintf(stderr, "[W::%s] failed to resolve overlap [%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", __func__, "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
+						continue;
+					}
+					if (I.voff[1] + d <= l1) {
+						I.voff[1] += d, pd += d;
+						I.coff[1] = I.coff[0];
+					} else {
+						int32_t x = l1 - I.voff[1];
+						d -= x;
+						I.voff[1] += x, I.coff[1] += x, pd += x;
+						assert(I.voff[0] >= d);
+						I.voff[0] -= d, I.coff[0] -= d, pd += d;
+					}
 				}
 				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
 				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
