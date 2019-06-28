@@ -11,7 +11,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 {
 	int32_t t, i, j, *scnt, *soff, *qcnt, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins;
 	int64_t sum_acnt, sum_alen;
-	mg128_t *meta;
+	uint64_t *meta;
 	mg_intv_t *sintv, *qintv;
 	double a_dens;
 	gfa_ins_t *ins;
@@ -126,7 +126,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				else if (pd > qd) s = (int32_t)(c + (pd - qd) * a_dens + .499);
 				else s = c; // TODO: check if this is an underestimate when there are overlaps on the query; perhaps the line above has addressed this.
 				sc[j - 1] = s;
-				meta[j-1].x = pd, meta[j-1].y = (uint64_t)off_l0 << 32 | off_l; // TODO: we actually only need off_l0, not off_l
+				meta[j-1] = (uint64_t)pd<<32 | off_l0;
 			}
 
 			// get regions to insert
@@ -144,7 +144,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				p = &gt->a[off_a + en];
 				span = p->y>>32&0xff;
 				I.ctg = t;
-				ls = (int32_t)(meta[st].y>>32), le = (int32_t)(meta[en].y>>32); // first and last lchain; CLOSED interval
+				ls = (int32_t)meta[st], le = (int32_t)meta[en]; // first and last lchain; CLOSED interval
 				assert(ls <= le);
 				I.v[0] = gt->lc[ls].v;
 				I.v[1] = gt->lc[le].v;
@@ -154,7 +154,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				I.coff[1] = (int32_t)p->y + 1 - span;
 				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
 				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
-				for (k = st, pd = 0; k < en; ++k) pd += meta[k].x;
+				for (k = st, pd = 0; k < en; ++k) pd += meta[k]>>32;
 				pd -= span;
 
 				// adjust for overlapping poistions
