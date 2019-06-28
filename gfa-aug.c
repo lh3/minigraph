@@ -190,28 +190,30 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	// k = gfa_fix_symm(g); assert(k == 0); // for debugging; the graph should be symmetric
 }
 
-static int32_t gfa_ins_shrink_semi(const gfa_t *g, uint32_t v, int32_t voff, int32_t coff, uint32_t vv, int32_t vend, int32_t cend, const char *seq)
+static int32_t gfa_ins_shrink_semi(const gfa_t *g, int32_t pen, uint32_t v, int32_t voff, int32_t coff, uint32_t vv, int32_t vend, int32_t cend, const char *seq)
 {
-	int32_t i, j, l, dir;
+	int32_t i, j, l, dir, score, max = 0, max_l;
 	if (cend == coff) return 0;
 	dir = cend > coff? +1 : -1;
-	for (i = coff, j = voff, l = 0; i != cend; i += dir, j += dir) {
+	for (i = coff, j = voff, l = max_l = 0, score = 0; i != cend; i += dir, j += dir) {
 		int32_t cg, vlen = g->seg[v>>1].len;
 		if (j == vlen || j == -1) break;
 		if (vv == v && j == vend) break;
+		++l;
 		cg = (v&1) == 0? g->seg[v>>1].seq[j] : gfa_comp_table[(uint8_t)g->seg[v>>1].seq[vlen - 1 - j]];
-		if (tolower(cg) == tolower(seq[i])) ++l;
-		else break;
+		score += tolower(cg) == tolower(seq[i])? +1 : -pen;
+		if (score > max) max = score, max_l = l;
+		if (score < 0) break;
 	}
-	return l;
+	return max_l;
 }
 
-int gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq) // min_len is NOT used for now
+int gfa_ins_adj(const gfa_t *g, int pen, gfa_ins_t *ins, const char *seq) // min_len is NOT used for now
 {
 	int32_t l, tot = 0;
-	l = gfa_ins_shrink_semi(g, ins->v[0], ins->voff[0], ins->coff[0], ins->v[1], ins->voff[1], ins->coff[1], seq);
+	l = gfa_ins_shrink_semi(g, pen, ins->v[0], ins->voff[0], ins->coff[0], ins->v[1], ins->voff[1], ins->coff[1], seq);
 	ins->voff[0] += l, ins->coff[0] += l, tot += l;
-	l = gfa_ins_shrink_semi(g, ins->v[1], ins->voff[1] - 1, ins->coff[1] - 1, ins->v[0], ins->voff[0] - 1, ins->coff[0] - 1, seq);
+	l = gfa_ins_shrink_semi(g, pen, ins->v[1], ins->voff[1] - 1, ins->coff[1] - 1, ins->v[0], ins->voff[0] - 1, ins->coff[0] - 1, seq);
 	ins->voff[1] -= l, ins->coff[1] -= l, tot += l;
 	return tot;
 }

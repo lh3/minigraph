@@ -191,7 +191,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				}
 				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
 				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
-				pd -= gfa_ins_adj(g, 3, &I, seq[t].seq); // "3" is not used for now
+				pd -= gfa_ins_adj(g, 9, &I, seq[t].seq); // "3" is not used for now
 
 				// filtering
 				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
