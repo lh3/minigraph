@@ -179,7 +179,7 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 {
 	sp_node_t *p;
 	KMALLOC(km, p, 1);
-	p->v = v, p->di = (uint64_t)d<<32 | id<<1, p->pre = -1;
+	p->v = v, p->di = (uint64_t)d<<32 | id<<1, p->pre = -1; // the lowest bit is not used. Probably a planned feature but not used later...
 	return p;
 }
 
@@ -274,12 +274,14 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 			} else if (q->p[0]->di>>32 > d) { // shorter than the longest path so far: replace the longest (TODO: this block is not well tested)
 				p = kavl_erase(sp, &root, q->p[0], 0);
 				if (p) {
-					p->di = (uint64_t)d<<32 | id++;
+					p->di = (uint64_t)d<<32 | (id++)<<1;
 					p->pre = n_out - 1;
-					ks_heapdown_sp(0, q->k, q->p);
 					kavl_insert(sp, &root, p, 0);
+					ks_heapdown_sp(0, q->k, q->p);
 				} else {
-					fprintf(stderr, "Warning: logical bug in gfa_shortest_k()! Continue anyway!\n");
+					fprintf(stderr, "Warning: logical bug in gfa_shortest_k(): q->k=%d,q->p[0]->{d,i}={%d,%d},d=%d,src=%u,max_dist=%d,n_dst=%d\n", q->k, (int32_t)(q->p[0]->di>>32), (int32_t)q->p[0]->di, d, src, max_dist, n_dst);
+					km_destroy(km);
+					return 0;
 				}
 			} // else: the path is longer than all the existing paths ended at ai->w
 		}
