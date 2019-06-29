@@ -191,7 +191,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				}
 				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
 				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
-				pd -= gfa_ins_adj(g, 9, &I, seq[t].seq); // "3" is not used for now
+				pd -= gfa_ins_adj(g, opt->ggs_shrink_pen, &I, seq[t].seq); // "3" is not used for now
 
 				// filtering
 				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
@@ -215,12 +215,18 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (n_ovlp != 1) break;
 				}
 				if (k <= le) continue;
-				l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
+				if (pd - (I.coff[1] - I.coff[0]) < opt->min_var_len && (I.coff[1] - I.coff[0]) - pd < opt->min_var_len) {
+					int32_t qd = I.coff[1] - I.coff[0], mlen;
+					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
+					mlen = mg_fastcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->ggs_fc_kmer, opt->ggs_fc_max_occ);
+					if (mlen > (qd > pd? qd : pd) * opt->ggs_max_mlen) continue;
+				}
 				if (mg_dbg_flag & MG_DBG_INSERT) {
+					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
 					fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
 					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
 					fwrite(&seq[t].seq[I.coff[0]], 1, I.coff[1] - I.coff[0], stderr);
-					fprintf(stderr, "\nIS\t%d==%d\t%d\n", pd, l_pseq, mg_fastcmp(km, l_pseq, pseq, I.coff[1] - I.coff[0], &seq[t].seq[I.coff[0]], 9, 10));
+					fprintf(stderr, "\nIS\t%d==%d\t%d\n", pd, l_pseq, mg_fastcmp(km, l_pseq, pseq, I.coff[1] - I.coff[0], &seq[t].seq[I.coff[0]], opt->ggs_fc_kmer, opt->ggs_fc_max_occ));
 				}
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 				ins[n_ins++] = I;

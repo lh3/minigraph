@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "r146"
+#define MG_VERSION "r147"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -55,6 +55,9 @@ typedef struct {
 	int min_mapq;
 	int min_map_len, min_depth_len;
 	int min_var_len, match_pen;
+	// parameters specific to ggsimple/ggs
+	int ggs_shrink_pen, ggs_fc_kmer, ggs_fc_max_occ;
+	float ggs_max_mlen;
 } mg_ggopt_t;
 
 typedef struct {
