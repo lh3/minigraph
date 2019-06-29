@@ -280,7 +280,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 					kavl_insert(sp, &root, p, 0);
 				} else {
 					fprintf(stderr, "Warning: logical bug in gfa_shortest_k()! Continue anyway!\n");
-				}`
+				}
 			} // else: the path is longer than all the existing paths ended at ai->w
 		}
 	}
