@@ -11,7 +11,7 @@
  *********************************************/
 
 #define generic_key(x) (x)
-KRADIX_SORT_INIT(32, int32_t, generic_key, 4)
+KRADIX_SORT_INIT(gfa32, int32_t, generic_key, 4)
 
 typedef struct tnode_s {
 	uint64_t nd;
@@ -116,7 +116,7 @@ gfa_sub_t *gfa_sub_from(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist
 		sub->v[j].d = (uint32_t)L[j]->nd;
 		sub->v[j].off = o0;
 		sub->v[j].n = off - o0;
-		radix_sort_32(&sub->a[o0], &sub->a[off]);
+		radix_sort_gfa32(&sub->a[o0], &sub->a[off]);
 		if (sub->a[o0] <= j) sub->is_dag = 0;
 	}
 	assert(off == n_arc);
@@ -167,13 +167,16 @@ KAVL_INIT(sp, sp_node_t, head, sp_node_cmp)
 #define sp_node_lt(a, b) ((a)->di < (b)->di)
 KSORT_INIT(sp, sp_node_p, sp_node_lt)
 
+#define generic_key(x) (x)
+KRADIX_SORT_INIT(gfa64, uint64_t, generic_key, 8)
+
 typedef struct {
 	int32_t k;
 	sp_node_t *p[GFA_MAX_SHORT_K]; // this forms a max-heap
 } sp_topk_t;
 
 KHASH_MAP_INIT_INT(sp, sp_topk_t)
-KHASH_MAP_INIT_INT(sp2, int32_t)
+KHASH_MAP_INIT_INT(sp2, uint64_t)
 
 static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32_t d, int32_t id)
 {
@@ -192,10 +195,11 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 	void *km;
 	khint_t k;
 	int absent;
-	int32_t i, n_finished, n_found;
+	int32_t i, j, n_finished, n_found;
 	uint32_t id, n_out, m_out;
 	int8_t *dst_finish;
 	gfa_pathv_t *ret = 0;
+	uint64_t *dst_group;
 
 	if (n_pathv) *n_pathv = 0;
 	if (n_dst <= 0) return 0;
@@ -205,11 +209,20 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 	km = km_init2(km0, 0x10000);
 
 	KCALLOC(km, dst_finish, n_dst);
+	KMALLOC(km, dst_group, n_dst);
+	for (i = 0; i < n_dst; ++i) // multiple dst[] may have the same dst[].v. We need to group them first.
+		dst_group[i] = (uint64_t)dst[i].v<<32 | i;
+	radix_sort_gfa64(dst_group, dst_group + n_dst);
+
 	h2 = kh_init2(sp2, km); // this hash table keeps all destinations
 	kh_resize(sp2, h2, n_dst * 2);
-	for (i = 0; i < n_dst; ++i) {
-		k = kh_put(sp2, h2, dst[i].v, &absent);
-		if (absent) kh_val(h2, k) = i;
+	for (i = 1, j = 0; i <= n_dst; ++i) {
+		if (i == n_dst || dst_group[i]>>32 != dst_group[j]>>32) {
+			k = kh_put(sp2, h2, dst_group[j]>>32, &absent);
+			kh_val(h2, k) = (uint64_t)j << 32 | (i - j);
+			assert(absent);
+			j = i;
+		}
 	}
 
 	h = kh_init2(sp, km); // this hash table keeps visited vertices
@@ -238,22 +251,25 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 
 		k = kh_get(sp2, h2, r->v);
 		if (k != kh_end(h2)) { // we have reached one dst vertex
-			int32_t finished = 0, j = kh_val(h2, k);
-			gfa_path_dst_t *t = &dst[j];
-			if (t->n_path == 0) { // TODO: when there is only one path, but the distance is smaller than target_dist, the dst won't be finished
-				t->path_end = n_out - 1;
-			} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
-				int32_t d0 = out[t->path_end]->di >> 32, d1 = r->di >> 32;
-				d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
-				d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-				if (d1 < d0) t->path_end = n_out - 1;
+			int32_t finished = 0, j;
+			int32_t off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
+			for (j = 0; j < cnt; ++j) {
+				gfa_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
+				if (t->n_path == 0) { // TODO: when there is only one path, but the distance is smaller than target_dist, the dst won't be finished
+					t->path_end = n_out - 1;
+				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
+					int32_t d0 = out[t->path_end]->di >> 32, d1 = r->di >> 32;
+					d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
+					d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
+					if (d1 < d0) t->path_end = n_out - 1;
+				}
+				if (t->target_dist >= 0 && r->di>>32 >= t->target_dist) finished = 1;
+				++t->n_path;
+				if (t->n_path >= max_k) finished = 1;
+				if (dst_finish[j] == 0 && finished)
+					dst_finish[j] = 1, ++n_finished;
+				if (n_finished == n_dst) break;
 			}
-			if (t->target_dist >= 0 && r->di>>32 >= t->target_dist) finished = 1;
-			++t->n_path;
-			if (t->n_path >= max_k) finished = 1;
-			if (dst_finish[j] == 0 && finished)
-				dst_finish[j] = 1, ++n_finished;
-			if (n_finished == n_dst) break;
 		}
 
 		nv = gfa_arc_n(g, r->v);
