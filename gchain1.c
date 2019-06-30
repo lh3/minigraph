@@ -108,7 +108,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			if (gap > bw) continue;
 			log_gap = gap? mg_ilog2_32(gap) : 0;
 			sc = li->score;
-			sc -= (int32_t)(gap * 0.2) + (log_gap >> 1);
+			sc -= gap + log_gap;
 			sc += f[dj->meta];
 			//fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc, lc[dj->meta].qs, lc[dj->meta].qe);
 			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist;

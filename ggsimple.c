@@ -127,8 +127,9 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					assert(off_l < gc->off + gc->cnt);
 					pd += (int32_t)p->x + 1;
 				} else pd = (int32_t)p->x - (int32_t)q->x;
-				if ((int32_t)p->y < far_q) s = 1; // query overlap
-				else if (pd == qd && c == 0) s = -opt->match_pen;
+				//if ((int32_t)p->y < far_q) s = 1; // query overlap
+				//else if (pd == qd && c == 0) s = -opt->match_pen;
+				if (pd == qd && c == 0) s = -opt->match_pen;
 				else if (pd > qd) s = (int32_t)(c + (pd - qd) * a_dens + .499);
 				else s = c;
 				sc[j - 1] = s;
@@ -144,8 +145,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				gfa_ins_t I;
 
 				// find the initial positions
-				if (ss[j].st <= 1 || ss[j].en >= gc->n_anchor - 1) continue; // not at the ends
-				st = ss[j].st - 1, en = ss[j].en;
+				st = ss[j].st, en = ss[j].en;
 				q = &gt->a[off_a + st];
 				p = &gt->a[off_a + en];
 				span = p->y>>32&0xff;
