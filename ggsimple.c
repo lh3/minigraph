@@ -154,44 +154,21 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				assert(ls <= le);
 				I.v[0] = gt->lc[ls].v;
 				I.v[1] = gt->lc[le].v;
-				I.voff[0] = (int32_t)q->x + 1;
-				I.voff[1] = (int32_t)p->x + 1 - span;
-				I.coff[0] = (int32_t)q->y + 1;
-				I.coff[1] = (int32_t)p->y + 1 - span;
+				I.voff[0] = (int32_t)q->x + 1 - span;
+				I.voff[1] = (int32_t)p->x + 1;
+				I.coff[0] = (int32_t)q->y + 1 - span;
+				I.coff[1] = (int32_t)p->y + 1;
 				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
 				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
-				for (k = st, pd = 0; k < en; ++k) pd += meta[k]>>32;
-				pd -= span;
+				for (k = st, pd = span; k < en; ++k)
+					pd += meta[k]>>32;
 
-				// adjust for overlapping poistions
-				if (I.v[0] == I.v[1] && I.voff[0] > I.voff[1]) {
-					assert(I.voff[0] - I.voff[1] <= span);
-					I.coff[1] += I.voff[0] - I.voff[1];
-					pd += I.voff[0] - I.voff[1];
-					I.voff[1] = I.voff[0];
-				}
 				if (I.coff[0] > I.coff[1]) {
-					int32_t d = I.coff[0] - I.coff[1];
-					int32_t l1 = g->seg[I.v[1]>>1].len;
-					if (d > span || d > I.voff[0] + (l1 - I.voff[1])) {
-						if (mg_verbose >= 2 && pd + d >= opt->min_var_len)
-							fprintf(stderr, "[W::%s] unexpected insert [%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", __func__, "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
-						continue; // such overlap can't be properly resolved
-					}
-					if (I.voff[1] + d <= l1) {
-						I.voff[1] += d, pd += d;
-						I.coff[1] = I.coff[0];
-					} else {
-						int32_t x = l1 - I.voff[1];
-						d -= x;
-						I.voff[1] += x, I.coff[1] += x, pd += x;
-						assert(I.voff[0] >= d);
-						I.voff[0] -= d, I.coff[0] -= d, pd += d;
-					}
+					if (mg_verbose >= 2 && pd + (I.coff[0] - I.coff[1]) >= opt->min_var_len)
+						fprintf(stderr, "[W::%s] query overlap on gchain %d: [%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", __func__, t, "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
+					continue; // such overlap can't be properly resolved
 				}
-				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
-				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
-				pd -= gfa_ins_adj(g, opt->ggs_shrink_pen, &I, seq[t].seq); // "3" is not used for now
+				pd -= gfa_ins_adj(g, opt->ggs_shrink_pen, &I, seq[t].seq);
 
 				// filtering
 				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
