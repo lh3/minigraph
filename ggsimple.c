@@ -127,9 +127,8 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					assert(off_l < gc->off + gc->cnt);
 					pd += (int32_t)p->x + 1;
 				} else pd = (int32_t)p->x - (int32_t)q->x;
-				//if ((int32_t)p->y < far_q) s = 1; // query overlap
-				//else if (pd == qd && c == 0) s = -opt->match_pen;
-				if (pd == qd && c == 0) s = -opt->match_pen;
+				if ((opt->flag&MG_M_NO_QOVLP) && (int32_t)p->y < far_q) s = 1; // query overlap
+				else if (pd == qd && c == 0) s = -opt->match_pen;
 				else if (pd > qd) s = (int32_t)(c + (pd - qd) * a_dens + .499);
 				else s = c;
 				sc[j - 1] = s;
@@ -175,7 +174,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					int32_t d = I.coff[0] - I.coff[1];
 					int32_t l1 = g->seg[I.v[1]>>1].len;
 					if (d > span || d > I.voff[0] + (l1 - I.voff[1])) {
-						if (mg_verbose >= 2)
+						if (mg_verbose >= 2 && pd + d >= opt->min_var_len)
 							fprintf(stderr, "[W::%s] unexpected insert [%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", __func__, "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
 						continue; // such overlap can't be properly resolved
 					}

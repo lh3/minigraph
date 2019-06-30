@@ -23,6 +23,7 @@ static ko_longopt_t long_options[] = {
 	{ "version",      ko_no_argument,       300 },
 	{ "vc",           ko_no_argument,       301 },
 	{ "secondary",    ko_required_argument, 302 },
+	{ "no-qovlp",     ko_no_argument,       303 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -104,6 +105,7 @@ int main(int argc, char *argv[])
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
+		else if (c == 303) gpt.flag |= MG_M_NO_QOVLP;         // --no-qovlp
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
