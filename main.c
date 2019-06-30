@@ -23,7 +23,7 @@ static ko_longopt_t long_options[] = {
 	{ "version",      ko_no_argument,       300 },
 	{ "vc",           ko_no_argument,       301 },
 	{ "secondary",    ko_required_argument, 302 },
-	{ "no-qovlp",     ko_no_argument,       303 },
+	{ "ins-qovlp",    ko_required_argument, 303 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -42,17 +42,19 @@ static inline int64_t mg_parse_num(const char *str)
 	return (int64_t)(x + .499);
 }
 
-static inline void yes_or_no(mg_mapopt_t *opt, int flag, int long_idx, const char *arg, int yes_to_set)
+static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *arg, int yes_to_set)
 {
+	uint64_t flag = *flag_;
 	if (yes_to_set) {
-		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) opt->flag |= flag;
-		else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) opt->flag &= ~flag;
+		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) flag |= f;
+		else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) flag &= ~f;
 		else fprintf(stderr, "[WARNING]\033[1;31m option '--%s' only accepts 'yes' or 'no'.\033[0m\n", long_options[long_idx].name);
 	} else {
-		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) opt->flag &= ~flag;
-		else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) opt->flag |= flag;
+		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) flag &= ~f;
+		else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) flag |= f;
 		else fprintf(stderr, "[WARNING]\033[1;31m option '--%s' only accepts 'yes' or 'no'.\033[0m\n", long_options[long_idx].name);
 	}
+	*flag_ = flag;
 }
 
 int main(int argc, char *argv[])
@@ -105,7 +107,6 @@ int main(int argc, char *argv[])
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
-		else if (c == 303) gpt.flag |= MG_M_NO_QOVLP;         // --no-qovlp
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
@@ -124,7 +125,9 @@ int main(int argc, char *argv[])
 				}
 			}
 		} else if (c == 302) { // --secondary
-			yes_or_no(&opt, MG_M_PRINT_2ND, o.longidx, o.arg, 1);
+			yes_or_no(&opt.flag, MG_M_PRINT_2ND, o.longidx, o.arg, 1);
+		} else if (c == 303) { // --ins-qovlp
+			yes_or_no(&gpt.flag, MG_G_NO_QOVLP, o.longidx, o.arg, 1);
 		} else if (c == 300) { // --version
 			puts(MG_VERSION);
 			return 0;

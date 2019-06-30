@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "r156"
+#define MG_VERSION "r157"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -25,7 +25,7 @@
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1
 
-#define MG_M_NO_QOVLP     0x1
+#define MG_G_NO_QOVLP     0x1
 
 typedef struct { uint64_t x, y; } mg128_t;
 typedef struct { size_t n, m; mg128_t *a; } mg128_v;

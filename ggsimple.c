@@ -127,7 +127,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					assert(off_l < gc->off + gc->cnt);
 					pd += (int32_t)p->x + 1;
 				} else pd = (int32_t)p->x - (int32_t)q->x;
-				if ((opt->flag&MG_M_NO_QOVLP) && (int32_t)p->y < far_q) s = 1; // query overlap
+				if ((opt->flag&MG_G_NO_QOVLP) && (int32_t)p->y < far_q) s = 1; // query overlap
 				else if (pd == qd && c == 0) s = -opt->match_pen;
 				else if (pd > qd) s = (int32_t)(c + (pd - qd) * a_dens + .499);
 				else s = c;
