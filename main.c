@@ -157,6 +157,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset []\n");
+		fprintf(fp_help, "                 - asm20: asm-to-ref mapping, for ~5%% sequence divergence\n");
 		fprintf(fp_help, "                 - ggs: simple algorithm for graph generation\n");
 		return fp_help == stdout? 0 : 1;
 	}

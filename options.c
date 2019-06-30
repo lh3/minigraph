@@ -47,6 +47,9 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mg_idxopt_init(io);
 		mg_mapopt_init(mo);
 		mg_ggopt_init(go);
+	} else if (strcmp(preset, "asm20") == 0) {
+		io->k = 19, io->w = 10;
+		mo->bw = 5000;
 	} else if (strcmp(preset, "ggs") == 0 || strcmp(preset, "ggsimple") == 0) {
 		io->k = 19, io->w = 10;
 		go->algo = MG_G_GGSIMPLE;
