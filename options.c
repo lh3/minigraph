@@ -61,6 +61,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 	} else if (strcmp(preset, "se") == 0) {
 		io->k = 21, io->w = 10;
+		mo->flag |= MG_M_HEAP_SORT;
 		mo->mid_occ = 1000;
 		mo->max_gap = 100, mo->bw = 100;
 		mo->pri_ratio = 0.5f;

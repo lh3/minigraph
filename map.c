@@ -96,7 +96,7 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 								  int *n_mini_pos, int32_t **mini_pos)
 {
 	int i, n_m, heap_size = 0;
-	int64_t j, n_for = 0, n_rev = 0;
+	int64_t n_for = 0, n_rev = 0;
 	mg_match_t *m;
 	mg128_t *a, *heap;
 
@@ -142,11 +142,6 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 	kfree(km, heap);
 
 	// reverse anchors on the reverse strand, as they are in the descending order
-	for (j = 0; j < n_rev>>1; ++j) {
-		mg128_t t = a[(*n_a) - 1 - j];
-		a[(*n_a) - 1 - j] = a[(*n_a) - (n_rev - j)];
-		a[(*n_a) - (n_rev - j)] = t;
-	}
 	if (*n_a > n_for + n_rev) {
 		memmove(a + n_for, a + (*n_a) - n_rev, n_rev * sizeof(mg128_t));
 		*n_a = n_for + n_rev;

@@ -24,6 +24,7 @@ static ko_longopt_t long_options[] = {
 	{ "vc",           ko_no_argument,       301 },
 	{ "secondary",    ko_required_argument, 302 },
 	{ "ins-qovlp",    ko_required_argument, 303 },
+	{ "heap-sort",    ko_required_argument, 304 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -129,6 +130,8 @@ int main(int argc, char *argv[])
 			yes_or_no(&opt.flag, MG_M_PRINT_2ND, o.longidx, o.arg, 1);
 		} else if (c == 303) { // --ins-qovlp
 			yes_or_no(&gpt.flag, MG_G_NO_QOVLP, o.longidx, o.arg, 1);
+		} else if (c == 304) { // --heap-sort
+			yes_or_no(&opt.flag, MG_M_HEAP_SORT, o.longidx, o.arg, 1);
 		} else if (c == 300) { // --version
 			puts(MG_VERSION);
 			return 0;
