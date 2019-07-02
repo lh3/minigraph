@@ -100,7 +100,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			log_dd = dd? mg_ilog2_32(dd) : 0;
 			if (is_cdna || sidi != sidj) {
 				int c_log, c_lin;
-				c_lin = (int)(dd * .01 * avg_qspan);
+				c_lin = (int)(dd * .01 * avg_qspan + dg * .02);
 				c_log = log_dd;
 				if (sidi != sidj && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
 				else if (dr > dq || sidi != sidj) sc -= c_lin < c_log? c_lin : c_log;
