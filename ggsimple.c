@@ -144,7 +144,8 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				gfa_ins_t I;
 
 				// find the initial positions
-				if (ss[j].st == 0 || ss[j].en >= gc->n_anchor - 1) continue;
+				if (ss[j].st == 0 || ss[j].en >= gc->n_anchor - 1) continue; // no "open" end
+				if (ss[j].st <= opt->ggs_min_end_cnt || ss[j].en >= gc->n_anchor - 1 - opt->ggs_min_end_cnt) continue; // too close to ends
 				st = ss[j].st, en = ss[j].en;
 				q = &gt->a[off_a + st];
 				p = &gt->a[off_a + en];
