@@ -71,7 +71,7 @@ int32_t gfa_add_seg(gfa_t *g, const char *name)
 	return kh_val(h, k);
 }
 
-int32_t gfa_add_pseq(gfa_t *g, const char *pname)
+int32_t gfa_pseq_add(gfa_t *g, const char *pname)
 {
 	khash_t(seg) *h = (khash_t(seg)*)g->h_pnames;
 	khint_t k;
@@ -86,6 +86,20 @@ int32_t gfa_add_pseq(gfa_t *g, const char *pname)
 		ps->min = -1, ps->max = -1, ps->rank = -1;
 	}
 	return kh_val(h, k);
+}
+
+void gfa_pseq_update(gfa_t *g, const gfa_seg_t *s)
+{
+	gfa_pseq_t *ps;
+	if (s->pnid < 0 || s->pnid >= g->n_pseq) return;
+	ps = &g->pseq[s->pnid];
+	if (ps->min < 0 || s->ppos < ps->min) ps->min = s->ppos;
+	if (ps->max < 0 || s->ppos + s->len > ps->max) ps->max = s->ppos + s->len;
+	if (ps->rank < 0) ps->rank = s->rank;
+	else if (ps->rank != s->rank) {
+		if (gfa_verbose >= 2)
+			fprintf(stderr, "[W] stable sequence '%s' associated with different ranks on segment '%s': %d != %d\n", ps->name, s->name, ps->rank, s->rank);
+	}
 }
 
 int32_t gfa_name2id(const gfa_t *g, const char *name)

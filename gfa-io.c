@@ -149,7 +149,7 @@ int gfa_parse_S(gfa_t *g, char *s)
 			uint8_t *s_SN = 0, *s_SS = 0, *s_SR = 0;
 			s_SN = gfa_aux_get(l_aux, aux, "SN");
 			if (s_SN && *s_SN == 'Z') { // then parse stable tags
-				s->pnid = gfa_add_pseq(g, (char*)(s_SN + 1)), s->ppos = 0;
+				s->pnid = gfa_pseq_add(g, (char*)(s_SN + 1)), s->ppos = 0;
 				l_aux = gfa_aux_del(l_aux, aux, s_SN);
 				s_SS = gfa_aux_get(l_aux, aux, "SS");
 				if (s_SS && *s_SS == 'i') {
@@ -163,16 +163,7 @@ int gfa_parse_S(gfa_t *g, char *s)
 				if (s->rank > g->max_rank) g->max_rank = s->rank;
 				l_aux = gfa_aux_del(l_aux, aux, s_SR);
 			}
-			if (s->pnid >= 0) {
-				gfa_pseq_t *ps = &g->pseq[s->pnid];
-				if (ps->min < 0 || s->ppos < ps->min) ps->min = s->ppos;
-				if (ps->max < 0 || s->ppos + s->len > ps->max) ps->max = s->ppos + s->len;
-				if (ps->rank < 0) ps->rank = s->rank;
-				else if (ps->rank != s->rank) {
-					if (gfa_verbose >= 2)
-						fprintf(stderr, "[W] stable sequence '%s' associated with different ranks: %d != %d\n", ps->name, ps->rank, s->rank);
-				}
-			}
+			gfa_pseq_update(g, s);
 		}
 		if (l_aux > 0)
 			s->aux.m_aux = m_aux, s->aux.l_aux = l_aux, s->aux.aux = aux;

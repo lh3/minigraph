@@ -92,16 +92,21 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 	}
 	for (i = 0; i < gs->n_gc; ++i) {
 		const mg_gchain_t *p = &gs->gc[i];
+		int32_t sign_pos, compact;
 		if (p->id != p->parent && !(flag&MG_M_PRINT_2ND)) continue;
+		if (p->cnt == 0) continue;
 		mg_sprintf_lite(s, "%s\t%d\t%d\t%d\t+\t", qname, qlen, p->qs, p->qe);
 		assert(p->cnt > 0);
+		sign_pos = s->l - 2;
 		if (flag & MG_M_VERTEX_COOR) {
+			compact = 0;
 			for (j = 0; j < p->cnt; ++j) {
 				const mg_llchain_t *q = &gs->lc[p->off + j];
 				mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
 			}
 		} else {
 			int32_t last_pnid = -1, st = -1, en = -1, rev = -1;
+			compact = flag&MG_M_NO_COMP_PATH? 0 : 1;
 			for (j = 0; j < p->cnt; ++j) {
 				const mg_llchain_t *q;
 				const gfa_seg_t *t;
@@ -109,6 +114,7 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 				q = &gs->lc[p->off + j];
 				t = &g->seg[q->v>>1];
 				if (t->pnid < 0) { // no stable ID; write the vertex coordinate
+					compact = 0;
 					if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
 					last_pnid = -1, st = -1, en = -1, rev = -1;
 					mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
@@ -124,14 +130,24 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 						}
 					}
 					if (cont == 0) {
+						if (last_pnid >= 0) compact = 0;
 						if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
 						last_pnid = t->pnid, rev = q->v&1, st = t->ppos, en = st + t->len;
 					}
 				}
 			}
-			if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
+			if (last_pnid >= 0) {
+				if (g->pseq[last_pnid].rank != 0 || g->pseq[last_pnid].min != 0)
+					compact = 0;
+				if (!compact) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
+			} else compact = 0;
 		}
-		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
+		if (compact) {
+			const gfa_seg_t *t = &g->seg[gs->lc[p->off].v>>1];
+			const gfa_pseq_t *ps = &g->pseq[t->pnid];
+			if (gs->lc[p->off].v&1) s->s[sign_pos] = '-';
+			mg_sprintf_lite(s, "%s\t%d\t%d\t%d", ps->name, ps->max, t->ppos + p->ps, t->ppos + p->pe);
+		} else mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);
 		mg_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d\ts2:i:%d", p->id == p->parent? 'P' : 'S', p->n_anchor, p->score, p->subsc);
 		if (p->div >= 0.0f && p->div <= 1.0f) {
