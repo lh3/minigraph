@@ -401,7 +401,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				mg_bseq1_t *t = &s->seq[i];
 				mg_write_paf(&p->str, p->gi->g, s->gcs[i], t->l_seq, t->name, p->opt->flag, km);
 			}
-			mg_err_fputs(p->str.s, stdout);
+			if (p->str.l) mg_err_fputs(p->str.s, stdout);
 			for (i = seg_st; i < seg_en; ++i) {
 				mg_gchain_free(s->gcs[i]);
 				free(s->seq[i].seq); free(s->seq[i].name);
