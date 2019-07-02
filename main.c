@@ -59,7 +59,7 @@ static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *a
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:U:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -96,6 +96,7 @@ int main(int argc, char *argv[])
 		if (c == 'w') ipt.w = atoi(o.arg);
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
+		else if (c == 'f') opt.mid_occ_frac = atof(o.arg);
 		else if (c == 'U') opt.mid_occ = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
 		else if (c == 'g') opt.max_gap = mg_parse_num(o.arg);
@@ -143,6 +144,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minizer window size [%d]\n", ipt.w);
 		fprintf(fp_help, "  Mapping:\n");
+		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
 		fprintf(fp_help, "    -U INT       ignore minimizers with occurrences above INT [%d]\n", opt.mid_occ);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
@@ -210,6 +212,7 @@ int main(int argc, char *argv[])
 
 	if (gpt.algo == MG_G_NONE) {
 		gi = mg_index_gfa(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);
+		mg_opt_update(gi, &opt, 0);
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_map_file(gi, argv[i], &opt, n_threads);
 		mg_idx_destroy(gi);

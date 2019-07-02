@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "r157"
+#define MG_VERSION "r158"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -42,6 +42,7 @@ typedef struct {
 	int max_qlen;
 	int pe_ori;
 	int mid_occ, max_occ;
+	float mid_occ_frac;
 	int bw, max_gap, max_gap_ref, max_frag_len;
 	int max_chain_skip;
 	int min_lc_cnt, min_lc_score;
@@ -114,6 +115,7 @@ extern "C" {
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go);
 int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t *go);
+void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go);
 
 mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int n_threads);
 mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int n_threads);
