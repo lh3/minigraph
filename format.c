@@ -109,7 +109,7 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 				q = &gs->lc[p->off + j];
 				t = &g->seg[q->v>>1];
 				if (t->pnid < 0) { // no stable ID; write the vertex coordinate
-					if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pname[last_pnid], st, en);
+					if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
 					last_pnid = -1, st = -1, en = -1, rev = -1;
 					mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
 				} else {
@@ -124,12 +124,12 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 						}
 					}
 					if (cont == 0) {
-						if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pname[last_pnid], st, en);
+						if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
 						last_pnid = t->pnid, rev = q->v&1, st = t->ppos, en = st + t->len;
 					}
 				}
 			}
-			if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pname[last_pnid], st, en);
+			if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
 		}
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);

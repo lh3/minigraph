@@ -182,7 +182,7 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 {
 	sp_node_t *p;
 	KMALLOC(km, p, 1);
-	p->v = v, p->di = (uint64_t)d<<32 | id<<1, p->pre = -1; // the lowest bit is not used. Probably a planned feature but not used later...
+	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1;
 	return p;
 }
 
@@ -290,7 +290,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 			} else if (q->p[0]->di>>32 > d) { // shorter than the longest path so far: replace the longest (TODO: this block is not well tested)
 				p = kavl_erase(sp, &root, q->p[0], 0);
 				if (p) {
-					p->di = (uint64_t)d<<32 | (id++)<<1;
+					p->di = (uint64_t)d<<32 | (id++);
 					p->pre = n_out - 1;
 					kavl_insert(sp, &root, p, 0);
 					ks_heapdown_sp(0, q->k, q->p);
@@ -324,8 +324,12 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 		}
 		for (i = 0; i < n_out; ++i) { // mark dst vertices without a target distance
 			k = kh_get(sp2, h2, out[i]->v);
-			if (k != kh_end(h2) && dst[kh_val(h2, k)].target_dist < 0)
-				trans[i] = 1;
+			if (k != kh_end(h2)) { // TODO: check if this is correct!
+				int32_t off = kh_val(h2, k)>>32, cnt = (int32_t)kh_val(h2, k);
+				for (j = off; j < off + cnt; ++j)
+					if (dst[j].target_dist < 0)
+						trans[i] = 1;
+			}
 		}
 		for (i = n_out - 1; i >= 0; --i) // mark all predecessors
 			if (trans[i] && out[i]->pre >= 0)

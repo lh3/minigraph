@@ -67,6 +67,11 @@ typedef struct {
 	gfa_aux_t aux;
 } gfa_seg_t;
 
+typedef struct {
+	char *name;
+	int32_t min, max, rank;
+} gfa_pseq_t;
+
 #define gfa_n_vtx(g) ((g)->n_seg << 1)
 
 typedef struct {
@@ -75,8 +80,8 @@ typedef struct {
 	gfa_seg_t *seg;
 	void *h_names;
 	// persistent names
-	uint32_t m_pname, n_pname;
-	char **pname;
+	uint32_t m_pseq, n_pseq;
+	gfa_pseq_t *pseq;
 	void *h_pnames;
 	// links
 	uint64_t m_arc, n_arc:62, is_srt:1, is_symm:1;

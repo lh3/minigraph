@@ -19,7 +19,7 @@ extern "C" {
 void gfa_arc_sort(gfa_t *g);
 void gfa_arc_index(gfa_t *g);
 uint32_t gfa_fix_symm(gfa_t *g);
-int32_t gfa_add_pname(gfa_t *g, const char *pname);
+int32_t gfa_add_pseq(gfa_t *g, const char *pname);
 
 #ifdef __cplusplus
 }

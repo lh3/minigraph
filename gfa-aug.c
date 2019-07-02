@@ -163,7 +163,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 				t->seq[j] = seq[p->ctg][p->coff[0] + j];
 			t->seq[j] = 0;
 			t->len = j;
-			t->pnid = gfa_add_pname(g, name[p->ctg]);
+			t->pnid = gfa_add_pseq(g, name[p->ctg]);
 			t->ppos = p->coff[0];
 			t->rank = g->max_rank + 1; // TODO: to deal with SN/SS/SR tags somewhere
 			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)k<<1);
