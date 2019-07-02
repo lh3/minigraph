@@ -1,9 +1,38 @@
-.TH minigraph 1 "30 June 2019" "minigraph (r154)" "Bioinformatics tools"
+.TH minigraph 1 "2 July 2019" "minigraph (r162)" "Bioinformatics tools"
+
 .SH NAME
 .PP
-minigraph - mapping and graph generation
+minigraph - sequence-to-graph mapping and incremental sequence graph generation
+
 .SH SYNOPSIS
+* Sequence-to-graph mapping:
+.RS 4
+.B minigraph
+.RB [ -x
+.IR preset ]
+.RB [ -t
+.IR nThreads ]
+.I graph.gfa
+.I query1.fa
+.RI [ ... ]
+.B >
+.I out.gaf
+.RE
+
+* Incremental graph generation:
+.RS 4
+.B minigraph
+.B -x ggs
+.RB [ -t
+.IR nThreads ]
+.I initGraph.gfa
+.I sample1Asm.fa
+.RI [ ... ]
+.B >
+.I finalGraph.gfa
+
 .SH DESCRIPTION
+
 .SH OPTIONS
 .SS Indexing options
 .TP 10
@@ -11,51 +40,50 @@ minigraph - mapping and graph generation
 Minimizer k-mer length [15]
 .TP
 .BI -w \ INT
-Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer
-in a window of w consecutive k-mers.
+Minimizer window size [10]. A minimizer is the smallest k-mer in a window of w
+consecutive k-mers.
 .SS Mapping options
 .TP 10
 .BI -U \ INT
-ignore minimizers with occurrences above
+Ignore minimizers with occurrences above
 .I INT
 [100].
 .TP
-.BI -g \ INT
+.BI -g \ NUM 
 Stop chain enlongation if there are no minimizers within
 .IR INT -bp
-[10000].
+[10k]. K/k/M/m suffixes are recognized.
 .TP
-.BI -r \ INT
-Bandwidth used in chaining and DP-based alignment [500]. This option
-approximately controls the maximum gap size.
+.BI -r \ NUM
+Bandwidth used in chaining [2k]. This option approximately controls the maximum
+gap size.
 .TP
-.BI -n \ INT
-Discard chains consisting of
-.RI < INT
-number of minimizers [3]
+.BI -n \ INT1 [, INT2 ]
+Drop graph chains consisting of
+.RI < INT1
+minimizers and drop linear chains consisting of
+.RI < INT2
+minimizers [5,3]
 .TP
-.BI -m \ INT
-Discard chains with chaining score
-.RI < INT
-[40]. Chaining score equals the approximate number of matching bases minus a
-concave gap penalty. It is computed with dynamic programming.
+.BI -m \ INT1 [, INT2 ]
+Drop graph chains with graph chaining score
+.RI < INT1
+and drop linear chains with linear chaining score
+.RI < INT2
+[50,30]. Linear chaining score equals the approximate number of matching bases
+minus a weak concave gap penalty. Graph chaining score uses a linear gap
+penalty.
 .TP
 .BI -p \ FLOAT
 Minimal secondary-to-primary score ratio to output secondary mappings [0.8].
 Between two chains overlaping over half of the shorter chain (controlled by
 .BR -M ),
 the chain with a lower score is secondary to the chain with a higher score.
-If the ratio of the scores is below
-.IR FLOAT ,
-the secondary chain will not be outputted or extended with DP alignment later.
-This option has no effect when
-.B -P
-is applied.
 .TP
 .BI -N \ INT
 Output at most
 .I INT
-secondary alignments [5]. This option has no effect when
+secondary mappings [5]. This option has no effect when
 .B -P
 is applied.
 .TP
@@ -65,6 +93,11 @@ Retain all chains and don't attempt to set primary chains. Options
 and
 .B -N
 have no effect when this option is in use.
+.TP
+.BI -M \ FLOAT
+Mark as secondary a chain that overlaps with a better chain by
+.I FLOAT
+or more of the shorter chain [0.5]
 .SS Input/output options
 .TP 10
 .BI -o \ FILE
@@ -73,19 +106,37 @@ Output alignments to
 [stdout].
 .TP
 .BI -t \ INT
-Number of threads [3]. Minimap2 uses at most three threads when indexing target
+Number of threads [4]. Minigraph uses at most three threads when indexing target
 sequences, and uses up to
 .IR INT +1
 threads when mapping (the extra thread is for I/O, which is frequently idle and
 takes little CPU time).
 .TP
+.BI -K \ NUM
+Number of bases loaded into memory to process in a mini-batch [500M].
+K/M/G/k/m/g suffix is accepted. A large
+.I NUM
+helps load balancing in the multi-threading mode, at the cost of increased
+memory. This option has no effect if
+.B --ggen
+is applied.
+.TP
 .BR --secondary = yes | no
 Whether to output secondary alignments [no]
+.TP
+.BR --show-unmap = yes | no
+Print unmapped query sequences in GAF [no]
 .TP
 .B --version
 Print version number to stdout
 .SS Graph generation options
 .TP 10
+.BR --ggen =[ simple ]
+Graph generation algorithm. So far only a
+.B simple
+algorithm is implemented [simple]. With this option, all query sequences are
+loaded into memory.
+.TP
 .BI -l \ NUM
 Minimum chain length to consider [50k]
 .TP
@@ -98,6 +149,42 @@ Minimum mapping quality [5]
 .BR --ins-qovlp = yes | no
 Forcefully resolve query overlaps [yes]
 .SS Preset options
+.TP 10
+.BI -x \ STR
+Preset []. This option applies multiple options at the same time. Other options
+on the command line will always override values set by
+.BR -x .
+Available
+.I STR
+are:
+.RS
+.TP 8
+.B lr
+Mapping noisy long reads
+.RB ( -k15
+.B -w10 -g5k
+.BR -r2k ).
+This is the same as the default setting.
+.TP
+.B se
+Mapping short single-end reads
+.RB ( -k21
+.B -w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes
+.BR -K50m ).
+Paired-end mapping is not supported.
+.TP
+.B asm20
+Mapping long contigs or high-quality CCS reads
+.RB ( -k19
+.B -w10 -g10k -r10k -n5,3
+.BR -m1000,40 ).
+.TP
+.B ggs
+Simple algorithm for incremental graph generation
+.RB ( -k19
+.B -w10 -g10k -r10k -n5,3 -m1000,40
+.BR --ggen=simple ).
+.RE
 .SS Miscellaneous options
 .TP 10
 .B --no-kalloc
@@ -152,4 +239,4 @@ dv	f	Approximate per-base sequence divergence
 .SH LIMITATIONS
 .SH SEE ALSO
 .PP
-minimap2(1).
+minimap2(1), gfatools(1).

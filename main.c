@@ -25,6 +25,10 @@ static ko_longopt_t long_options[] = {
 	{ "secondary",    ko_required_argument, 302 },
 	{ "ins-qovlp",    ko_required_argument, 303 },
 	{ "heap-sort",    ko_required_argument, 304 },
+	{ "show-unmap",   ko_required_argument, 305 },
+	{ "ggen",         ko_optional_argument, 306 },
+	{ "gg-vkmer",     ko_required_argument, 307 },
+	{ "gg-vkiden",    ko_required_argument, 308 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -60,7 +64,7 @@ static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *a
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -105,10 +109,13 @@ int main(int argc, char *argv[])
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'N') opt.best_n = mg_parse_num(o.arg);
 		else if (c == 'P') opt.flag |= MG_M_ALL_CHAINS;
+		else if (c == 'M') opt.mask_level = atof(o.arg);
 		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
+		else if (c == 307) gpt.ggs_fc_kmer = atoi(o.arg);     // --gg-vkmer
+		else if (c == 308) gpt.ggs_max_kiden = atof(o.arg);   // --gg-vkiden
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
@@ -126,12 +133,23 @@ int main(int argc, char *argv[])
 					exit(1);
 				}
 			}
+		} else if (c == 306) { // --ggen
+			if (o.arg) {
+				if (strcmp(o.arg, "none") == 0) gpt.algo = MG_G_NONE;
+				else if (strcmp(o.arg, "simple") == 0) gpt.algo = MG_G_GGSIMPLE;
+				else {
+					fprintf(stderr, "ERROR: unknown graph generation algorithm \"%s\"\n", o.arg);
+					return 1;
+				}
+			} else gpt.algo = MG_G_GGSIMPLE;
 		} else if (c == 302) { // --secondary
 			yes_or_no(&opt.flag, MG_M_PRINT_2ND, o.longidx, o.arg, 1);
 		} else if (c == 303) { // --ins-qovlp
 			yes_or_no(&gpt.flag, MG_G_NO_QOVLP, o.longidx, o.arg, 1);
 		} else if (c == 304) { // --heap-sort
 			yes_or_no(&opt.flag, MG_M_HEAP_SORT, o.longidx, o.arg, 1);
+		} else if (c == 305) { // --show-unmap
+			yes_or_no(&opt.flag, MG_M_SHOW_UNMAP, o.longidx, o.arg, 1);
 		} else if (c == 300) { // --version
 			puts(MG_VERSION);
 			return 0;
@@ -150,21 +168,23 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
 		fprintf(fp_help, "    -U INT       ignore minimizers with occurrences above INT [%d]\n", opt.mid_occ);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
-		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
+		fprintf(fp_help, "    -r NUM       bandwidth used in chaining [%d]\n", opt.bw);
 		fprintf(fp_help, "    -n INT[,INT] minimal number of minimizers on a graph/linear chain [%d,%d]\n", opt.min_gc_cnt, opt.min_lc_cnt);
 		fprintf(fp_help, "    -m INT[,INT] minimal graph/linear chaining score [%d,%d]\n", opt.min_gc_score, opt.min_lc_score);
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
-		fprintf(fp_help, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
+		fprintf(fp_help, "    -N INT       retain at most INT secondary mappings [%d]\n", opt.best_n);
 		fprintf(fp_help, "  Graph generation:\n");
+		fprintf(fp_help, "    --ggen       perform incremental graph generation\n");
 		fprintf(fp_help, "    -q INT       min mapping quality [%d]\n", gpt.min_mapq);
 		fprintf(fp_help, "    -l NUM       min alignment length [%d]\n", gpt.min_map_len);
 		fprintf(fp_help, "    -d NUM       min alignment length for depth calculation [%d]\n", gpt.min_depth_len);
 		fprintf(fp_help, "  Input/output:\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
-		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");
+		fprintf(fp_help, "    -o FILE      output mappings to FILE [stdout]\n");
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset []\n");
+		fprintf(fp_help, "                 - lr: noisy long read mapping (the default)\n");
 		fprintf(fp_help, "                 - asm20: asm-to-ref mapping, for ~5%% sequence divergence\n");
 		fprintf(fp_help, "                 - se: short single-end reads\n");
 		fprintf(fp_help, "                 - ggs: simple algorithm for graph generation\n");

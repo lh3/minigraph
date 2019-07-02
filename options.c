@@ -40,7 +40,7 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->match_pen = 5;
 	go->ggs_shrink_pen = 9;
 	go->ggs_fc_kmer = 9, go->ggs_fc_max_occ = 10;
-	go->ggs_max_mlen = 0.8f;
+	go->ggs_max_kiden = 0.8f;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go)
@@ -49,9 +49,14 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mg_idxopt_init(io);
 		mg_mapopt_init(mo);
 		mg_ggopt_init(go);
+	} else if (strcmp(preset, "lr") == 0) {
+		io->k = 15, io->w = 10;
+		mo->bw = 2000, mo->max_gap = 5000;
 	} else if (strcmp(preset, "asm20") == 0) {
 		io->k = 19, io->w = 10;
-		mo->bw = 5000;
+		mo->bw = 10000, mo->max_gap = 10000;
+		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
+		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 	} else if (strcmp(preset, "ggs") == 0 || strcmp(preset, "ggsimple") == 0) {
 		io->k = 19, io->w = 10;
 		go->algo = MG_G_GGSIMPLE;

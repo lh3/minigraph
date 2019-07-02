@@ -196,7 +196,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					int32_t qd = I.coff[1] - I.coff[0], mlen;
 					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
 					mlen = mg_fastcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->ggs_fc_kmer, opt->ggs_fc_max_occ);
-					if (mlen > (qd > pd? qd : pd) * opt->ggs_max_mlen) continue;
+					if (mlen > (qd > pd? qd : pd) * opt->ggs_max_kiden) continue;
 				}
 				if (mg_dbg_flag & MG_DBG_INSERT) {
 					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);

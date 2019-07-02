@@ -86,6 +86,10 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 {
 	int32_t i, j;
 	s->l = 0;
+	if (gs->n_gc == 0 && (flag&MG_M_SHOW_UNMAP)) {
+		mg_sprintf_lite(s, "%s\t%d\t0\t0\t*\t*\t0\t0\t0\t0\t0\t0\n", qname, qlen);
+		return;
+	}
 	for (i = 0; i < gs->n_gc; ++i) {
 		const mg_gchain_t *p = &gs->gc[i];
 		if (p->id != p->parent && !(flag&MG_M_PRINT_2ND)) continue;
