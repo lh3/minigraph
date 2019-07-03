@@ -29,8 +29,10 @@ static ko_longopt_t long_options[] = {
 	{ "ggen",         ko_optional_argument, 306 },
 	{ "gg-vkmer",     ko_required_argument, 307 },
 	{ "gg-vkiden",    ko_required_argument, 308 },
-	{ "gg-min-end",   ko_required_argument, 309 },
-	{ "no-comp-path", ko_no_argument,       310 },
+	{ "gg-min-end-cnt",  ko_required_argument, 309 },
+	{ "gg-min-end-frac", ko_required_argument, 310 },
+	{ "no-comp-path", ko_no_argument,       312 },
+	{ "gg-match-pen", ko_required_argument, 313 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -116,10 +118,12 @@ int main(int argc, char *argv[])
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
-		else if (c == 310) opt.flag |= MG_M_NO_COMP_PATH;     // --no-comp-path
 		else if (c == 307) gpt.ggs_fc_kmer = atoi(o.arg);     // --gg-vkmer
 		else if (c == 308) gpt.ggs_max_kiden = atof(o.arg);   // --gg-vkiden
-		else if (c == 309) gpt.ggs_min_end_cnt = atof(o.arg); // --gg-min-end
+		else if (c == 309) gpt.ggs_min_end_cnt = atoi(o.arg);  // --gg-min-end-cnt
+		else if (c == 310) gpt.ggs_min_end_frac = atof(o.arg); // --gg-min-end-frac
+		else if (c == 312) opt.flag |= MG_M_NO_COMP_PATH;     // --no-comp-path
+		else if (c == 313) gpt.match_pen = atoi(o.arg);       // --gg-match-pen
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain

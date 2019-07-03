@@ -140,12 +140,13 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 			off_a = gt->lc[gc->off].off;
 			for (j = 0; j < n_ss; ++j) {
 				const mg128_t *p, *q;
-				int32_t st, en, ls, le, span, pd, k, n_ovlp;
+				int32_t st, en, ls, le, span, pd, k, n_ovlp, min_len;
 				gfa_ins_t I;
 
 				// find the initial positions
-				if (ss[j].st == 0 || ss[j].en >= gc->n_anchor - 1) continue; // no "open" end
-				if (ss[j].st <= opt->ggs_min_end_cnt || ss[j].en >= gc->n_anchor - 1 - opt->ggs_min_end_cnt) continue; // too close to ends
+				min_len = opt->ggs_min_end_cnt > 0? opt->ggs_min_end_cnt : 0;
+				if (min_len < ss[j].sc * opt->ggs_min_end_frac) min_len = ss[j].sc * opt->ggs_min_end_frac;
+				if (ss[j].st <= min_len || ss[j].en >= gc->n_anchor - 1 - min_len) continue; // too close to ends
 				st = ss[j].st, en = ss[j].en;
 				q = &gt->a[off_a + st];
 				p = &gt->a[off_a + en];

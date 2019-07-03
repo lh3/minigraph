@@ -40,7 +40,7 @@ msseg_t *mss_find_all(void *km, int32_t n, const MSS_TYPE *S, MSS_TYPE min_sc, M
         if (S[i] > 0) {
             int32_t k;
             MSS_TYPE R = L + S[i];
-            for (k = i + 1; k < n && S[k] > 0.; ++k)
+            for (k = i + 1; k < n && S[k] > 0; ++k)
                 R += S[k];
 			if (R > max) max = R;
             t.st = i, t.en = k, t.L = L, t.R = R;
