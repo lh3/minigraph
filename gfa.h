@@ -127,7 +127,7 @@ typedef struct {
 } gfa_ins_t;
 
 extern int gfa_verbose;
-unsigned char gfa_comp_table[256];
+extern unsigned char gfa_comp_table[256];
 
 #ifdef __cplusplus
 extern "C" {
