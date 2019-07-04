@@ -1,6 +1,7 @@
 #include <zlib.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 #include "kstring.h"
 #include "gfa-priv.h"
@@ -254,6 +255,30 @@ int gfa_parse_L(gfa_t *g, char *s)
 	return 0;
 }
 
+static gfa_seg_t *gfa_parse_fa_hdr(gfa_t *g, char *s)
+{
+	int32_t i;
+	char buf[16];
+	gfa_seg_t *seg;
+	for (i = 0; s[i]; ++i)
+		if (isspace(s[i])) break;
+	s[i] = 0;
+	sprintf(buf, "s%d", g->n_seg + 1);
+	i = gfa_add_seg(g, buf);
+	seg = &g->seg[i];
+	seg->pnid = gfa_pseq_add(g, s + 1);
+	seg->ppos = seg->rank = 0;
+	return seg;
+}
+
+static void gfa_update_fa_seq(gfa_t *g, gfa_seg_t *seg, int32_t l_seq, const char *seq)
+{
+	if (seg == 0) return;
+	seg->seq = strdup(seq);
+	seg->len = l_seq;
+	gfa_pseq_update(g, seg);
+}
+
 /****************
  * User-end I/O *
  ****************/
@@ -262,9 +287,10 @@ gfa_t *gfa_read(const char *fn)
 {
 	gzFile fp;
 	gfa_t *g;
-	kstring_t s = {0,0,0};
+	kstring_t s = {0,0,0}, fa_seq = {0,0,0};
 	kstream_t *ks;
-	int dret;
+	int dret, is_fa = 0;
+	gfa_seg_t *fa_seg = 0;
 	uint64_t lineno = 0;
 
 	fp = fn && strcmp(fn, "-")? gzopen(fn, "r") : gzdopen(fileno(stdin), "r");
@@ -274,12 +300,27 @@ gfa_t *gfa_read(const char *fn)
 	while (ks_getuntil(ks, KS_SEP_LINE, &s, &dret) >= 0) {
 		int ret = 0;
 		++lineno;
+		if (s.l > 0 && s.s[0] == '>') { // FASTA header
+			is_fa = 1;
+			if (fa_seg) gfa_update_fa_seq(g, fa_seg, fa_seq.l, fa_seq.s);
+			fa_seg = gfa_parse_fa_hdr(g, s.s);
+			fa_seq.l = 0;
+		} else if (is_fa) { // FASTA mode
+			if (s.l >= 3 && s.s[1] == '\t') { // likely a GFA line
+				gfa_update_fa_seq(g, fa_seg, fa_seq.l, fa_seq.s); // finalize fa_seg
+				fa_seg = 0;
+				is_fa = 0;
+			} else kputsn(s.s, s.l, &fa_seq); // likely a FASTA sequence line
+		}
+		if (is_fa) continue;
 		if (s.l < 3 || s.s[1] != '\t') continue; // empty line
 		if (s.s[0] == 'S') ret = gfa_parse_S(g, s.s);
 		else if (s.s[0] == 'L') ret = gfa_parse_L(g, s.s);
 		if (ret < 0 && gfa_verbose >= 1)
 			fprintf(stderr, "[E] invalid %c-line at line %ld (error code %d)\n", s.s[0], (long)lineno, ret);
 	}
+	if (is_fa && fa_seg) gfa_update_fa_seq(g, fa_seg, fa_seq.l, fa_seq.s);
+	free(fa_seq.s);
 	free(s.s);
 	gfa_finalize(g);
 	ks_destroy(ks);
