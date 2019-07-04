@@ -29,13 +29,42 @@ static int32_t find_max(int32_t n, const gc_frag_t *gf, int32_t x)
 
 static int32_t mg_target_dist(const gfa_t *g, const mg_lchain_t *l0, const mg_lchain_t *l1)
 {
+	// below equals (l1->qs - l0->qe) - min_dist + g->seg[l1->v>>1].len; see mg_gchain1_dp() for the calculation of min_dist
 	return (l1->qs - l0->qe) - (g->seg[l0->v>>1].len - l0->re) + (g->seg[l1->v>>1].len - l1->rs);
+}
+
+static double mg_score_per_col(void *km, int32_t n_lc, const mg_lchain_t *lc)
+{
+	mg128_t *a;
+	int32_t i, k, blen, score;
+	if (n_lc == 0) return 1.0;
+	KMALLOC(km, a, n_lc);
+	for (i = 0; i < n_lc; ++i) {
+		a[i].x = (uint64_t)lc[i].qs<<32 | lc[i].qe;
+		a[i].y = (uint64_t)lc[i].score<<32 | i;
+	}
+	radix_sort_128x(a, a + n_lc);
+	blen = 0, score = 0;
+	for (k = 0, i = 1; i <= n_lc; ++i) { // this is NOT optimal, but should work well enough
+		if (i == n_lc || a[i].x>>32 >= (int32_t)a[k].x) {
+			const mg_lchain_t *p;
+			score += a[k].y>>32;
+			p = &lc[(int32_t)a[k].y];
+			blen += p->qe - p->qs > p->re - p->rs? p->qe - p->qs : p->re - p->rs;
+			if (i < n_lc) k = i;
+		} else if (a[i].y>>32 > a[k].y>>32) {
+			k = i;
+		}
+	}
+	kfree(km, a);
+	return (double)score / blen;
 }
 
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *p, *v, *t;
+	double sc_per_col;
 	uint64_t *u;
 	gfa_path_dst_t *dst;
 	gc_frag_t *a;
@@ -71,12 +100,13 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 	KMALLOC(km, p, n_ext);
 	KCALLOC(km, t, n_ext);
 
+	sc_per_col = mg_score_per_col(km, n_lc, lc);
 	m_dst = n_dst = 0, dst = 0;
 	for (i = 0; i < n_ext; ++i) { // core loop
 		gc_frag_t *ai = &a[i];
 		mg_lchain_t *li = &lc[ai->i];
 		int32_t max_f = li->score;
-		int32_t max_j = -1, max_d = -1;
+		int32_t max_j = -1, max_d = -1, target_dist;
 		int32_t x = li->qs + bw;
 		if (x > qlen) x = qlen;
 		x = find_max(i, a, x);
@@ -85,30 +115,35 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			gc_frag_t *aj = &a[j];
 			mg_lchain_t *lj = &lc[aj->i];
 			gfa_path_dst_t *q;
-			int32_t min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re);
-			if (aj->srt + max_dist_q < li->qs) break; // if gap too large, stop
-			if (min_dist > max_dist_g) continue;
-			if (li->v == lj->v) continue;
-			if (min_dist - bw > li->qs - lj->qe) continue; // TODO: double check this line
+			int32_t min_dist;
+			if (lj->qe + max_dist_q < li->qs) break; // if query gap too large, stop
+			if (lj->qs >= li->qs) continue; // lj is contained in li
+			if (li->v == lj->v) continue; // we don't deal with lchains on the same segment
+			min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re); // minimal graph gap
+			if (min_dist > max_dist_g) continue; // graph gap too large
+			if (min_dist - bw > li->qs - lj->qe) continue; // when li->qs < lj->qe, the condition turns to min_dist + (lj->qe - li->qs) > bw, which is desired
+			target_dist = mg_target_dist(g, lj, li);
+			if (target_dist < 0) continue; // this may happen if the query overlap is far too large
 			if (n_dst == m_dst) KEXPAND(km, dst, m_dst); // TODO: watch out the quadratic behavior!
 			q = &dst[n_dst++];
 			q->v = lj->v^1;
 			q->meta = j;
-			q->target_dist = mg_target_dist(g, lj, li);
-			if (q->target_dist < 0) q->target_dist = 0;
+			q->target_dist = target_dist;
 		}
 		//fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
 		gfa_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, 0);
 		for (j = 0; j < n_dst; ++j) {
 			gfa_path_dst_t *dj = &dst[j];
-			int32_t gap, log_gap, sc = 0;
+			mg_lchain_t *lj;
+			int32_t gap, sc;
 			if (dj->n_path == 0) continue;
 			gap = dj->dist - dj->target_dist;
 			if (gap < 0) gap = -gap;
 			if (gap > bw) continue;
-			log_gap = gap? mg_ilog2_32(gap) : 0;
-			sc = li->score;
-			sc -= gap + log_gap;
+			lj = &lc[dj->meta];
+			if (lj->qe <= li->qs) sc = li->score;
+			else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499);
+			sc -= gap == 0? 0 : mg_ilog2_32(gap) + (int32_t)(gap * sc_per_col + .499);
 			sc += f[dj->meta];
 			//fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc, lc[dj->meta].qs, lc[dj->meta].qe);
 			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist;
