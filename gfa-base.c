@@ -48,6 +48,16 @@ void gfa_destroy(gfa_t *g)
 	free(g);
 }
 
+char *gfa_strdup(const char *src)
+{
+	int32_t len;
+	char *dst;
+	len = strlen(src);
+	GFA_MALLOC(dst, len + 1);
+	memcpy(dst, src, len + 1);
+	return dst;
+}
+
 int32_t gfa_add_seg(gfa_t *g, const char *name)
 {
 	khint_t k;
@@ -63,7 +73,7 @@ int32_t gfa_add_seg(gfa_t *g, const char *name)
 			memset(&g->seg[old_m], 0, (g->m_seg - old_m) * sizeof(gfa_seg_t));
 		}
 		s = &g->seg[g->n_seg++];
-		kh_key(h, k) = s->name = strdup(name);
+		kh_key(h, k) = s->name = gfa_strdup(name);
 		s->del = s->len = 0;
 		s->pnid = s->ppos = s->rank = -1;
 		kh_val(h, k) = g->n_seg - 1;
@@ -82,7 +92,7 @@ int32_t gfa_pseq_add(gfa_t *g, const char *pname)
 		if (g->n_pseq == g->m_pseq) GFA_EXPAND(g->pseq, g->m_pseq);
 		ps = &g->pseq[g->n_pseq++];
 		kh_val(h, k) = g->n_pseq - 1;
-		kh_key(h, k) = ps->name = strdup(pname);
+		kh_key(h, k) = ps->name = gfa_strdup(pname);
 		ps->min = -1, ps->max = -1, ps->rank = -1;
 	}
 	return kh_val(h, k);

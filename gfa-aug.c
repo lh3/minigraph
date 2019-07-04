@@ -96,7 +96,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		gfa_seg_t *t = &seg[k]; // this is so far a placeholder
 		// create the first half of a new segment
 		snprintf(buf, 15, "s%d", k + 1);
-		t->name = strdup(buf);
+		t->name = gfa_strdup(buf);
 		t->pnid = s->pnid, t->ppos = s->ppos, t->rank = s->rank;
 		// iterate over splits
 		for (i0 = soff[j], i = i0 + 1; i <= soff[j+1]; ++i) {
@@ -117,7 +117,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 					off += t->len;
 					t = &seg[++k]; // create a new segment
 					snprintf(buf, 15, "s%d", k + 1);
-					t->name = strdup(buf);
+					t->name = gfa_strdup(buf);
 					t->pnid = s->pnid, t->ppos = s->ppos + off, t->rank = s->rank;
 				}
 				i0 = i;
@@ -157,7 +157,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		if (p->coff[0] < p->coff[1]) {
 			gfa_seg_t *t = &seg[k];
 			snprintf(buf, 15, "s%d", k + 1);
-			t->name = strdup(buf);
+			t->name = gfa_strdup(buf);
 			GFA_MALLOC(t->seq, p->coff[1] - p->coff[0] + 1);
 			for (j = 0; j < p->coff[1] - p->coff[0]; ++j)
 				t->seq[j] = seq[p->ctg][p->coff[0] + j];

@@ -16,6 +16,7 @@
 extern "C" {
 #endif
 
+char *gfa_strdup(const char *src);
 void gfa_arc_sort(gfa_t *g);
 void gfa_arc_index(gfa_t *g);
 uint32_t gfa_fix_symm(gfa_t *g);

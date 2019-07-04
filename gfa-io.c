@@ -121,7 +121,7 @@ int gfa_parse_S(gfa_t *g, char *s)
 			*p = 0;
 			if (i == 0) seg = q;
 			else if (i == 1) {
-				seq = q[0] == '*'? 0 : strdup(q);
+				seq = q[0] == '*'? 0 : gfa_strdup(q);
 				is_ok = 1, rest = c? p + 1 : 0;
 				break;
 			}
@@ -274,7 +274,7 @@ static gfa_seg_t *gfa_parse_fa_hdr(gfa_t *g, char *s)
 static void gfa_update_fa_seq(gfa_t *g, gfa_seg_t *seg, int32_t l_seq, const char *seq)
 {
 	if (seg == 0) return;
-	seg->seq = strdup(seq);
+	seg->seq = gfa_strdup(seq);
 	seg->len = l_seq;
 	gfa_pseq_update(g, seg);
 }
@@ -293,7 +293,7 @@ gfa_t *gfa_read(const char *fn)
 	gfa_seg_t *fa_seg = 0;
 	uint64_t lineno = 0;
 
-	fp = fn && strcmp(fn, "-")? gzopen(fn, "r") : gzdopen(fileno(stdin), "r");
+	fp = fn && strcmp(fn, "-")? gzopen(fn, "r") : gzdopen(0, "r");
 	if (fp == 0) return 0;
 	ks = ks_init(fp);
 	g = gfa_init();
