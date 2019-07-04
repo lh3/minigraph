@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "r169"
+#define MG_VERSION "r170"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -121,8 +121,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t *go);
 void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go);
 
-mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int n_threads);
-mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int n_threads);
+mg_idx_t *mg_index(gfa_t *g, int k, int w, int b, int n_threads);
 void mg_idx_destroy(mg_idx_t *gi);
 
 mg_tbuf_t *mg_tbuf_init(void);

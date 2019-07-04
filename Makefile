@@ -38,8 +38,8 @@ format.o: kalloc.h mgpriv.h bseq.h minigraph.h gfa.h
 gchain1.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h ksort.h khash.h
 gcmisc.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h
 gfa-aug.o: gfa-priv.h gfa.h ksort.h
-gfa-base.o: gfa.h khash.h kalloc.h ksort.h
-gfa-io.o: kstring.h gfa.h kseq.h
+gfa-base.o: gfa-priv.h gfa.h khash.h kalloc.h ksort.h
+gfa-io.o: kstring.h gfa-priv.h gfa.h kseq.h
 gfa-sub.o: gfa.h kalloc.h kavl.h khash.h ksort.h
 ggen.o: kthread.h kalloc.h mgpriv.h bseq.h minigraph.h gfa.h
 ggsimple.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h mss.h
@@ -53,5 +53,5 @@ map.o: kthread.h kvec.h kalloc.h mgpriv.h bseq.h minigraph.h gfa.h khash.h
 map.o: ksort.h
 misc.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h ksort.h
 mss.o: kvec.h kalloc.h mss.h
-options.o: minigraph.h gfa.h
+options.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h
 sketch.o: kvec.h kalloc.h mgpriv.h bseq.h minigraph.h gfa.h

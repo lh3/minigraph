@@ -35,7 +35,7 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 	if (fp == 0) return -1;
 
 	KCALLOC(0, s, 1);
-	s->gi = mg_index_gfa(g, ipt->k, ipt->w, ipt->bucket_bits, n_threads);
+	s->gi = mg_index(g, ipt->k, ipt->w, ipt->bucket_bits, n_threads);
 	if (mg_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] indexed the graph\n", __func__,
 				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0));

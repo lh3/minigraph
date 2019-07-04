@@ -205,45 +205,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-#if 0
-	int sid1 = gfa_name2id(g, "MTh0");
-	int sid2 = gfa_name2id(g, "MTh13516");
-	int sid3 = gfa_name2id(g, "MTo8961");
-	int32_t n_pathv;
-	gfa_path_dst_t dst[3];
-	gfa_pathv_t *path;
-	if (sid1 < 0 || sid2 < 0) abort();
-	dst[0].v = sid2<<1|0, dst[0].target_dist = 13516;
-	dst[1].v = sid3<<1|0, dst[1].target_dist = 10000;
-	path = gfa_shortest_k(0, g, sid1<<1|0, 2, dst, 20000, 7, &n_pathv);
-	gfa_sub_print_path(stderr, g, n_pathv, path);
-	free(path);
-#endif
-
-#if 0
-	int sid1 = gfa_name2id(g, "MTh0");
-//	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 15 }, 0 };
-//	gfa_ins_t ins = { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 5 }, 0 };
-//	gfa_ins_t ins = { { sid1<<1|1, sid1<<1|1 }, { 3801, 3901 }, { 5, 15 }, 0 };
-	gfa_ins_t ins[2] = { { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 15 }, 0 },
-						 { { sid1<<1, sid1<<1 }, { 100, 200 }, { 5, 5 }, 0 }
-						};
-	char *seq = "CGAATATGGCTAAGCATAGCCGATATAGC", *name = "ins1";
-	gfa_augment(g, 2, ins, 1, &name, &seq); // NB: indexing is wrong now
-	gfa_print(g, stdout, 1);
-	exit(0);
-#endif
-
-#if 0
-	const char *s1 = "CCAGAGCATCGATAGgGATGATCGATG";
-	const char *s2 = "CCAGAGCATCGATAGTGATGATCGATGCA";
-	int32_t mlen = mg_fastcmp(0, strlen(s1), s1, strlen(s2), s2, 9, 10);
-	fprintf(stderr, "%d\n", mlen);
-	exit(1);
-#endif
-
 	if (gpt.algo == MG_G_NONE) {
-		gi = mg_index_gfa(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);
+		gi = mg_index(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);
 		mg_opt_update(gi, &opt, 0);
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_map_file(gi, argv[i], &opt, n_threads);

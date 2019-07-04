@@ -177,7 +177,7 @@ int mg_gfa_overlap(const gfa_t *g)
 	return 0;
 }
 
-mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int n_threads)
+mg_idx_t *mg_index(gfa_t *g, int k, int w, int b, int n_threads)
 {
 	mg_idx_t *gi;
 	mg128_v a = {0,0,0};
@@ -196,12 +196,4 @@ mg_idx_t *mg_index_gfa(gfa_t *g, int k, int w, int b, int n_threads)
 	free(a.a);
 	kt_for(n_threads, worker_post, gi, 1<<gi->b);
 	return gi;
-}
-
-mg_idx_t *mg_index_file(const char *fn, int k, int w, int b, int n_threads)
-{
-	gfa_t *g;
-	g = gfa_read(fn);
-	if (g == 0) return 0;
-	return mg_index_gfa(g, k, w, b, n_threads);
 }
