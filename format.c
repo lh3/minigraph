@@ -86,7 +86,7 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 {
 	int32_t i, j;
 	s->l = 0;
-	if (gs->n_gc == 0 && (flag&MG_M_SHOW_UNMAP)) {
+	if ((gs == 0 || gs->n_gc == 0) && (flag&MG_M_SHOW_UNMAP)) {
 		mg_sprintf_lite(s, "%s\t%d\t0\t0\t*\t*\t0\t0\t0\t0\t0\t0\n", qname, qlen);
 		return;
 	}
