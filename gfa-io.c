@@ -63,6 +63,7 @@ int gfa_aux_parse(char *s, uint8_t **data, int *max)
 			if (c == 0) break;
 		}
 	}
+	if (str.l > 0 && str.l == str.m) ks_resize(&str, str.l + 1);
 	if (str.s) str.s[str.l] = 0;
 	*max = str.m, *data = (uint8_t*)str.s;
 	return str.l;
