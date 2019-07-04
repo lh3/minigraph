@@ -58,16 +58,6 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 	for (i = 0; i < n_threads; ++i) mg_tbuf_destroy(s->buf[i]);
 	free(s->buf);
 
-#if 0 // for debugging
-	kstring_t str = {0,0,0};
-	for (i = 0; i < s->n_seq; ++i) {
-		mg_bseq1_t *t = &s->seq[i];
-		mg_write_paf(&str, g, s->gcs[i], t->l_seq, t->name, opt->flag, 0);
-		mg_err_fputs(str.s, stdout);
-	}
-	free(str.s);
-#endif
-
 	mg_ggsimple(0, go, g, s->n_seq, s->seq, s->gcs);
 
 	// free the rest
