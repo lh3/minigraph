@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
-#include "gfa.h"
+#include "gfa-priv.h"
 #include "kalloc.h"
 #include "kavl.h"
 #include "khash.h"
