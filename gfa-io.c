@@ -7,7 +7,7 @@
 #include "gfa-priv.h"
 
 #include "kseq.h"
-KSTREAM_INIT(gzFile, gzread, 65536)
+KSEQ_INIT2(, gzFile, gzread)
 
 /***********
  * Tag I/O *
