@@ -272,7 +272,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	mg_gchain_set_parent(b->km, opt->mask_level, gcs[0]->n_gc, gcs[0]->gc, opt->sub_diff, 0);
 	mg_gchain_flt_sub(opt->pri_ratio, gi->k * 2, opt->best_n, gcs[0]->n_gc, gcs[0]->gc);
 	mg_gchain_drop_flt(b->km, gcs[0]);
-	mg_gchain_set_mapq(b->km, gcs[0], opt->min_gc_score);
+	mg_gchain_set_mapq(b->km, gcs[0], qlen_sum, mv.n, opt->min_gc_score);
 
 	if (b->km) {
 		km_stat(b->km, &kmst);

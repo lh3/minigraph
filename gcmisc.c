@@ -175,13 +175,18 @@ void mg_gchain_drop_flt(void *km, mg_gchains_t *gcs)
 }
 
 // estimate mapping quality
-void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score)
+void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int qlen, int max_mini, int min_gc_score)
 {
 	static const float q_coef = 40.0f;
 	int64_t sum_sc = 0;
-	float uniq_ratio;
-	int i;
+	float uniq_ratio, r_sc, r_cnt;
+	int i, t_sc, t_cnt;
 	if (gcs == 0 || gcs->n_gc == 0) return;
+	t_sc = qlen < 100? qlen : 100;
+	t_cnt = max_mini < 10? max_mini : 10;
+	if (t_cnt < 5) t_cnt = 5;
+	r_sc = 1.0 / t_sc;
+	r_cnt = 1.0 / t_cnt;
 	for (i = 0; i < gcs->n_gc; ++i)
 		if (gcs->gc[i].parent == gcs->gc[i].id)
 			sum_sc += gcs->gc[i].score;
@@ -190,14 +195,15 @@ void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int min_gc_score)
 		mg_gchain_t *r = &gcs->gc[i];
 		if (r->parent == r->id) {
 			int mapq, subsc;
-			float pen_s1 = (r->score > 100? 1.0f : 0.01f * r->score) * uniq_ratio;
-			float x, pen_cm = r->n_anchor > 10? 1.0f : 0.1f * r->n_anchor;
+			float pen_s1 = (r->score > t_sc? 1.0f : r->score * r_sc) * uniq_ratio;
+			float x, pen_cm = r->n_anchor > t_cnt? 1.0f : r->n_anchor * r_cnt;
 			pen_cm = pen_s1 < pen_cm? pen_s1 : pen_cm;
 			subsc = r->subsc > min_gc_score? r->subsc : min_gc_score;
 			x = (float)subsc / r->score;
 			mapq = (int)(pen_cm * q_coef * (1.0f - x) * logf(r->score));
 			mapq -= (int)(4.343f * logf(r->n_sub + 1) + .499f);
 			mapq = mapq > 0? mapq : 0;
+			if (r->score > subsc && mapq == 0) mapq = 1;
 			r->mapq = mapq < 60? mapq : 60;
 		} else r->mapq = 0;
 	}
