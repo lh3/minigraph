@@ -58,6 +58,17 @@ char *gfa_strdup(const char *src)
 	return dst;
 }
 
+char *gfa_strndup(const char *src, size_t n)
+{
+	size_t len;
+	char *dst;
+	len = strlen(src);
+	if (len > n) n = len;
+	GFA_MALLOC(dst, len);
+	strncpy(dst, src, n);
+	return dst;
+}
+
 int32_t gfa_add_seg(gfa_t *g, const char *name)
 {
 	khint_t k;
