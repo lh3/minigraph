@@ -97,7 +97,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		// create the first half of a new segment
 		snprintf(buf, 15, "s%d", k + 1);
 		t->name = gfa_strdup(buf);
-		t->pnid = s->pnid, t->ppos = s->ppos, t->rank = s->rank;
+		t->snid = s->snid, t->soff = s->soff, t->rank = s->rank;
 		// iterate over splits
 		for (i0 = soff[j], i = i0 + 1; i <= soff[j+1]; ++i) {
 			if (i == soff[j+1] || sp[i].side>>1 != sp[i0].side>>1) {
@@ -118,7 +118,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 					t = &seg[++k]; // create a new segment
 					snprintf(buf, 15, "s%d", k + 1);
 					t->name = gfa_strdup(buf);
-					t->pnid = s->pnid, t->ppos = s->ppos + off, t->rank = s->rank;
+					t->snid = s->snid, t->soff = s->soff + off, t->rank = s->rank;
 				}
 				i0 = i;
 			}
@@ -163,10 +163,10 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 				t->seq[j] = seq[p->ctg][p->coff[0] + j];
 			t->seq[j] = 0;
 			t->len = j;
-			t->pnid = gfa_pseq_add(g, name[p->ctg]);
-			t->ppos = p->coff[0];
-			t->rank = g->max_rank + 1; // TODO: to deal with SN/SS/SR tags somewhere
-			gfa_pseq_update(g, t);
+			t->snid = gfa_sseq_add(g, name[p->ctg]);
+			t->soff = p->coff[0];
+			t->rank = g->max_rank + 1; // TODO: to deal with SN/SO/SR tags somewhere
+			gfa_sseq_update(g, t);
 			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)k<<1);
 			create_first_arc(g, seg, (uint32_t)k<<1, (uint32_t)ins_side[i]);
 			++k;

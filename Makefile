@@ -36,13 +36,14 @@ bseq.o: bseq.h kvec.h kalloc.h kseq.h
 fastcmp.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h
 format.o: kalloc.h mgpriv.h bseq.h minigraph.h gfa.h
 gchain1.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h ksort.h khash.h
+gchain1.o: gfa-priv.h
 gcmisc.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h
 gfa-aug.o: gfa-priv.h gfa.h ksort.h
 gfa-base.o: gfa-priv.h gfa.h khash.h kalloc.h ksort.h
 gfa-io.o: kstring.h gfa-priv.h gfa.h kseq.h
 gfa-sub.o: gfa.h kalloc.h kavl.h khash.h ksort.h
 ggen.o: kthread.h kalloc.h mgpriv.h bseq.h minigraph.h gfa.h
-ggsimple.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h mss.h
+ggsimple.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h gfa-priv.h mss.h
 index.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h khash.h kthread.h kvec.h
 intv.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h ksort.h
 kalloc.o: kalloc.h

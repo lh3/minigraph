@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "r178"
+#define MG_VERSION "r179"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -127,7 +127,6 @@ void mg_idx_destroy(mg_idx_t *gi);
 mg_tbuf_t *mg_tbuf_init(void);
 void mg_tbuf_destroy(mg_tbuf_t *b);
 mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname);
-
 int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
 
 int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);

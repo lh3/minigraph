@@ -3,6 +3,7 @@
 #include "mgpriv.h"
 #include "ksort.h" // for radix sort
 #include "khash.h" // for __ac_Wang_hash()
+#include "gfa-priv.h"
 
 typedef struct {
 	uint32_t srt;

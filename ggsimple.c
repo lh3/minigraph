@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "mgpriv.h"
+#include "gfa-priv.h"
 #include "bseq.h"
 #include "mss.h"
 

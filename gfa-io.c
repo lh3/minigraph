@@ -7,7 +7,7 @@
 #include "gfa-priv.h"
 
 #include "kseq.h"
-KSEQ_INIT2(, gzFile, gzread)
+KSTREAM_INIT(gzFile, gzread, 65536)
 
 /***********
  * Tag I/O *
@@ -148,15 +148,15 @@ int gfa_parse_S(gfa_t *g, char *s)
 		s = &g->seg[sid];
 		s->len = len, s->seq = seq;
 		if (l_aux > 0) {
-			uint8_t *s_SN = 0, *s_SS = 0, *s_SR = 0;
+			uint8_t *s_SN = 0, *s_SO = 0, *s_SR = 0;
 			s_SN = gfa_aux_get(l_aux, aux, "SN");
 			if (s_SN && *s_SN == 'Z') { // then parse stable tags
-				s->pnid = gfa_pseq_add(g, (char*)(s_SN + 1)), s->ppos = 0;
+				s->snid = gfa_sseq_add(g, (char*)(s_SN + 1)), s->soff = 0;
 				l_aux = gfa_aux_del(l_aux, aux, s_SN);
-				s_SS = gfa_aux_get(l_aux, aux, "SS");
-				if (s_SS && *s_SS == 'i') {
-					s->ppos = *(int32_t*)(s_SS + 1);
-					l_aux = gfa_aux_del(l_aux, aux, s_SS);
+				s_SO = gfa_aux_get(l_aux, aux, "SO");
+				if (s_SO && *s_SO == 'i') {
+					s->soff = *(int32_t*)(s_SO + 1);
+					l_aux = gfa_aux_del(l_aux, aux, s_SO);
 				}
 			}
 			s_SR = gfa_aux_get(l_aux, aux, "SR");
@@ -165,7 +165,7 @@ int gfa_parse_S(gfa_t *g, char *s)
 				if (s->rank > g->max_rank) g->max_rank = s->rank;
 				l_aux = gfa_aux_del(l_aux, aux, s_SR);
 			}
-			gfa_pseq_update(g, s);
+			gfa_sseq_update(g, s);
 		}
 		if (l_aux > 0)
 			s->aux.m_aux = m_aux, s->aux.l_aux = l_aux, s->aux.aux = aux;
@@ -266,8 +266,8 @@ static gfa_seg_t *gfa_parse_fa_hdr(gfa_t *g, char *s)
 	sprintf(buf, "s%d", g->n_seg + 1);
 	i = gfa_add_seg(g, buf);
 	seg = &g->seg[i];
-	seg->pnid = gfa_pseq_add(g, s + 1);
-	seg->ppos = seg->rank = 0;
+	seg->snid = gfa_sseq_add(g, s + 1);
+	seg->soff = seg->rank = 0;
 	return seg;
 }
 
@@ -276,7 +276,7 @@ static void gfa_update_fa_seq(gfa_t *g, gfa_seg_t *seg, int32_t l_seq, const cha
 	if (seg == 0) return;
 	seg->seq = gfa_strdup(seq);
 	seg->len = l_seq;
-	gfa_pseq_update(g, seg);
+	gfa_sseq_update(g, seg);
 }
 
 /****************
@@ -339,8 +339,8 @@ void gfa_print(const gfa_t *g, FILE *fp, int M_only)
 		if (s->seq) fputs(s->seq, fp);
 		else fputc('*', fp);
 		fprintf(fp, "\tLN:i:%d", s->len);
-		if (s->pnid >= 0 && s->ppos >= 0)
-			fprintf(fp, "\tSN:Z:%s\tSS:i:%d", g->pseq[s->pnid].name, s->ppos);
+		if (s->snid >= 0 && s->soff >= 0)
+			fprintf(fp, "\tSN:Z:%s\tSO:i:%d", g->sseq[s->snid].name, s->soff);
 		if (s->rank >= 0)
 			fprintf(fp, "\tSR:i:%d", s->rank);
 		if (s->aux.l_aux > 0) {

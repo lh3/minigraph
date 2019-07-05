@@ -6,7 +6,7 @@
 #include "bseq.h"
 #include "kvec.h"
 #include "kseq.h"
-KSEQ_DECLARE(gzFile)
+KSEQ_INIT(gzFile, gzread)
 
 #define CHECK_PAIR_THRES 1000000
 

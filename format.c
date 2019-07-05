@@ -114,40 +114,40 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 				assert(p->off + j < gs->n_lc);
 				q = &gs->lc[p->off + j];
 				t = &g->seg[q->v>>1];
-				if (t->pnid < 0) { // no stable ID; write the vertex coordinate
+				if (t->snid < 0) { // no stable ID; write the vertex coordinate
 					compact = 0;
-					if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
+					if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->sseq[last_pnid].name, st, en);
 					last_pnid = -1, st = -1, en = -1, rev = -1;
 					mg_sprintf_lite(s, "%c%s", "><"[q->v&1], g->seg[q->v>>1].name);
 				} else {
 					int cont = 0;
-					if (last_pnid >= 0 && t->pnid == last_pnid && (q->v&1) == rev) { // same stable sequence and same strand
+					if (last_pnid >= 0 && t->snid == last_pnid && (q->v&1) == rev) { // same stable sequence and same strand
 						if (!(q->v&1)) { // forward strand
-							if (t->ppos == en)
-								en = t->ppos + t->len, cont = 1;
+							if (t->soff == en)
+								en = t->soff + t->len, cont = 1;
 						} else { // reverse strand
-							if (t->ppos + t->len == st)
-								st = t->ppos, cont = 1;
+							if (t->soff + t->len == st)
+								st = t->soff, cont = 1;
 						}
 					}
 					if (cont == 0) {
 						if (last_pnid >= 0) compact = 0;
-						if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
-						last_pnid = t->pnid, rev = q->v&1, st = t->ppos, en = st + t->len;
+						if (last_pnid >= 0) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->sseq[last_pnid].name, st, en);
+						last_pnid = t->snid, rev = q->v&1, st = t->soff, en = st + t->len;
 					}
 				}
 			}
 			if (last_pnid >= 0) {
-				if (g->pseq[last_pnid].rank != 0 || g->pseq[last_pnid].min != 0)
+				if (g->sseq[last_pnid].rank != 0 || g->sseq[last_pnid].min != 0)
 					compact = 0;
-				if (!compact) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->pseq[last_pnid].name, st, en);
+				if (!compact) mg_sprintf_lite(s, "%c%s:%d-%d", "><"[rev], g->sseq[last_pnid].name, st, en);
 			} else compact = 0;
 		}
 		if (compact) {
 			const gfa_seg_t *t = &g->seg[gs->lc[p->off].v>>1];
-			const gfa_pseq_t *ps = &g->pseq[t->pnid];
+			const gfa_sseq_t *ps = &g->sseq[t->snid];
 			if (gs->lc[p->off].v&1) s->s[sign_pos] = '-';
-			mg_sprintf_lite(s, "%s\t%d\t%d\t%d", ps->name, ps->max, t->ppos + p->ps, t->ppos + p->pe);
+			mg_sprintf_lite(s, "%s\t%d\t%d\t%d", ps->name, ps->max, t->soff + p->ps, t->soff + p->pe);
 		} else mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);
 		mg_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d\ts2:i:%d", p->id == p->parent? 'P' : 'S', p->n_anchor, p->score, p->subsc);
