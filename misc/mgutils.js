@@ -66,7 +66,7 @@ function mg_cmd_fa2gfa(args)
 			var m, s = buf.toString();
 			if ((m = /^>(\S+)/.exec(s)) != null) {
 				if (name != null) {
-					print("S", "s"+id, seq, "SN:Z:"+name, "SS:i:0", "SR:i:"+rank);
+					print("S", "s"+id, seq, "SN:Z:"+name, "SO:i:0", "SR:i:"+rank);
 					++id;
 				}
 				name = m[1], seq.length = 0;
@@ -74,7 +74,7 @@ function mg_cmd_fa2gfa(args)
 		}
 	}
 	if (name != null)
-		print("S", "s"+id, seq, "SN:Z:"+name, "SS:i:0", "SR:i:"+rank);
+		print("S", "s"+id, seq, "SN:Z:"+name, "SO:i:0", "SR:i:"+rank);
 	file.close();
 	buf.destroy();
 }
@@ -97,7 +97,8 @@ function mg_cmd_renamefa(args)
 		} else {
 			var m, s = buf.toString();
 			if ((m = /^>(.*)/.exec(s)) != null) {
-				print(">" + prefix + sep + m[1]);
+				var name = m[1].replace(/^\S+#/, "");
+				print(">" + prefix + sep + name);
 			} else throw Error("Wrong FASTA format!");
 		}
 	}
