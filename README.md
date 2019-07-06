@@ -9,7 +9,7 @@ cd minigraph && make
 ./minigraph test/MT.gfa test/MT-orangA.fa > out.gaf
 # Incremental graph generation (-l10k necessary for this toy example)
 ./minigraph -xggs -l10k test/MT.gfa test/MT-chimp.fa test/MT-orangA.fa > out.gfa
-# The lossy FASTA representation (requring gfatools)
+# The lossy FASTA representation (requring https://github.com/lh3/gfatools)
 gfatools gfa2fa -s out.gfa > out.fa
 ```
 
@@ -56,6 +56,30 @@ this case, minigraph will behave like minimap2 but without base-level
 alignment.
 
 ### <a name="ggen"></a>Graph generation
+
+The following command-line generates a graph in rGFA:
+```sh
+minigraph -xggs -t16 ref.fa sample1.fa sample2.fa > out.gfa
+```
+which is equivalent to
+```sh
+minigraph -xggs -t16 ref.fa sample1.fa > sample1.gfa
+minigraph -xggs -t16 sample1.gfa sample2.fa > out.gfa
+```
+File `ref.fa` is typically the reference genome (e.g. GRCh38 for human).
+It can also be replaced by a graph in rGFA. Minigraph assumes `sample1.fa` to
+be the whole-genome assembly of an individual. This is an important assumption:
+minigraph only considers 1-to-1 orthogonal regions between the graph and the
+individual FASTA. If you use raw reads or put multiple individual genomes in
+one file, minigraph will filter out most alignments as they cover the input
+graph multiple times.
+
+The output rGFA can be converted to a FASTA file with [gfatools][gfatools]:
+```sh
+gfatools gfa2fa -s graph.gfa > out.stable.fa
+```
+The output `out.stable.fa` will always include the initial reference `ref.fa`
+and may additionally add new segments diverged from the initial reference.
 
 ### Algorithm Overview
 
@@ -111,3 +135,4 @@ highlighted in bold. The description may help to tune minigraph parameters.
 [gfa1]: https://github.com/GFA-spec/GFA-spec/blob/master/GFA1.md
 [gaf]: https://github.com/lh3/gfatools/blob/master/doc/rGFA.md#the-graph-alignment-format-gaf
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
+[gfatools]: ttps://github.com/lh3/gfatools
