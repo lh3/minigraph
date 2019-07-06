@@ -60,12 +60,10 @@ char *gfa_strdup(const char *src)
 
 char *gfa_strndup(const char *src, size_t n)
 {
-	size_t len;
 	char *dst;
-	len = strlen(src);
-	if (len > n) n = len;
-	GFA_MALLOC(dst, len);
+	GFA_MALLOC(dst, n + 1);
 	strncpy(dst, src, n);
+	dst[n] = 0;
 	return dst;
 }
 
