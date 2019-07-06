@@ -33,6 +33,12 @@ minigraph - sequence-to-graph mapping and incremental sequence graph generation
 
 .SH DESCRIPTION
 
+Minigraph is a
+.I proof-of-concept
+sequence-to-graph mapper and graph constructor. It finds approximate locations
+of a query sequence in a sequence graph and incrementally augments an existing
+graph with long query subsequences.
+
 .SH OPTIONS
 .SS Indexing options
 .TP 10
@@ -208,10 +214,10 @@ Col	Type	Description
 _
 1	string	Query sequence name
 2	int	Query sequence length
-3	int	Query start coordinate (0-based)
-4	int	Query end coordinate (0-based)
+3	int	Query start coordinate (0-based; closed)
+4	int	Query end coordinate (0-based; open)
 5	char	`+' if query/path on the same strand; `-' if opposite
-6	string	Graph path
+6	string	Path matching /([><][^\\s><]+(:\\d+-\\d+)?)+|([^\\s><]+)/
 7	int	Path sequence length
 8	int	Path start coordinate
 9	int	Path end coordinate
@@ -240,6 +246,19 @@ dv	f	Approximate per-base sequence divergence
 .TE
 
 .SH LIMITATIONS
+.TP 2
+*
+Minigraph needs to find strong colinear chains first. For a graph consisting of
+many short segments (e.g. one generated from rare SNPs in large populations),
+minigraph will fail to map query sequences.
+.TP
+*
+When connecting colinear chains on graphs, minigraph ignores sequences, and
+only considers the distances of top 15 shortest paths between colinear chains.
+It may miss the optimal alignments.
+.TP
+*
+Minigraph doesn't give base-level alignment.
 .SH SEE ALSO
 .PP
 minimap2(1), gfatools(1).
