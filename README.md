@@ -9,6 +9,8 @@ cd minigraph && make
 ./minigraph test/MT.gfa test/MT-orangA.fa > out.gaf
 # Incremental graph generation (-l10k necessary for this toy example)
 ./minigraph -xggs -l10k test/MT.gfa test/MT-chimp.fa test/MT-orangA.fa > out.gfa
+# The lossy FASTA representation (requring gfatools)
+gfatools gfa2fa -s out.gfa > out.fa
 ```
 
 ## Introduction
@@ -16,21 +18,46 @@ cd minigraph && make
 <img align="right" width="278" src="doc/example1.png"/>
 
 Minigraph is a *proof-of-concept* sequence-to-graph mapper and graph
-constructor. It finds approximate locations of a query sequence in a sequence
+constructor. It finds *approximate* locations of a query sequence in a sequence
 graph and incrementally augments an existing graph with long query subsequences
-diverged from the graph. It can construct a graph from 15 human assemblies in
-an hour using 24 CPU cores.
+diverged from the graph. The figure on the right briefly explains the procedure.
 
-Minigraph is at an early development stage. It lacks important features and may
-produce suboptimal mappings. Please read the [Limitations](#limit) section of
-this README before using minigraph.
+Minigraph borrows many ideas and code from [minimap2][minimap2]. It is fairly
+efficient and can construct a graph from 15 human assemblies in an hour using
+24 CPU cores. **However**, minigraph is at an early development stage. It lacks
+important features and may produce suboptimal mappings. Please read the
+[Limitations section](#limit) of this README before using minigraph.
 
 ## User's Guide
+
+### Installation
 
 To install minigraph, type `make` in the source code directory. The only
 non-standard dependency is [zlib][zlib].
 
-## Algorithm Overview
+### Sequence-to-graph mapping
+
+To map sequences against a graph, you should prepare the graph in the [GFA
+format][gfa1], or preferrably the [rGFA format][rgfa] format. If you don't have
+a graph, you can generate a graph from multiple samples (see the [Graph
+generation section](#ggen) below). The typical command line for mapping is
+```sh
+minigraph -x lr graph.gfa query.fa > out.gaf
+```
+You may choose the right preset option `-x` according to input. Minigraph
+output mappings in the [GAF format][gaf], which is a strict superset of the
+[PAF format][paf]. The only visual difference between GAF and PAF is that the
+6th column in GAF may encode a graph path like
+`>MT_human:0-4001<MT_orang:3426-3927` instead of a contig/chromosome name.
+
+The minigraph GFA parser seamlessly parses FASTA and converts it to GFA
+internally, so you can also provide sequences in FASTA as the reference. In
+this case, minigraph will behave like minimap2 but without base-level
+alignment.
+
+### <a name="ggen"></a>Graph generation
+
+### Algorithm Overview
 
 In the following, minigraph command line options have a dash ahead and are
 highlighted in bold. The description may help to tune minigraph parameters.
@@ -56,7 +83,7 @@ highlighted in bold. The description may help to tune minigraph parameters.
    to the one used in minimap2.
 
 6. In the graph construction mode, collect all mappings longer than **-d**
-   [=*10kb*] and keep their query and graph segment intervals in two lists,
+   [=*10k*] and keep their query and graph segment intervals in two lists,
    respectively.
 
 7. For each mapping longer than **-l** [=*50k*], finds poorly aligned regions.
@@ -80,3 +107,7 @@ highlighted in bold. The description may help to tune minigraph parameters.
 
 [zlib]: http://zlib.net/
 [minimap2]: https://github.com/lh3/minimap2
+[rgfa]: https://github.com/lh3/gfatools/blob/master/doc/rGFA.md
+[gfa1]: https://github.com/GFA-spec/GFA-spec/blob/master/GFA1.md
+[gaf]: https://github.com/lh3/gfatools/blob/master/doc/rGFA.md#the-graph-alignment-format-gaf
+[paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
