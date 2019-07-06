@@ -1,4 +1,4 @@
-## Getting Started
+## <a name="started"></a>Getting Started
 
 ```sh
 git clone https://github.com/lh3/minigraph
@@ -13,7 +13,17 @@ cd minigraph && make
 gfatools gfa2fa -s out.gfa > out.fa
 ```
 
-## Introduction
+## Table of Contents
+
+- [Getting Started](#started)
+- [Users' Guide](#uguide)
+  - [Installation](#install)
+  - [Sequence-to-graph mapping](#map)
+  - [Graph generation](#ggen)
+  - [Algorithm overview](#algo)
+- [Limitations](#limit)
+
+## <a name="uguide"></a>User's Guide
 
 <img align="right" width="278" src="doc/example1.png"/>
 
@@ -28,14 +38,13 @@ efficient and can construct a graph from 15 human assemblies in an hour using
 important features and may produce suboptimal mappings. Please read the
 [Limitations section](#limit) of this README before using minigraph.
 
-## User's Guide
 
-### Installation
+### <a name="install"></a>Installation
 
 To install minigraph, type `make` in the source code directory. The only
 non-standard dependency is [zlib][zlib].
 
-### Sequence-to-graph mapping
+### <a name="map"></a>Sequence-to-graph mapping
 
 To map sequences against a graph, you should prepare the graph in the [GFA
 format][gfa1], or preferrably the [rGFA format][rgfa] format. If you don't have
@@ -81,7 +90,7 @@ gfatools gfa2fa -s graph.gfa > out.stable.fa
 The output `out.stable.fa` will always include the initial reference `ref.fa`
 and may additionally add new segments diverged from the initial reference.
 
-### Algorithm Overview
+### <a name="algo"></a>Algorithm overview
 
 In the following, minigraph command line options have a dash ahead and are
 highlighted in bold. The description may help to tune minigraph parameters.
