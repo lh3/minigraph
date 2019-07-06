@@ -13,11 +13,17 @@ cd minigraph && make
 
 ## Introduction
 
+<img align="right" width="278" src="doc/example1.png"/>
+
 Minigraph is a *proof-of-concept* sequence-to-graph mapper and graph
 constructor. It finds approximate locations of a query sequence in a sequence
 graph and incrementally augments an existing graph with long query subsequences
 diverged from the graph. It can construct a graph from 15 human assemblies in
 an hour using 24 CPU cores.
+
+Minigraph is at an early development stage. It lacks important features and may
+produce suboptimal mappings. Please read the [Limitations](#limit) section of
+this README before using minigraph.
 
 ## User's Guide
 
@@ -60,7 +66,7 @@ highlighted in bold. The description may help to tune minigraph parameters.
 8. Insert the remaining poorly aligned regions into the input graph. This
    constructs a new graph.
 
-## Limitations
+## <a name="limit"></a>Limitations
 
 * Minigraph needs to find strong colinear chains first. For a graph consisting
   of many short segments (e.g. one generated from rare SNPs in large
