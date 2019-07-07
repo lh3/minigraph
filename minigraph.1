@@ -1,4 +1,4 @@
-.TH minigraph 1 "2 July 2019" "minigraph (r162)" "Bioinformatics tools"
+.TH minigraph 1 "6 July 2019" "minigraph-0.1 (r191)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -259,6 +259,12 @@ It may miss the optimal alignments.
 .TP
 *
 Minigraph doesn't give base-level alignment.
+.TP
+*
+Minigraph only inserts segments contained in long graph chains. This
+conservative strategy helps to build relatively accurate graph, but may miss
+more complex events. Other strategies may be explored in future.
+
 .SH SEE ALSO
 .PP
 minimap2(1), gfatools(1).

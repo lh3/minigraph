@@ -20,6 +20,7 @@ gfatools gfa2fa -s out.gfa > out.fa
   - [Installation](#install)
   - [Sequence-to-graph mapping](#map)
   - [Graph generation](#ggen)
+  - [Prebuilt graphs](#prebuilt)
   - [Algorithm overview](#algo)
 - [Limitations](#limit)
 
@@ -37,7 +38,6 @@ efficient and can construct a graph from 15 human assemblies in an hour using
 24 CPU cores. **However**, minigraph is at an early development stage. It lacks
 important features and may produce suboptimal mappings. Please read the
 [Limitations section](#limit) of this README before using minigraph.
-
 
 ### <a name="install"></a>Installation
 
@@ -90,6 +90,11 @@ gfatools gfa2fa -s graph.gfa > out.stable.fa
 The output `out.stable.fa` will always include the initial reference `ref.fa`
 and may additionally add new segments diverged from the initial reference.
 
+### <a name="prebuilt"></a>Prebuilt graphs
+
+Prebuilt human graphs in the rGFA format can be found at
+`ftp://ftp.dfci.harvard.edu/pub/hli/minigraph`.
+
 ### <a name="algo"></a>Algorithm overview
 
 In the following, minigraph command line options have a dash ahead and are
@@ -137,6 +142,12 @@ highlighted in bold. The description may help to tune minigraph parameters.
   chains. It may miss the optimal alignments.
 
 * Minigraph doesn't give base-level alignment.
+
+* Minigraph only inserts segments contained in long graph chains. This
+  conservative strategy helps to build relatively accurate graph, but may miss
+  more complex events. Other strategies may be explored in future.
+
+
 
 [zlib]: http://zlib.net/
 [minimap2]: https://github.com/lh3/minimap2

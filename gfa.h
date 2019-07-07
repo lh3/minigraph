@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define GFA_VERSION "r39"
+#define GFA_VERSION "0.1-r40"
 
 #define GFA_MAX_SHORT_K  15
 
