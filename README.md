@@ -16,6 +16,7 @@ gfatools gfa2fa -s out.gfa > out.fa
 ## Table of Contents
 
 - [Getting Started](#started)
+- [Introduction](#intro)
 - [Users' Guide](#uguide)
   - [Installation](#install)
   - [Sequence-to-graph mapping](#map)
@@ -24,7 +25,7 @@ gfatools gfa2fa -s out.gfa > out.fa
   - [Algorithm overview](#algo)
 - [Limitations](#limit)
 
-## <a name="uguide"></a>User's Guide
+## <a name="intro"></a>Introduction
 
 <img align="right" width="278" src="doc/example1.png"/>
 
@@ -39,6 +40,8 @@ efficient and can construct a graph from 15 human assemblies in an hour using
 important features and may produce suboptimal mappings. Please read the
 [Limitations section](#limit) of this README before using minigraph.
 
+## <a name="uguide"></a>Users' Guide
+
 ### <a name="install"></a>Installation
 
 To install minigraph, type `make` in the source code directory. The only
@@ -47,7 +50,7 @@ non-standard dependency is [zlib][zlib].
 ### <a name="map"></a>Sequence-to-graph mapping
 
 To map sequences against a graph, you should prepare the graph in the [GFA
-format][gfa1], or preferrably the [rGFA format][rgfa] format. If you don't have
+format][gfa1], or preferrably the [rGFA format][rgfa]. If you don't have
 a graph, you can generate a graph from multiple samples (see the [Graph
 generation section](#ggen) below). The typical command line for mapping is
 ```sh
