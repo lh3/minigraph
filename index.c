@@ -183,7 +183,11 @@ mg_idx_t *mg_index(gfa_t *g, int k, int w, int b, int n_threads)
 	mg128_v a = {0,0,0};
 	int i;
 
-	if (mg_gfa_overlap(g)) return 0;
+	if (mg_gfa_overlap(g)) {
+		if (mg_verbose >= 1)
+			fprintf(stderr, "[E::%s] minigraph doesn't work with graphs containing overlapping segments\n", __func__);
+		return 0;
+	}
 	gi = mg_idx_init(k, w, b);
 	gi->g = g;
 

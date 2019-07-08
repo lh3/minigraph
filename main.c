@@ -207,6 +207,10 @@ int main(int argc, char *argv[])
 
 	if (gpt.algo == MG_G_NONE) {
 		gi = mg_index(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);
+		if (gi == 0) {
+			fprintf(stderr, "[ERROR] failed to create the index for the graph\n");
+			return 1;
+		}
 		mg_opt_update(gi, &opt, 0);
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_map_file(gi, argv[i], &opt, n_threads);
