@@ -61,7 +61,8 @@ static double mg_score_per_col(void *km, int32_t n_lc, const mg_lchain_t *lc)
 	return (double)score / blen;
 }
 
-int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, const char *qseq, uint64_t **u_)
+int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw,
+					  const char *qseq, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *p, *v, *t;
@@ -111,6 +112,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		int32_t max_f = li->score;
 		int32_t max_j = -1, max_d = -1, target_dist;
 		int32_t x = li->qs + bw, min_qs = li->qs;
+		uint32_t max_hash = 0;
 		if (x > qlen) x = qlen;
 		x = find_max(i, a, x);
 		n_dst = 0;
@@ -133,6 +135,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			q->v = lj->v^1;
 			q->meta = j;
 			q->target_dist = target_dist;
+			q->hash = 0;
 		}
 		//fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
 		memcpy(qs, &qseq[min_qs], li->qs - min_qs);
@@ -151,10 +154,11 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			sc -= gap == 0? 0 : mg_ilog2_32(gap) + (int32_t)(gap * sc_per_col + .499);
 			sc += f[dj->meta];
 			//fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc, lc[dj->meta].qs, lc[dj->meta].qe);
-			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist;
+			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash;
 		}
 		f[i] = max_f, p[i] = max_j;
 		li->dist_pre = max_d;
+		li->hash_pre = max_hash;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
 		//fprintf(stderr, "[%d] %d\t%d\tv=%d\ti=%d\tscore=%d\tf[i]=%d\tmax_j=%d\tv[i]=%d\tp[i]=%d\n", i, li->qs, li->qe, li->v, a[i].i, li->score, max_f, max_j, v[i], p[i]);
 	}
@@ -252,11 +256,13 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 }
 
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
-mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score, const char *qseq)
+mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a,
+							uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score, int32_t max_dist_q, const char *qseq)
 {
 	mg_gchains_t *gc;
 	mg_llchain_t *tmp;
 	int32_t i, j, k, st, n_g, n_a, s_tmp, n_tmp, m_tmp;
+	char *qs;
 
 	KCALLOC(km_dst, gc, 1);
 
@@ -277,6 +283,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 	KMALLOC(km_dst, gc->a, n_a);
 
 	// core loop
+	KMALLOC(km, qs, max_dist_q + 1);
 	tmp = 0; s_tmp = n_tmp = m_tmp = 0;
 	for (i = k = 0, st = 0, n_a = 0; i < n_u; ++i) {
 		int32_t m = 0, nui = (int32_t)u[i];
@@ -301,12 +308,17 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
 				gfa_path_dst_t dst;
-				int32_t s, n_pathv;
+				int32_t s, n_pathv, l_qs;
 				gfa_pathv_t *p;
 				dst.v = l0->v ^ 1;
 				assert(l1->dist_pre >= 0);
 				dst.target_dist = l1->dist_pre;
-				p = gfa_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, 0, 0, &n_pathv);
+				dst.hash = l1->hash_pre;
+				if (l1->qs > l0->qe) {
+					l_qs = l1->qs - l0->qe;
+					memcpy(qs, &qseq[l0->qe], l_qs);
+				} else l_qs = 0;
+				p = gfa_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, l_qs, qs, &n_pathv);
 				//fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
 				assert(n_pathv > 0);
 				for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
@@ -325,6 +337,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 		st += nui;
 	}
 	assert(n_a == gc->n_a);
+	kfree(km, qs);
 
 	gc->n_lc = n_tmp;
 	KMALLOC(km_dst, gc->lc, n_tmp);

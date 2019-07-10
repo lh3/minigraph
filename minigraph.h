@@ -79,6 +79,7 @@ typedef struct {
 	uint32_t v;
 	int32_t rs, re, qs, qe;
 	int32_t score, dist_pre;
+	uint32_t hash_pre;
 } mg_lchain_t;
 
 typedef struct {
