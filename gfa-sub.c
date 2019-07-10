@@ -186,7 +186,7 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 	return p;
 }
 
-gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, gfa_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t *n_pathv)
+gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, gfa_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int32_t *n_pathv)
 {
 	sp_node_t *p, *root = 0, **out;
 	sp_topk_t *q;

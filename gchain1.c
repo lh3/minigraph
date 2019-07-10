@@ -61,7 +61,7 @@ static double mg_score_per_col(void *km, int32_t n_lc, const mg_lchain_t *lc)
 	return (double)score / blen;
 }
 
-int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, uint64_t **u_)
+int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, const char *qseq, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *p, *v, *t;
@@ -70,6 +70,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 	gfa_path_dst_t *dst;
 	gc_frag_t *a;
 	mg_lchain_t *swap;
+	char *qs;
 
 	*u_ = 0;
 	if (n_lc == 0) return 0;
@@ -101,6 +102,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 	KMALLOC(km, p, n_ext);
 	KCALLOC(km, t, n_ext);
 
+	KMALLOC(km, qs, max_dist_q + 1);
 	sc_per_col = mg_score_per_col(km, n_lc, lc);
 	m_dst = n_dst = 0, dst = 0;
 	for (i = 0; i < n_ext; ++i) { // core loop
@@ -108,7 +110,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		mg_lchain_t *li = &lc[ai->i];
 		int32_t max_f = li->score;
 		int32_t max_j = -1, max_d = -1, target_dist;
-		int32_t x = li->qs + bw;
+		int32_t x = li->qs + bw, min_qs = li->qs;
 		if (x > qlen) x = qlen;
 		x = find_max(i, a, x);
 		n_dst = 0;
@@ -118,6 +120,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			gfa_path_dst_t *q;
 			int32_t min_dist;
 			if (lj->qe + max_dist_q < li->qs) break; // if query gap too large, stop
+			if (lj->qe < min_qs) min_qs = lj->qe;
 			if (lj->qs >= li->qs) continue; // lj is contained in li
 			if (li->v == lj->v) continue; // we don't deal with lchains on the same segment
 			min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re); // minimal graph gap
@@ -132,7 +135,8 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			q->target_dist = target_dist;
 		}
 		//fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
-		gfa_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, 0);
+		memcpy(qs, &qseq[min_qs], li->qs - min_qs);
+		gfa_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, li->qs - min_qs, qs, 0);
 		for (j = 0; j < n_dst; ++j) {
 			gfa_path_dst_t *dj = &dst[j];
 			mg_lchain_t *lj;
@@ -155,6 +159,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		//fprintf(stderr, "[%d] %d\t%d\tv=%d\ti=%d\tscore=%d\tf[i]=%d\tmax_j=%d\tv[i]=%d\tp[i]=%d\n", i, li->qs, li->qe, li->v, a[i].i, li->score, max_f, max_j, v[i], p[i]);
 	}
 	kfree(km, dst);
+	kfree(km, qs);
 
 	u = mg_chain_backtrack(km, n_ext, f, p, v, t, 0, 0, n_lc - n_ext, &n_u, &n_v);
 	kfree(km, f); kfree(km, p); kfree(km, t);
@@ -247,7 +252,7 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 }
 
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
-mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score)
+mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score, const char *qseq)
 {
 	mg_gchains_t *gc;
 	mg_llchain_t *tmp;
@@ -301,7 +306,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 				dst.v = l0->v ^ 1;
 				assert(l1->dist_pre >= 0);
 				dst.target_dist = l1->dist_pre;
-				p = gfa_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, &n_pathv);
+				p = gfa_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, 0, 0, &n_pathv);
 				//fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
 				assert(n_pathv > 0);
 				for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it

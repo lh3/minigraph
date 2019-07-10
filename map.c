@@ -262,8 +262,8 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	if (mg_dbg_flag & MG_DBG_LCHAIN)
 		mg_print_lchain(stdout, gi, n_lc, lc, a, qname);
 
-	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, &u);
-	gcs[0] = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score);
+	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, seqs[0], &u);
+	gcs[0] = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score, seqs[0]);
 	gcs[0]->rep_len = rep_len;
 	kfree(b->km, a);
 	kfree(b->km, lc);
