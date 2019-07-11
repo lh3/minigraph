@@ -1,154 +1,7 @@
-#include <assert.h>
-#include <stdio.h>
-#include "gfa-priv.h"
-#include "kalloc.h"
+#include "mgpriv.h"
+#include "ksort.h"
 #include "kavl.h"
 #include "khash.h"
-#include "ksort.h"
-
-/*********************************************
- * Extract a subgraph starting from a vertex *
- *********************************************/
-
-#define generic_key(x) (x)
-KRADIX_SORT_INIT(gfa32, int32_t, generic_key, 4)
-
-typedef struct tnode_s {
-	uint64_t nd;
-	uint32_t v, in_tree;
-	KAVL_HEAD(struct tnode_s) head;
-} tnode_t;
-
-typedef tnode_t *tnode_p;
-
-#define tn_lt(a, b) ((a)->nd < (b)->nd || ((a)->nd == (b)->nd && (a)->v < (b)->v))
-#define tn_cmp(a, b) (tn_lt(b, a) - tn_lt(a, b))
-
-KAVL_INIT(v, tnode_t, head, tn_cmp)
-KHASH_MAP_INIT_INT(v, tnode_p)
-
-static inline tnode_t *gen_tnode(void *km, const gfa_t *g, uint32_t v, int32_t d)
-{
-	tnode_t *p;
-	KMALLOC(km, p, 1);
-	p->v = v, p->in_tree = 1;
-	p->nd = (uint64_t)gfa_arc_n(g, v^1) << 32 | d;
-	return p;
-}
-
-/* Extract a subgraph extended from a vertex within a radius. If the subgraph
- * is DAG, vertices are in the topological sorting order. The algorithm is
- * modified from Kahn's algorithm.
- */
-gfa_sub_t *gfa_sub_from(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist)
-{
-	void *km;
-	tnode_t *p, *root = 0, **L = 0;
-	khash_t(v) *h;
-	khint_t k;
-	int32_t j, n_L = 0, m_L = 0, n_arc = 0, off;
-	int absent;
-	gfa_sub_t *sub = 0;
-
-	km = km_init2(km0, 0x10000);
-	h = kh_init2(v, km);
-
-	k = kh_put(v, h, v0, &absent);
-	p = kh_val(h, k) = gen_tnode(km, g, v0, 0);
-	kavl_insert(v, &root, p, 0);
-
-	while (kavl_size(head, root) > 0) {
-		tnode_t *q;
-		int32_t i, nv, d;
-		gfa_arc_t *av;
-
-		q = kavl_erase_first(v, &root); // take out the "smallest" vertex
-		q->in_tree = 0;
-		if (n_L == m_L) KEXPAND(km, L, m_L);
-		L[n_L++] = q;
-
-		d = (uint32_t)q->nd;
-		nv = gfa_arc_n(g, q->v);
-		av = gfa_arc_a(g, q->v);
-		for (i = 0; i < nv; ++i) {
-			gfa_arc_t *avi = &av[i];
-			int32_t dt = d + (uint32_t)avi->v_lv;
-			if (dt > max_dist) continue;
-			++n_arc;
-			k = kh_put(v, h, avi->w, &absent);
-			if (absent) { // a vertex that hasn't been visited before
-				p = kh_val(h, k) = gen_tnode(km, g, avi->w, dt);
-			} else { // visited before; then update the info
-				p = kh_val(h, k);
-				if (!p->in_tree) continue; // when there is a cycle, a vertex may be added to L[] already
-				kavl_erase(v, &root, p, 0);
-				if (dt < (uint32_t)p->nd)
-					p->nd = p->nd>>32<<32 | dt;
-			}
-			assert(p->nd>>32 > 0);
-			p->nd -= 1ULL<<32;
-			kavl_insert(v, &root, p, 0); // insert/re-insert to the tree
-		}
-	}
-	assert(kh_size(h) == n_L);
-
-	KCALLOC(km0, sub, 1);
-	sub->km = km0;
-	sub->n_v = n_L;
-	sub->n_a = n_arc;
-	KCALLOC(sub->km, sub->v, n_L);
-	KCALLOC(sub->km, sub->a, n_arc);
-	sub->is_dag = 1;
-
-	for (j = 0; j < n_L; ++j) L[j]->in_tree = j;
-	for (j = 0, off = 0; j < sub->n_v; ++j) {
-		int32_t i, nv, o0 = off;
-		gfa_arc_t *av;
-		nv = gfa_arc_n(g, L[j]->v);
-		av = gfa_arc_a(g, L[j]->v);
-		for (i = 0; i < nv; ++i) {
-			gfa_arc_t *avi = &av[i];
-			k = kh_get(v, h, avi->w);
-			if (k == kh_end(h)) continue;
-			sub->a[off++] = kh_val(h, k)->in_tree;
-		}
-		sub->v[j].v = L[j]->v;
-		sub->v[j].d = (uint32_t)L[j]->nd;
-		sub->v[j].off = o0;
-		sub->v[j].n = off - o0;
-		radix_sort_gfa32(&sub->a[o0], &sub->a[off]);
-		if (sub->a[o0] <= j) sub->is_dag = 0;
-	}
-	assert(off == n_arc);
-
-	km_destroy(km);
-	return sub;
-}
-
-void gfa_sub_destroy(gfa_sub_t *sub)
-{
-	void *km;
-	if (sub == 0) return;
-	km = sub->km;
-	kfree(km, sub->v); kfree(km, sub->a); kfree(km, sub);
-}
-
-void gfa_sub_print(FILE *fp, const gfa_t *g, const gfa_sub_t *sub)
-{
-	int32_t i, j;
-	for (i = 0; i < sub->n_v; ++i) {
-		gfa_subv_t *p = &sub->v[i];
-		fprintf(fp, "[%d]\t%d\t%s\t%d\t%d", i, p->v, g->seg[p->v>>1].name, p->d, p->n);
-		if (p->n > 0) {
-			fputc('\t', fp);
-			for (j = 0; j < p->n; ++j) {
-				if (j) fputc(',', fp);
-				fprintf(fp, "%d", sub->a[p->off + j]);
-			}
-		}
-		fputc('\n', fp);
-	}
-}
 
 /********************
  * k shortest paths *
@@ -158,6 +11,7 @@ typedef struct sp_node_s {
 	uint64_t di; // dist<<32 | unique_id
 	uint32_t v;
 	int32_t pre;
+	uint64_t l:8, kmer:56;
 	KAVL_HEAD(struct sp_node_s) head;
 } sp_node_t, *sp_node_p;
 
@@ -166,9 +20,6 @@ KAVL_INIT(sp, sp_node_t, head, sp_node_cmp)
 
 #define sp_node_lt(a, b) ((a)->di < (b)->di)
 KSORT_INIT(sp, sp_node_p, sp_node_lt)
-
-#define generic_key(x) (x)
-KRADIX_SORT_INIT(gfa64, uint64_t, generic_key, 8)
 
 typedef struct {
 	int32_t k;
@@ -183,10 +34,11 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 	sp_node_t *p;
 	KMALLOC(km, p, 1);
 	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1;
+	p->l = 0, p->kmer = 0;
 	return p;
 }
 
-gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, gfa_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int32_t *n_pathv)
+mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, mg_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int32_t *n_pathv)
 {
 	sp_node_t *p, *root = 0, **out;
 	sp_topk_t *q;
@@ -198,7 +50,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 	int32_t i, j, n_finished, n_found;
 	uint32_t id, n_out, m_out;
 	int8_t *dst_finish;
-	gfa_pathv_t *ret = 0;
+	mg_pathv_t *ret = 0;
 	uint64_t *dst_group;
 
 	if (n_pathv) *n_pathv = 0;
@@ -212,7 +64,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 	KMALLOC(km, dst_group, n_dst);
 	for (i = 0; i < n_dst; ++i) // multiple dst[] may have the same dst[].v. We need to group them first.
 		dst_group[i] = (uint64_t)dst[i].v<<32 | i;
-	radix_sort_gfa64(dst_group, dst_group + n_dst);
+	radix_sort_64(dst_group, dst_group + n_dst);
 
 	h2 = kh_init2(sp2, km); // this hash table keeps all destinations
 	kh_resize(sp2, h2, n_dst * 2);
@@ -254,7 +106,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 			int32_t finished = 0, j;
 			int32_t off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
 			for (j = 0; j < cnt; ++j) {
-				gfa_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
+				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
 				if (t->n_path == 0) { // TODO: when there is only one path, but the distance is smaller than target_dist, the dst won't be finished
 					t->path_end = n_out - 1;
 				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
@@ -305,7 +157,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 
 	n_found = 0;
 	for (i = 0; i < n_dst; ++i) {
-		gfa_path_dst_t *t = &dst[i];
+		mg_path_dst_t *t = &dst[i];
 		t->dist = t->n_path > 0? out[t->path_end]->di>>32 : -1;
 		if (t->n_path) ++n_found;
 	}
@@ -318,7 +170,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 
 		KCALLOC(km, trans, n_out); // used to squeeze unused elements in out[]
 		for (i = 0; i < n_dst; ++i) { // mark dst vertices with a target distance
-			gfa_path_dst_t *t = &dst[i];
+			mg_path_dst_t *t = &dst[i];
 			if (t->n_path > 0 && t->target_dist >= 0)
 				trans[(int32_t)out[t->path_end]->di] = 1;
 		}
@@ -341,7 +193,7 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 		*n_pathv = n;
 		KMALLOC(km0, ret, n);
 		for (i = 0; i < n_out; ++i) { // generate the backtrack array
-			gfa_pathv_t *p;
+			mg_pathv_t *p;
 			if (trans[i] < 0) continue;
 			p = &ret[trans[i]];
 			p->v = out[i]->v, p->d = out[i]->di >> 32;
@@ -356,11 +208,11 @@ gfa_pathv_t *gfa_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_d
 	return ret;
 }
 
-void gfa_sub_print_path(FILE *fp, const gfa_t *g, int32_t n, gfa_pathv_t *path)
+void mg_sub_print_path(FILE *fp, const gfa_t *g, int32_t n, mg_pathv_t *path)
 {
 	int32_t i;
 	for (i = 0; i < n; ++i) {
-		gfa_pathv_t *p = &path[i];
+		mg_pathv_t *p = &path[i];
 		fprintf(fp, "[%d]\t%d\t%s\t%d\t%d\n", i, p->v, g->seg[p->v>>1].name, p->d, p->pre);
 	}
 }

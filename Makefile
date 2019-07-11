@@ -2,8 +2,8 @@ CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -std=c99 -O2
 CPPFLAGS=
 INCLUDES=	-I.
-OBJS=		kalloc.o kthread.o gfa-base.o gfa-io.o gfa-sub.o gfa-aug.o \
-            sketch.o misc.o mss.o bseq.o options.o intv.o fastcmp.o \
+OBJS=		kalloc.o kthread.o gfa-base.o gfa-io.o gfa-aug.o \
+            sketch.o misc.o mss.o bseq.o options.o intv.o fastcmp.o shortk.o \
 			index.o lchain.o gchain1.o gcmisc.o map.o ggen.o ggsimple.o format.o
 PROG=		minigraph
 LIBS=		-lz -lpthread -lm
@@ -41,7 +41,6 @@ gcmisc.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h
 gfa-aug.o: gfa-priv.h gfa.h ksort.h
 gfa-base.o: gfa-priv.h gfa.h khash.h kalloc.h ksort.h
 gfa-io.o: kstring.h gfa-priv.h gfa.h kseq.h
-gfa-sub.o: gfa-priv.h gfa.h kalloc.h kavl.h khash.h ksort.h
 ggen.o: kthread.h kalloc.h mgpriv.h bseq.h minigraph.h gfa.h
 ggsimple.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h gfa-priv.h mss.h
 index.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h khash.h kthread.h kvec.h
@@ -55,4 +54,5 @@ map.o: ksort.h
 misc.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h ksort.h
 mss.o: kvec.h kalloc.h mss.h
 options.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h
+shortk.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h ksort.h kavl.h khash.h
 sketch.o: kvec.h kalloc.h mgpriv.h bseq.h minigraph.h gfa.h

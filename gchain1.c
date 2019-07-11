@@ -68,7 +68,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 	int32_t *f, *p, *v, *t;
 	double sc_per_col;
 	uint64_t *u;
-	gfa_path_dst_t *dst;
+	mg_path_dst_t *dst;
 	gc_frag_t *a;
 	mg_lchain_t *swap;
 	char *qs;
@@ -119,7 +119,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		for (j = x; j >= 0; --j) { // collect potential destination vertices
 			gc_frag_t *aj = &a[j];
 			mg_lchain_t *lj = &lc[aj->i];
-			gfa_path_dst_t *q;
+			mg_path_dst_t *q;
 			int32_t min_dist;
 			if (lj->qe + max_dist_q < li->qs) break; // if query gap too large, stop
 			if (lj->qe < min_qs) min_qs = lj->qe;
@@ -139,9 +139,9 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		}
 		//fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d\n", i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs));
 		memcpy(qs, &qseq[min_qs], li->qs - min_qs);
-		gfa_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, li->qs - min_qs, qs, 0);
+		mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), GFA_MAX_SHORT_K, li->qs - min_qs, qs, 0);
 		for (j = 0; j < n_dst; ++j) {
-			gfa_path_dst_t *dj = &dst[j];
+			mg_path_dst_t *dj = &dst[j];
 			mg_lchain_t *lj;
 			int32_t gap, sc;
 			if (dj->n_path == 0) continue;
@@ -307,9 +307,9 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
-				gfa_path_dst_t dst;
+				mg_path_dst_t dst;
 				int32_t s, n_pathv, l_qs;
-				gfa_pathv_t *p;
+				mg_pathv_t *p;
 				dst.v = l0->v ^ 1;
 				assert(l1->dist_pre >= 0);
 				dst.target_dist = l1->dist_pre;
@@ -318,7 +318,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 					l_qs = l1->qs - l0->qe;
 					memcpy(qs, &qseq[l0->qe], l_qs);
 				} else l_qs = 0;
-				p = gfa_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, l_qs, qs, &n_pathv);
+				p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, l_qs, qs, &n_pathv);
 				//fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
 				assert(n_pathv > 0);
 				for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
