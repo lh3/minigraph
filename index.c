@@ -6,8 +6,8 @@
 
 #define idx_hash(a) ((a)>>1)
 #define idx_eq(a, b) ((a)>>1 == (b)>>1)
-KHASH_INIT(idx, uint64_t, uint64_t, 1, idx_hash, idx_eq)
-typedef khash_t(idx) idxhash_t;
+KHASH_INIT2(mg_idx,, uint64_t, uint64_t, 1, idx_hash, idx_eq)
+typedef khash_t(mg_idx) idxhash_t;
 
 typedef struct mg_idx_bucket_s {
 	mg128_v a;   // (minimizer, position) array
@@ -35,7 +35,7 @@ void mg_idx_destroy(mg_idx_t *gi)
 		for (i = 0; i < 1U<<gi->b; ++i) {
 			free(gi->B[i].p);
 			free(gi->B[i].a.a);
-			kh_destroy(idx, (idxhash_t*)gi->B[i].h);
+			kh_destroy(mg_idx, (idxhash_t*)gi->B[i].h);
 		}
 		free(gi->B);
 	}
@@ -52,7 +52,7 @@ const uint64_t *mg_idx_hget(const void *h_, const uint64_t *q, int suflen, uint6
 	const idxhash_t *h = (const idxhash_t*)h_;
 	*n = 0;
 	if (h == 0) return 0;
-	k = kh_get(idx, h, minier>>suflen<<1);
+	k = kh_get(mg_idx, h, minier>>suflen<<1);
 	if (k == kh_end(h)) return 0;
 	if (kh_key(h, k)&1) { // special casing when there is only one k-mer
 		*n = 1;
@@ -127,8 +127,8 @@ void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, i
 			n = 1;
 		} else ++n;
 	}
-	h = kh_init2(idx, km);
-	kh_resize(idx, h, n_keys);
+	h = kh_init2(mg_idx, km);
+	kh_resize(mg_idx, h, n_keys);
 	KCALLOC(km, q, N);
 	*q_ = q, *n_ = N;
 
@@ -138,7 +138,7 @@ void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, i
 			khint_t itr;
 			int absent;
 			mg128_t *p = &a[j-1];
-			itr = kh_put(idx, h, p->x>>8>>suflen<<1, &absent);
+			itr = kh_put(mg_idx, h, p->x>>8>>suflen<<1, &absent);
 			assert(absent && j == start_a + n);
 			if (n == 1) {
 				kh_key(h, itr) |= 1;

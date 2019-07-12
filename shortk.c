@@ -2,10 +2,7 @@
 #include "ksort.h"
 #include "kavl.h"
 #include "khash.h"
-
-/********************
- * k shortest paths *
- ********************/
+KHASH_DECLARE(mg_idx, uint64_t, uint64_t)
 
 typedef struct sp_node_s {
 	uint64_t di; // dist<<32 | unique_id
@@ -38,6 +35,9 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 	return p;
 }
 
+#define MG_SHORT_KK 19
+typedef khash_t(mg_idx) idxhash_t;
+
 mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, mg_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int32_t *n_pathv)
 {
 	sp_node_t *p, *root = 0, **out;
@@ -47,11 +47,12 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	void *km;
 	khint_t k;
 	int absent;
-	int32_t i, j, n_finished, n_found;
+	int32_t i, j, n_finished, n_found, n_seeds;
 	uint32_t id, n_out, m_out;
 	int8_t *dst_finish;
 	mg_pathv_t *ret = 0;
-	uint64_t *dst_group;
+	uint64_t *dst_group, *seeds;
+	void *h_seeds = 0;
 
 	if (n_pathv) *n_pathv = 0;
 	if (n_dst <= 0) return 0;
@@ -59,6 +60,13 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 		dst[i].dist = -1, dst[i].n_path = 0, dst[i].path_end = -1;
 	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
 	km = km_init2(km0, 0x10000);
+
+	if (1 && ql > 0 && qs) { // build the seed hash table for the query
+		mg128_v mini = {0,0,0};
+		mg_sketch(km, qs, ql, 10, MG_SHORT_KK, 0, &mini);
+		h_seeds = mg_idx_a2h(km, mini.n, mini.a, 0, &seeds, &n_seeds);
+		kfree(km, mini.a);
+	}
 
 	KCALLOC(km, dst_finish, n_dst);
 	KMALLOC(km, dst_group, n_dst);
