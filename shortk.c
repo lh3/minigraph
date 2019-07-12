@@ -8,6 +8,7 @@ typedef struct sp_node_s {
 	uint64_t di; // dist<<32 | unique_id
 	uint32_t v;
 	int32_t pre;
+	uint32_t hash;
 	uint64_t l:8, kmer:56;
 	KAVL_HEAD(struct sp_node_s) head;
 } sp_node_t, *sp_node_p;
@@ -92,6 +93,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 	id = 0;
 	p = gen_sp_node(km, g, src, 0, id++);
+	p->hash = __ac_Wang_hash(src);
 	kavl_insert(sp, &root, p, 0);
 	k = kh_put(sp, h, src, &absent);
 	q = &kh_val(h, k);
@@ -117,17 +119,25 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
 				if (t->n_path == 0) { // TODO: when there is only one path, but the distance is smaller than target_dist, the dst won't be finished
 					t->path_end = n_out - 1;
+					t->hash = r->hash;
+					if (r->di>>32 > t->target_dist) finished = 1;
 				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
-					int32_t d0 = out[t->path_end]->di >> 32, d1 = r->di >> 32;
-					d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
-					d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-					if (d1 < d0) t->path_end = n_out - 1;
+					if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) {
+						t->path_end = n_out - 1;
+						t->hash = r->hash;
+						finished = 1;
+					} else {
+						int32_t d0 = out[t->path_end]->di >> 32, d1 = r->di >> 32;
+						d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
+						d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
+						if (d1 < d0) t->path_end = n_out - 1, t->hash = r->hash;
+						if (r->di>>32 > t->target_dist) finished = 1;
+					}
 				}
-				if (t->target_dist >= 0 && r->di>>32 >= t->target_dist) finished = 1;
 				++t->n_path;
 				if (t->n_path >= max_k) finished = 1;
-				if (dst_finish[j] == 0 && finished)
-					dst_finish[j] = 1, ++n_finished;
+				if (dst_finish[off + j] == 0 && finished)
+					dst_finish[off + j] = 1, ++n_finished;
 				if (n_finished == n_dst) break;
 			}
 		}
@@ -144,6 +154,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			if (q->k < max_k) { // enough room: add to the heap
 				p = gen_sp_node(km, g, ai->w, d, id++);
 				p->pre = n_out - 1;
+				p->hash = r->hash + __ac_Wang_hash(ai->w);
 				kavl_insert(sp, &root, p, 0);
 				q->p[q->k++] = p;
 				ks_heapup_sp(q->k, q->p);
@@ -152,6 +163,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				if (p) {
 					p->di = (uint64_t)d<<32 | (id++);
 					p->pre = n_out - 1;
+					p->hash = r->hash + __ac_Wang_hash(ai->w);
 					kavl_insert(sp, &root, p, 0);
 					ks_heapdown_sp(0, q->k, q->p);
 				} else {
