@@ -8,7 +8,7 @@
  * Longest increasing subsequence *
  **********************************/
 
-int32_t mg_lis_64(void *km, int32_t n, const LIS_TYPE *a, int32_t *b)
+int32_t mg_lis_64(void *km, int32_t n, const MG_LIS_TYPE *a, int32_t *b)
 {
 	int32_t i, k, L = 0, *M, *P = b;
 	KMALLOC(km, M, n+1);
@@ -39,14 +39,14 @@ int32_t mg_lis_64(void *km, int32_t n, const LIS_TYPE *a, int32_t *b)
 
 typedef struct {
     int32_t st, en;
-    MSS_TYPE L, R;
+    MG_MSS_TYPE L, R;
     int32_t pre;
 } msseg_aux_t;
 
 typedef kvec_t(mg_msseg_t) msseg_v;
 typedef kvec_t(msseg_aux_t) msseg_aux_v;
 
-static void move_segs(void *km, msseg_v *ret, msseg_aux_v *seg, MSS_TYPE min_sc)
+static void move_segs(void *km, msseg_v *ret, msseg_aux_v *seg, MG_MSS_TYPE min_sc)
 {
     int32_t i;
     for (i = 0; i < seg->n; ++i) {
@@ -61,10 +61,10 @@ static void move_segs(void *km, msseg_v *ret, msseg_aux_v *seg, MSS_TYPE min_sc)
 }
 
 // Reference: Ruzzo and Tompa (1999) A linear time algorithm for finding all maximal scoring subsequencs
-mg_msseg_t *mg_mss_all(void *km, int32_t n, const MSS_TYPE *S, MSS_TYPE min_sc, MSS_TYPE xdrop, int32_t *n_seg)
+mg_msseg_t *mg_mss_all(void *km, int32_t n, const MG_MSS_TYPE *S, MG_MSS_TYPE min_sc, MG_MSS_TYPE xdrop, int32_t *n_seg)
 {
     int32_t i, j;
-    MSS_TYPE L, max;
+    MG_MSS_TYPE L, max;
     msseg_v ret = {0,0,0};
     msseg_aux_v seg = {0,0,0};
     msseg_aux_t t;
@@ -74,7 +74,7 @@ mg_msseg_t *mg_mss_all(void *km, int32_t n, const MSS_TYPE *S, MSS_TYPE min_sc, 
     for (i = 0, L = 0, max = MSS_NEG_INF; i < n;) {
         if (S[i] > 0) {
             int32_t k;
-            MSS_TYPE R = L + S[i];
+            MG_MSS_TYPE R = L + S[i];
             for (k = i + 1; k < n && S[k] > 0; ++k)
                 R += S[k];
 			if (R > max) max = R;
@@ -193,4 +193,3 @@ int32_t mg_intv_overlap(void *km, int32_t n_a, const mg_intv_t *a, int32_t st, i
 	*b_ = b, *m_b_ = m_b;
 	return n;
 }
-

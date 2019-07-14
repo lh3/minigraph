@@ -1,6 +1,7 @@
 #include "mgpriv.h"
 #include "ksort.h"
 #include "kavl.h"
+#include "algo.h"
 #include "khash.h"
 KHASH_DECLARE(mg_idx, uint64_t, uint64_t)
 
@@ -30,9 +31,11 @@ KHASH_MAP_INIT_INT(sp2, uint64_t)
 #define MG_SHORT_KW 10
 typedef khash_t(mg_idx) idxhash_t;
 
-static void node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, const void *h_)
+static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, const void *h_)
 {
 	const idxhash_t *h = (idxhash_t*)h_;
+	if (h == 0) return 0;
+	return 0;
 }
 
 static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32_t d, int32_t id)
@@ -67,7 +70,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
 	km = km_init2(km0, 0x10000);
 
-	if (1 && ql > 0 && qs) { // build the seed hash table for the query
+	if (ql > 0 && qs) { // build the seed hash table for the query
 		mg_sketch(km, qs, ql, MG_SHORT_KW, MG_SHORT_KK, 0, &mini);
 		h_seeds = mg_idx_a2h(km, mini.n, mini.a, 0, &seeds, &n_seeds);
 	}
@@ -153,7 +156,10 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			if (d > max_dist) continue; // don't probe vertices too far away
 			k = kh_put(sp, h, ai->w, &absent);
 			q = &kh_val(h, k);
-			if (absent) q->k = 0;
+			if (absent) { // a new vertex visited
+				q->k = 0;
+				q->mlen = node_mlen(km, g, ai->w, &mini, h_seeds);
+			}
 			if (q->k < max_k) { // enough room: add to the heap
 				p = gen_sp_node(km, g, ai->w, d, id++);
 				p->pre = n_out - 1;
@@ -161,7 +167,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				kavl_insert(sp, &root, p, 0);
 				q->p[q->k++] = p;
 				ks_heapup_sp(q->k, q->p);
-			} else if (q->p[0]->di>>32 > d) { // shorter than the longest path so far: replace the longest (TODO: this block is not well tested)
+			} else if (q->p[0]->di>>32 > d) { // shorter than the longest path so far: replace the longest
 				p = kavl_erase(sp, &root, q->p[0], 0);
 				if (p) {
 					p->di = (uint64_t)d<<32 | (id++);
