@@ -7,6 +7,7 @@
 #include "mgpriv.h"
 #include "sys.h"
 #include "bseq.h"
+#include "ggen.h"
 
 typedef struct {
     int n_seq;

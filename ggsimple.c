@@ -4,6 +4,7 @@
 #include "bseq.h"
 #include "algo.h"
 #include "sys.h"
+#include "ggen.h"
 
 /**********************
  * Graph augmentation *
