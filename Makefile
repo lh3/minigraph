@@ -32,7 +32,7 @@ depend:
 
 # DO NOT DELETE
 
-algo.o: kalloc.h algo.h kvec.h
+algo.o: kalloc.h algo.h kvec.h ksort.h
 bseq.o: bseq.h kvec.h kalloc.h kseq.h
 fastcmp.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h algo.h
 format.o: kalloc.h mgpriv.h bseq.h minigraph.h gfa.h
@@ -46,7 +46,6 @@ ggen.o: kthread.h kalloc.h mgpriv.h bseq.h minigraph.h gfa.h sys.h
 ggsimple.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h gfa-priv.h algo.h
 ggsimple.o: sys.h
 index.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h khash.h kthread.h kvec.h
-intv.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h ksort.h
 kalloc.o: kalloc.h
 kthread.o: kthread.h
 lchain.o: mgpriv.h kalloc.h bseq.h minigraph.h gfa.h
