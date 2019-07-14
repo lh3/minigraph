@@ -1,5 +1,6 @@
 #include <string.h>
 #include "mgpriv.h"
+#include "sys.h"
 
 void mg_idxopt_init(mg_idxopt_t *io)
 {

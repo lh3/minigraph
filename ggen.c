@@ -5,6 +5,7 @@
 #include "kthread.h"
 #include "kalloc.h"
 #include "mgpriv.h"
+#include "sys.h"
 #include "bseq.h"
 
 typedef struct {

@@ -3,6 +3,7 @@
 #include <string.h>
 #include "bseq.h"
 #include "mgpriv.h"
+#include "sys.h"
 #include "ketopt.h"
 
 #ifdef __linux__

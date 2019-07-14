@@ -3,6 +3,7 @@
 #include "gfa-priv.h"
 #include "bseq.h"
 #include "algo.h"
+#include "sys.h"
 
 /**********************
  * Graph augmentation *

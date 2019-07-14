@@ -5,6 +5,7 @@
 #include "kvec.h"
 #include "kalloc.h"
 #include "mgpriv.h"
+#include "sys.h"
 #include "bseq.h"
 #include "khash.h"
 
