@@ -2,7 +2,7 @@
 #include "mgpriv.h"
 #include "gfa-priv.h"
 #include "bseq.h"
-#include "mss.h"
+#include "algo.h"
 
 /**********************
  * Graph augmentation *

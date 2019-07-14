@@ -1,28 +1,5 @@
 #include "mgpriv.h"
-
-#define type_t uint64_t
-#define sort_lt(a, b) ((a) < (b))
-
-static int32_t ks_lis1(void *km, int32_t n, const type_t *a, int32_t *b)
-{
-	int32_t i, k, L = 0, *M, *P = b;
-	KMALLOC(km, M, n+1);
-	for (i = 0; i < n; ++i) {
-		int32_t lo = 1, hi = L, newL;
-		while (lo <= hi) {
-			int32_t mid = (lo + hi + 1) >> 1;
-			if (a[M[mid]] < a[i]) lo = mid + 1;
-			else hi = mid - 1;
-		}
-		newL = lo, P[i] = M[newL - 1], M[newL] = i;
-		if (newL > L) L = newL;
-	}
-	k = M[L];
-	memcpy(M, P, n * sizeof(int32_t));
-	for (i = L - 1; i >= 0; --i) b[i] = k, k = M[k];
-	kfree(km, M);
-	return L;
-}
+#include "algo.h"
 
 static int32_t mg_fc_kmer(int32_t len, const char *seq, int32_t rid, int32_t k, mg128_t *a)
 {
@@ -75,7 +52,7 @@ int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char 
 	for (i = 0; i < n_b; ++i)
 		b[i] = b[i]>>32 | b[i]<<32;
 	KMALLOC(km, lis, n_b);
-	n_lis = ks_lis1(km, n_b, b, lis);
+	n_lis = ks_lis_64(km, n_b, b, lis);
 
 	mlen = k;
 	for (i = 1; i < n_lis; ++i) {

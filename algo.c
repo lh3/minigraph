@@ -1,6 +1,41 @@
 #include <stdlib.h>
+#include <string.h>
+#include "kalloc.h"
+#define __STDC_LIMIT_MACROS
+#include "algo.h"
+
+/**********************************
+ * Longest increasing subsequence *
+ **********************************/
+
+int32_t ks_lis_64(void *km, int32_t n, const LIS_TYPE *a, int32_t *b)
+{
+	int32_t i, k, L = 0, *M, *P = b;
+	KMALLOC(km, M, n+1);
+	for (i = 0; i < n; ++i) {
+		int32_t lo = 1, hi = L, newL;
+		while (lo <= hi) {
+			int32_t mid = (lo + hi + 1) >> 1;
+			if (a[M[mid]] < a[i]) lo = mid + 1;
+			else hi = mid - 1;
+		}
+		newL = lo, P[i] = M[newL - 1], M[newL] = i;
+		if (newL > L) L = newL;
+	}
+	k = M[L];
+	memcpy(M, P, n * sizeof(int32_t));
+	for (i = L - 1; i >= 0; --i) b[i] = k, k = M[k];
+	kfree(km, M);
+	return L;
+}
+
+/************************
+ * Max-scoring segments *
+ ************************/
+
 #include "kvec.h"
-#include "mss.h"
+
+#define MSS_NEG_INF INT32_MIN
 
 typedef struct {
     int32_t st, en;
