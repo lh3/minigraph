@@ -9,7 +9,6 @@ typedef struct sp_node_s {
 	uint32_t v;
 	int32_t pre;
 	uint32_t hash;
-	uint64_t l:8, kmer:56;
 	KAVL_HEAD(struct sp_node_s) head;
 } sp_node_t, *sp_node_p;
 
@@ -20,24 +19,29 @@ KAVL_INIT(sp, sp_node_t, head, sp_node_cmp)
 KSORT_INIT(sp, sp_node_p, sp_node_lt)
 
 typedef struct {
-	int32_t k;
+	int32_t k, mlen;
 	sp_node_t *p[GFA_MAX_SHORT_K]; // this forms a max-heap
 } sp_topk_t;
 
 KHASH_MAP_INIT_INT(sp, sp_topk_t)
 KHASH_MAP_INIT_INT(sp2, uint64_t)
 
+#define MG_SHORT_KK 19
+#define MG_SHORT_KW 10
+typedef khash_t(mg_idx) idxhash_t;
+
+static void node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, const void *h_)
+{
+	const idxhash_t *h = (idxhash_t*)h_;
+}
+
 static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32_t d, int32_t id)
 {
 	sp_node_t *p;
 	KMALLOC(km, p, 1);
 	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1;
-	p->l = 0, p->kmer = 0;
 	return p;
 }
-
-#define MG_SHORT_KK 19
-typedef khash_t(mg_idx) idxhash_t;
 
 mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, mg_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int32_t *n_pathv)
 {
@@ -53,7 +57,8 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	int8_t *dst_finish;
 	mg_pathv_t *ret = 0;
 	uint64_t *dst_group, *seeds;
-	void *h_seeds = 0;
+	idxhash_t *h_seeds = 0;
+	mg128_v mini = {0,0,0};
 
 	if (n_pathv) *n_pathv = 0;
 	if (n_dst <= 0) return 0;
@@ -63,10 +68,8 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	km = km_init2(km0, 0x10000);
 
 	if (1 && ql > 0 && qs) { // build the seed hash table for the query
-		mg128_v mini = {0,0,0};
-		mg_sketch(km, qs, ql, 10, MG_SHORT_KK, 0, &mini);
+		mg_sketch(km, qs, ql, MG_SHORT_KW, MG_SHORT_KK, 0, &mini);
 		h_seeds = mg_idx_a2h(km, mini.n, mini.a, 0, &seeds, &n_seeds);
-		kfree(km, mini.a);
 	}
 
 	KCALLOC(km, dst_finish, n_dst);
@@ -122,7 +125,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 					t->hash = r->hash;
 					if (r->di>>32 > t->target_dist) finished = 1;
 				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
-					if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) {
+					if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) { // we found the target path
 						t->path_end = n_out - 1;
 						t->hash = r->hash;
 						finished = 1;
@@ -186,6 +189,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 		int32_t n, *trans;
 
 		kh_destroy(sp, h);
+		kfree(km, mini.a);
 		kfree(km, dst_finish);
 
 		KCALLOC(km, trans, n_out); // used to squeeze unused elements in out[]
