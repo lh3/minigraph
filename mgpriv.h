@@ -2,7 +2,6 @@
 #define MGPRIV_H
 
 #include <stdlib.h>
-#include "kalloc.h"
 #include "minigraph.h"
 
 #define MG_DBG_NO_KALLOC   0x1

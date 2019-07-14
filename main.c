@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "bseq.h"
 #include "mgpriv.h"
 #include "sys.h"
 #include "ketopt.h"

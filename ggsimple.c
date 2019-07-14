@@ -1,6 +1,7 @@
 #include <assert.h>
 #include "mgpriv.h"
 #include "gfa-priv.h"
+#include "kalloc.h"
 #include "bseq.h"
 #include "algo.h"
 #include "sys.h"

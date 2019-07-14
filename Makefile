@@ -34,25 +34,25 @@ depend:
 
 algo.o: kalloc.h algo.h kvec.h ksort.h
 bseq.o: bseq.h kvec.h kalloc.h kseq.h
-fastcmp.o: mgpriv.h kalloc.h minigraph.h gfa.h algo.h
+fastcmp.o: mgpriv.h minigraph.h gfa.h algo.h kalloc.h
 format.o: kalloc.h mgpriv.h minigraph.h gfa.h
-gchain1.o: mgpriv.h kalloc.h minigraph.h gfa.h ksort.h khash.h gfa-priv.h
-gcmisc.o: mgpriv.h kalloc.h minigraph.h gfa.h
+gchain1.o: mgpriv.h minigraph.h gfa.h ksort.h khash.h kalloc.h gfa-priv.h
+gcmisc.o: mgpriv.h minigraph.h gfa.h kalloc.h
 gfa-aug.o: gfa-priv.h gfa.h ksort.h
 gfa-base.o: gfa-priv.h gfa.h khash.h kalloc.h ksort.h
 gfa-io.o: kstring.h gfa-priv.h gfa.h kseq.h
 ggen.o: kthread.h kalloc.h mgpriv.h minigraph.h gfa.h sys.h bseq.h ggen.h
-ggsimple.o: mgpriv.h kalloc.h minigraph.h gfa.h gfa-priv.h bseq.h algo.h
+ggsimple.o: mgpriv.h minigraph.h gfa.h gfa-priv.h kalloc.h bseq.h algo.h
 ggsimple.o: sys.h ggen.h
-index.o: mgpriv.h kalloc.h minigraph.h gfa.h khash.h kthread.h kvec.h
+index.o: mgpriv.h minigraph.h gfa.h khash.h kalloc.h kthread.h kvec.h
 kalloc.o: kalloc.h
 kthread.o: kthread.h
-lchain.o: mgpriv.h kalloc.h minigraph.h gfa.h
-main.o: bseq.h mgpriv.h kalloc.h minigraph.h gfa.h sys.h ketopt.h
+lchain.o: mgpriv.h minigraph.h gfa.h kalloc.h
+main.o: mgpriv.h minigraph.h gfa.h sys.h ketopt.h
 map.o: kthread.h kvec.h kalloc.h mgpriv.h minigraph.h gfa.h sys.h bseq.h
 map.o: khash.h ksort.h
-misc.o: mgpriv.h kalloc.h minigraph.h gfa.h ksort.h
-options.o: mgpriv.h kalloc.h minigraph.h gfa.h sys.h
-shortk.o: mgpriv.h kalloc.h minigraph.h gfa.h ksort.h kavl.h khash.h
+misc.o: mgpriv.h minigraph.h gfa.h ksort.h
+options.o: mgpriv.h minigraph.h gfa.h sys.h
+shortk.o: mgpriv.h minigraph.h gfa.h ksort.h kavl.h khash.h kalloc.h
 sketch.o: kvec.h kalloc.h mgpriv.h minigraph.h gfa.h
 sys.o: sys.h

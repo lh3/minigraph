@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <string.h>
 #include "mgpriv.h"
+#include "kalloc.h"
 
 // reorder gcs->a[] and gcs->lc[] such that they are in the same order as gcs->gc[]
 void mg_gchain_restore_order(void *km, mg_gchains_t *gcs)

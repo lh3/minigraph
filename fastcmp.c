@@ -1,5 +1,6 @@
 #include "mgpriv.h"
 #include "algo.h"
+#include "kalloc.h"
 
 static int32_t mg_fc_kmer(int32_t len, const char *seq, int32_t rid, int32_t k, mg128_t *a)
 {
