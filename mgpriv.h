@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "kalloc.h"
 #include "bseq.h"
+#include "sys.h"
 #include "minigraph.h"
 
 #define MG_DBG_NO_KALLOC   0x1
@@ -106,12 +107,6 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 void radix_sort_128x(mg128_t *beg, mg128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);
 uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
-
-void mg_err_fputs(const char *str, FILE *fp);
-
-double realtime(void);
-double cputime(void);
-long peakrss(void);
 
 #ifdef __cplusplus
 }
