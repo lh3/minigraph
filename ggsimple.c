@@ -108,7 +108,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 		for (i = 0; i < gt->n_gc; ++i) {
 			const mg_gchain_t *gc = &gt->gc[i];
 			int32_t off_a, off_l, n_ss, far_q;
-			msseg_t *ss;
+			mg_msseg_t *ss;
 			if (gc->id != gc->parent) continue;
 			if (gc->blen < opt->min_map_len || gc->mapq < opt->min_mapq) continue;
 			assert(gc->cnt > 0);
@@ -138,7 +138,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 			}
 
 			// get regions to insert
-			ss = mss_find_all(0, gc->n_anchor - 1, sc, 10, 0, &n_ss);
+			ss = mg_mss_all(0, gc->n_anchor - 1, sc, 10, 0, &n_ss);
 			off_a = gt->lc[gc->off].off;
 			for (j = 0; j < n_ss; ++j) {
 				const mg128_t *p, *q;

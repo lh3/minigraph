@@ -9,14 +9,21 @@
 typedef struct {
     int32_t st, en;
     MSS_TYPE sc;
-} msseg_t;
+} mg_msseg_t;
+
+typedef struct {
+	uint32_t st, en:31, rev:1;
+	int32_t far, i;
+} mg_intv_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int32_t ks_lis_64(void *km, int32_t n, const LIS_TYPE *a, int32_t *b);
-msseg_t *mss_find_all(void *km, int32_t n, const MSS_TYPE *S, MSS_TYPE min_sc, MSS_TYPE xdrop, int32_t *n_seg);
+int32_t mg_lis_64(void *km, int32_t n, const LIS_TYPE *a, int32_t *b);
+mg_msseg_t *mg_mss_all(void *km, int32_t n, const MSS_TYPE *S, MSS_TYPE min_sc, MSS_TYPE xdrop, int32_t *n_seg);
+int32_t mg_intv_index(int32_t n, mg_intv_t *a);
+int32_t mg_intv_overlap(void *km, int32_t n_a, const mg_intv_t *a, int32_t st, int32_t en, int32_t **b_, int32_t *m_b_);
 
 #ifdef __cplusplus
 }

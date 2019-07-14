@@ -52,7 +52,7 @@ int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char 
 	for (i = 0; i < n_b; ++i)
 		b[i] = b[i]>>32 | b[i]<<32;
 	KMALLOC(km, lis, n_b);
-	n_lis = ks_lis_64(km, n_b, b, lis);
+	n_lis = mg_lis_64(km, n_b, b, lis);
 
 	mlen = k;
 	for (i = 1; i < n_lis; ++i) {
