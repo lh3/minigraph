@@ -3,7 +3,6 @@
 #include "kavl.h"
 #include "algo.h"
 #include "khash.h"
-KHASH_DECLARE(mg_idx, uint64_t, uint64_t)
 
 typedef struct sp_node_s {
 	uint64_t di; // dist<<32 | unique_id
@@ -27,15 +26,37 @@ typedef struct {
 KHASH_MAP_INIT_INT(sp, sp_topk_t)
 KHASH_MAP_INIT_INT(sp2, uint64_t)
 
-#define MG_SHORT_KK 19
-#define MG_SHORT_KW 10
-typedef khash_t(mg_idx) idxhash_t;
+#define MG_SHORT_KK 17
+#define MG_SHORT_KW 9
+#define MG_SHORT_KM 10
 
-static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, const void *h_)
+static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, const void *h, int32_t n_seeds, const uint64_t *seeds)
 {
-	const idxhash_t *h = (idxhash_t*)h_;
-	if (h == 0) return 0;
-	return 0;
+	const gfa_seg_t *s = &g->seg[v>>1];
+	int32_t mlen = 0, m_a, n_a, i;
+	uint64_t *a;
+	if (h == 0 || s->len < MG_SHORT_KK) return 0;
+	mg_sketch(km, s->seq, s->len, MG_SHORT_KW, MG_SHORT_KK, 0, mini);
+	m_a = mini->n, n_a = 0;
+	KMALLOC(km, a, m_a);
+	for (i = 0; i < mini->n; ++i) {
+		const uint64_t *x;
+		mg128_t *p = &mini->a[i];
+		int j, n, v_pos;
+		x = mg_idx_hget(h, seeds, 0, p->x>>8, &n);
+		if (n > MG_SHORT_KM) continue;
+		v_pos = (uint32_t)p->y >> 1;
+		for (j = 0; j < n; ++j) {
+			if ((v&1) == ((x[j]&1) ^ (p->y&1))) { // find an anchor
+				int32_t q_pos = (uint32_t)x[j] >> 1;
+				if (n_a == m_a) KEXPAND(km, a, m_a);
+				a[n_a++] = (uint64_t)q_pos<<32 | (v&1? s->len - (v_pos + 1 - MG_SHORT_KK) - 1 : v_pos);
+			}
+		}
+	}
+	mlen = mg_anchor2mlen(km, MG_SHORT_KK, n_a, a);
+	kfree(km, a);
+	return mlen;
 }
 
 static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32_t d, int32_t id)
@@ -55,12 +76,12 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	void *km;
 	khint_t k;
 	int absent;
-	int32_t i, j, n_finished, n_found, n_seeds;
+	int32_t i, j, n_finished, n_found, n_seeds = 0;
 	uint32_t id, n_out, m_out;
 	int8_t *dst_finish;
 	mg_pathv_t *ret = 0;
-	uint64_t *dst_group, *seeds;
-	idxhash_t *h_seeds = 0;
+	uint64_t *dst_group, *seeds = 0;
+	void *h_seeds = 0;
 	mg128_v mini = {0,0,0};
 
 	if (n_pathv) *n_pathv = 0;
@@ -158,7 +179,8 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			q = &kh_val(h, k);
 			if (absent) { // a new vertex visited
 				q->k = 0;
-				q->mlen = node_mlen(km, g, ai->w, &mini, h_seeds);
+				if (d + ai->lw <= max_dist)
+					q->mlen = node_mlen(km, g, ai->w, &mini, h_seeds, n_seeds, seeds);
 			}
 			if (q->k < max_k) { // enough room: add to the heap
 				p = gen_sp_node(km, g, ai->w, d, id++);

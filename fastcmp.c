@@ -16,12 +16,28 @@ static int32_t mg_fc_kmer(int32_t len, const char *seq, int32_t rid, int32_t k, 
 	return n;
 }
 
+int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b)
+{
+	int32_t i, mlen, n_lis, *lis;
+	radix_sort_64(b, b + n_b);
+	for (i = 0; i < n_b; ++i)
+		b[i] = b[i]>>32 | b[i]<<32;
+	KMALLOC(km, lis, n_b);
+	n_lis = mg_lis_64(km, n_b, b, lis);
+	for (i = 1, mlen = k; i < n_lis; ++i) {
+		int32_t ll2 = (b[lis[i]]>>32) - (b[lis[i-1]]>>32);
+		int32_t ll1 = (int32_t)b[lis[i]] - (int32_t)b[lis[i-1]];
+		mlen += ll1 > k && ll2 > k? k : ll1 < ll2? ll1 : ll2;
+	}
+	kfree(km, lis);
+	return mlen;
+}
+
 int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, int32_t k, int32_t max_occ)
 {
-	int32_t i, n_a, n_b, m_b, i0;
+	int32_t i, n_a, n_b, m_b, i0, mlen;
 	mg128_t *a;
 	uint64_t *b;
-	int32_t n_lis, *lis, mlen;
 
 	if (l1 < k || l2 < k) return 0;
 
@@ -48,21 +64,7 @@ int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char 
 		}
 	}
 	kfree(km, a);
-
-	radix_sort_64(b, b + n_b);
-	for (i = 0; i < n_b; ++i)
-		b[i] = b[i]>>32 | b[i]<<32;
-	KMALLOC(km, lis, n_b);
-	n_lis = mg_lis_64(km, n_b, b, lis);
-
-	mlen = k;
-	for (i = 1; i < n_lis; ++i) {
-		int32_t ll2 = (b[lis[i]]>>32) - (b[lis[i-1]]>>32);
-		int32_t ll1 = (int32_t)b[lis[i]] - (int32_t)b[lis[i-1]];
-		mlen += ll1 > k && ll2 > k? k : ll1 < ll2? ll1 : ll2;
-	}
-
+	mlen = mg_anchor2mlen(km, k, n_b, b);
 	kfree(km, b);
-	kfree(km, lis);
 	return mlen;
 }

@@ -1,7 +1,7 @@
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -std=c99 -O2
 CPPFLAGS=
-INCLUDES=	-I.
+INCLUDES=
 OBJS=		kalloc.o kthread.o algo.o sys.o gfa-base.o gfa-io.o gfa-aug.o \
             sketch.o misc.o bseq.o options.o fastcmp.o shortk.o \
 			index.o lchain.o gchain1.o gcmisc.o map.o ggen.o ggsimple.o format.o
