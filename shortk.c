@@ -30,6 +30,7 @@ KHASH_MAP_INIT_INT(sp2, uint64_t)
 #define MG_SHORT_KK 17
 #define MG_SHORT_KW 9
 #define MG_SHORT_KM 10
+#define MG_SHORT_K_EXT 1000
 
 static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, const void *h, int32_t n_seeds, const uint64_t *seeds)
 {
@@ -91,7 +92,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	for (i = 0; i < n_dst; ++i)
 		dst[i].dist = -1, dst[i].n_path = 0, dst[i].path_end = -1;
 	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
-	km = km_init2(km0, 0x10000);
+	km = mg_dbg_flag&MG_DBG_NO_KALLOC? 0 : km_init2(km0, 0x10000);
 
 	if (ql > 0 && qs) { // build the seed hash table for the query
 		mg_sketch(km, qs, ql, MG_SHORT_KW, MG_SHORT_KK, 0, &mini);
@@ -142,27 +143,29 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 		k = kh_get(sp2, h2, r->v);
 		if (k != kh_end(h2)) { // we have reached one dst vertex
-			int32_t done = 0, j;
-			int32_t off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
+			int32_t j, off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
 			for (j = 0; j < cnt; ++j) {
 				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
+				int32_t done = 0, copy = 0;
 				//fprintf(stderr, "[%d,%d]\tqlen=%d\ttarget_dist=%d,target_hash=%x\tdist=%d,mlen=%d,hash=%x\n", src, off + j, ql, t->target_dist, t->target_hash, (uint32_t)(r->di>>32), r->mlen, r->hash);
-				if (t->n_path == 0) { // TODO: when there is only one path, but the distance is smaller than target_dist, the dst won't be done
-					t->path_end = n_out - 1;
-					t->hash = r->hash;
-					if (r->di>>32 > t->target_dist) done = 1;
+				if (t->n_path == 0) { // keep the shortest path
+					copy = 1;
 				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
 					if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) { // we found the target path
-						t->path_end = n_out - 1;
-						t->hash = r->hash;
-						done = 1;
+						copy = 1, done = 1;
 					} else {
 						sp_node_t *p = out[t->path_end];
 						int32_t d0 = p->di >> 32, d1 = r->di >> 32;
 						d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
 						d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-						if (d1 - r->mlen < d0 - p->mlen) t->path_end = n_out - 1, t->hash = r->hash;
-						if (r->di>>32 > t->target_dist) done = 1;
+						if (d1 - r->mlen < d0 - p->mlen) copy = 1;
+					}
+				}
+				if (copy) {
+					t->path_end = n_out - 1, t->hash = r->hash, t->mlen = r->mlen;
+					if (t->target_dist >= 0) {
+						if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) done = 1;
+						else if (r->di>>32 > t->target_dist + MG_SHORT_K_EXT) done = 1;
 					}
 				}
 				++t->n_path;

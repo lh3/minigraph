@@ -26,12 +26,14 @@ typedef struct __kstring_t {
 
 // shortest path
 typedef struct {
+	// input
 	uint32_t v;
 	int32_t target_dist;
 	uint32_t target_hash;
 	int32_t meta;
-	int32_t dist;
+	// output
 	int32_t n_path, path_end;
+	int32_t dist, mlen;
 	uint32_t hash;
 } mg_path_dst_t;
 
