@@ -9,6 +9,7 @@ typedef struct sp_node_s {
 	uint32_t v;
 	int32_t pre;
 	uint32_t hash;
+	int32_t mlen;
 	KAVL_HEAD(struct sp_node_s) head;
 } sp_node_t, *sp_node_p;
 
@@ -36,6 +37,7 @@ static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, co
 	int32_t mlen = 0, m_a, n_a, i;
 	uint64_t *a;
 	if (h == 0 || s->len < MG_SHORT_KK) return 0;
+	mini->n = 0;
 	mg_sketch(km, s->seq, s->len, MG_SHORT_KW, MG_SHORT_KK, 0, mini);
 	m_a = mini->n, n_a = 0;
 	KMALLOC(km, a, m_a);
@@ -63,7 +65,7 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 {
 	sp_node_t *p;
 	KMALLOC(km, p, 1);
-	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1;
+	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1, p->mlen = 0;
 	return p;
 }
 
@@ -76,9 +78,9 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	void *km;
 	khint_t k;
 	int absent;
-	int32_t i, j, n_finished, n_found, n_seeds = 0;
+	int32_t i, j, n_done, n_found, n_seeds = 0;
 	uint32_t id, n_out, m_out;
-	int8_t *dst_finish;
+	int8_t *dst_done;
 	mg_pathv_t *ret = 0;
 	uint64_t *dst_group, *seeds = 0;
 	void *h_seeds = 0;
@@ -96,7 +98,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 		h_seeds = mg_idx_a2h(km, mini.n, mini.a, 0, &seeds, &n_seeds);
 	}
 
-	KCALLOC(km, dst_finish, n_dst);
+	KCALLOC(km, dst_done, n_dst);
 	KMALLOC(km, dst_group, n_dst);
 	for (i = 0; i < n_dst; ++i) // multiple dst[] may have the same dst[].v. We need to group them first.
 		dst_group[i] = (uint64_t)dst[i].v<<32 | i;
@@ -126,7 +128,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	q = &kh_val(h, k);
 	q->k = 1, q->p[0] = p;
 
-	n_finished = 0;
+	n_done = 0;
 	while (kavl_size(head, root) > 0) {
 		int32_t i, nv;
 		gfa_arc_t *av;
@@ -140,33 +142,35 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 		k = kh_get(sp2, h2, r->v);
 		if (k != kh_end(h2)) { // we have reached one dst vertex
-			int32_t finished = 0, j;
+			int32_t done = 0, j;
 			int32_t off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
 			for (j = 0; j < cnt; ++j) {
 				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
-				if (t->n_path == 0) { // TODO: when there is only one path, but the distance is smaller than target_dist, the dst won't be finished
+				//fprintf(stderr, "[%d,%d]\tqlen=%d\ttarget_dist=%d,target_hash=%x\tdist=%d,mlen=%d,hash=%x\n", src, off + j, ql, t->target_dist, t->target_hash, (uint32_t)(r->di>>32), r->mlen, r->hash);
+				if (t->n_path == 0) { // TODO: when there is only one path, but the distance is smaller than target_dist, the dst won't be done
 					t->path_end = n_out - 1;
 					t->hash = r->hash;
-					if (r->di>>32 > t->target_dist) finished = 1;
+					if (r->di>>32 > t->target_dist) done = 1;
 				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
 					if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) { // we found the target path
 						t->path_end = n_out - 1;
 						t->hash = r->hash;
-						finished = 1;
+						done = 1;
 					} else {
-						int32_t d0 = out[t->path_end]->di >> 32, d1 = r->di >> 32;
+						sp_node_t *p = out[t->path_end];
+						int32_t d0 = p->di >> 32, d1 = r->di >> 32;
 						d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
 						d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-						if (d1 < d0) t->path_end = n_out - 1, t->hash = r->hash;
-						if (r->di>>32 > t->target_dist) finished = 1;
+						if (d1 - r->mlen < d0 - p->mlen) t->path_end = n_out - 1, t->hash = r->hash;
+						if (r->di>>32 > t->target_dist) done = 1;
 					}
 				}
 				++t->n_path;
-				if (t->n_path >= max_k) finished = 1;
-				if (dst_finish[off + j] == 0 && finished)
-					dst_finish[off + j] = 1, ++n_finished;
-				if (n_finished == n_dst) break;
+				if (t->n_path >= max_k) done = 1;
+				if (dst_done[off + j] == 0 && done)
+					dst_done[off + j] = 1, ++n_done;
 			}
+			if (n_done == n_dst) break;
 		}
 
 		nv = gfa_arc_n(g, r->v);
@@ -179,13 +183,13 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			q = &kh_val(h, k);
 			if (absent) { // a new vertex visited
 				q->k = 0;
-				if (d + ai->lw <= max_dist)
-					q->mlen = node_mlen(km, g, ai->w, &mini, h_seeds, n_seeds, seeds);
+				q->mlen = d + ai->lw <= max_dist? node_mlen(km, g, ai->w, &mini, h_seeds, n_seeds, seeds) : 0;
 			}
 			if (q->k < max_k) { // enough room: add to the heap
 				p = gen_sp_node(km, g, ai->w, d, id++);
 				p->pre = n_out - 1;
 				p->hash = r->hash + __ac_Wang_hash(ai->w);
+				p->mlen = r->mlen + q->mlen;
 				kavl_insert(sp, &root, p, 0);
 				q->p[q->k++] = p;
 				ks_heapup_sp(q->k, q->p);
@@ -195,6 +199,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 					p->di = (uint64_t)d<<32 | (id++);
 					p->pre = n_out - 1;
 					p->hash = r->hash + __ac_Wang_hash(ai->w);
+					p->mlen = r->mlen + q->mlen;
 					kavl_insert(sp, &root, p, 0);
 					ks_heapdown_sp(0, q->k, q->p);
 				} else {
@@ -218,7 +223,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 		kh_destroy(sp, h);
 		kfree(km, mini.a);
-		kfree(km, dst_finish);
+		kfree(km, dst_done);
 
 		KCALLOC(km, trans, n_out); // used to squeeze unused elements in out[]
 		for (i = 0; i < n_dst; ++i) { // mark dst vertices with a target distance

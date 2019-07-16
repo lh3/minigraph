@@ -203,7 +203,8 @@ int main(int argc, char *argv[])
 	if (g == 0) {
 		fprintf(stderr, "[ERROR] failed to load the graph from file '%s'\n", argv[o.ind]);
 		return 1;
-	}
+	} else if (mg_verbose >= 3)
+		fprintf(stderr, "[M::%s::%.3f*%.2f] loaded the graph from \"%s\"\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), argv[o.ind]);
 
 	if (gpt.algo == MG_G_NONE) {
 		gi = mg_index(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);

@@ -28,9 +28,11 @@ typedef struct __kstring_t {
 typedef struct {
 	uint32_t v;
 	int32_t target_dist;
-	int32_t dist, n_path, path_end;
+	uint32_t target_hash;
 	int32_t meta;
-	uint32_t target_hash, hash;
+	int32_t dist;
+	int32_t n_path, path_end;
+	uint32_t hash;
 } mg_path_dst_t;
 
 typedef struct {

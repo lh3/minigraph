@@ -19,6 +19,7 @@ static int32_t mg_fc_kmer(int32_t len, const char *seq, int32_t rid, int32_t k, 
 int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b)
 {
 	int32_t i, mlen, n_lis, *lis;
+	if (n_b == 0) return 0;
 	radix_sort_64(b, b + n_b);
 	for (i = 0; i < n_b; ++i)
 		b[i] = b[i]>>32 | b[i]<<32;
