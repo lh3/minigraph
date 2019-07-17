@@ -40,6 +40,7 @@ static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, co
 	if (h == 0 || s->len < MG_SHORT_KK) return 0;
 	mini->n = 0;
 	mg_sketch(km, s->seq, s->len, MG_SHORT_KW, MG_SHORT_KK, 0, mini);
+	if (mini->n == 0) return 0;
 	m_a = mini->n, n_a = 0;
 	KMALLOC(km, a, m_a);
 	for (i = 0; i < mini->n; ++i) {
@@ -92,7 +93,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	for (i = 0; i < n_dst; ++i)
 		dst[i].dist = -1, dst[i].n_path = 0, dst[i].path_end = -1;
 	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
-	km = mg_dbg_flag&MG_DBG_NO_KALLOC? 0 : km_init2(km0, 0x10000);
+	km = (mg_dbg_flag&MG_DBG_NO_KALLOC) && (mg_dbg_flag&MG_DBG_SHORTK)? 0 : km_init2(km0, 0x40000);
 
 	if (ql > 0 && qs) { // build the seed hash table for the query
 		mg_sketch(km, qs, ql, MG_SHORT_KW, MG_SHORT_KK, 0, &mini);
@@ -221,13 +222,17 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 		if (t->n_path) ++n_found;
 	}
 
+	kfree(km, dst_group);
+	kfree(km, dst_done);
+	kh_destroy(sp2, h2);
+	kh_destroy(sp, h);
+	mg_idx_hfree(h_seeds);
+	kfree(km, seeds);
+	kfree(km, mini.a);
+	// NB: AVL nodes are not deallocated; when km==0, they are not freed
+
 	if (n_found > 0 && n_pathv) { // then generate the backtrack array
 		int32_t n, *trans;
-
-		kh_destroy(sp, h);
-		kfree(km, mini.a);
-		kfree(km, dst_done);
-
 		KCALLOC(km, trans, n_out); // used to squeeze unused elements in out[]
 		for (i = 0; i < n_dst; ++i) { // mark dst vertices with a target distance
 			mg_path_dst_t *t = &dst[i];

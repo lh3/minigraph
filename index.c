@@ -106,6 +106,13 @@ static void mg_idx_add(mg_idx_t *gi, int n, const mg128_t *a)
 	}
 }
 
+void mg_idx_hfree(void *h_)
+{
+	idxhash_t *h = (idxhash_t*)h_;
+	if (h == 0) return;
+	kh_destroy(mg_idx, h);
+}
+
 void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, int32_t *n_)
 {
 	int32_t N, n, n_keys;

@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.1-r211-dirty"
+#define MG_VERSION "0.1-r212-dirty"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -39,8 +39,8 @@ typedef struct {
 
 typedef struct {
 	uint64_t flag;
+	int64_t mini_batch_size;
 	int seed;
-	int mini_batch_size;
 	int max_qlen;
 	int pe_ori;
 	int mid_occ, max_occ;

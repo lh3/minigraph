@@ -30,7 +30,7 @@ void km_stat(const void *_km, km_stat_t *s);
 #define KREALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))krealloc((km), (ptr), (len) * sizeof(*(ptr))))
 
 #define KEXPAND(km, a, m) do { \
-		(m) = (m)? (m) + ((m)>>1) : 16; \
+		(m) = (m) >= 4? (m) + ((m)>>1) : 16; \
 		KREALLOC((km), (a), (m)); \
 	} while (0)
 

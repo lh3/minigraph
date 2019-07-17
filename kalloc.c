@@ -49,9 +49,10 @@ void *km_init(void) { return km_init2(0, 0); }
 void km_destroy(void *_km)
 {
 	kmem_t *km = (kmem_t*)_km;
-	void *km_par = km->par;
+	void *km_par;
 	header_t *p, *q;
 	if (km == NULL) return;
+	km_par = km->par;
 	for (p = km->core_head; p != NULL;) {
 		q = p->ptr;
 		kfree(km_par, p);

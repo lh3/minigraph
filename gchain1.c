@@ -314,7 +314,8 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 				dst.target_dist = l1->dist_pre;
 				dst.target_hash = l1->hash_pre;
 				p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, GFA_MAX_SHORT_K, 0, 0, &n_pathv);
-				//fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
+				if (n_pathv == 0 || dst.target_hash != dst.hash)
+					fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
 				assert(n_pathv > 0);
 				assert(dst.target_hash == dst.hash);
 				for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it

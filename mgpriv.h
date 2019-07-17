@@ -9,6 +9,7 @@
 #define MG_DBG_SEED        0x4
 #define MG_DBG_LCHAIN      0x8
 #define MG_DBG_INSERT      0x10
+#define MG_DBG_SHORTK      0x20
 
 #define MG_SEED_IGNORE     (1ULL<<41)
 #define MG_SEED_TANDEM     (1ULL<<42)
@@ -66,6 +67,7 @@ void mg_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, m
 
 void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, int32_t *n_);
 const uint64_t *mg_idx_hget(const void *h_, const uint64_t *q, int suflen, uint64_t minier, int *n);
+void mg_idx_hfree(void *h_);
 
 const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n);
 int32_t mg_idx_cal_max_occ(const mg_idx_t *gi, float f);

@@ -37,6 +37,7 @@ static ko_longopt_t long_options[] = {
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
 	{ "dbg-insert",   ko_no_argument,       404 },
+	{ "dbg-shortk",   ko_no_argument,       405 },
 	{ 0, 0, 0 }
 };
 
@@ -128,6 +129,7 @@ int main(int argc, char *argv[])
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
 		else if (c == 404) mg_dbg_flag |= MG_DBG_INSERT;      // --dbg-insert
+		else if (c == 405) mg_dbg_flag |= MG_DBG_SHORTK;      // --dbg-shortk
 		else if (c == 'n') {
 			opt.min_gc_cnt = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
@@ -213,6 +215,8 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		mg_opt_update(gi, &opt, 0);
+		if (mg_verbose >= 3)
+			fprintf(stderr, "[M::%s::%.3f*%.2f] indexed the graph\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0));
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_map_file(gi, argv[i], &opt, n_threads);
 		mg_idx_destroy(gi);
