@@ -9,7 +9,8 @@ typedef struct sp_node_s {
 	uint32_t v;
 	int32_t pre;
 	uint32_t hash;
-	int32_t mlen;
+	int32_t mlen; // matching length including vertex _v_ (if _v_ is short enough)
+	int32_t mlen_pre; // matching length excluding vertex _v_
 	KAVL_HEAD(struct sp_node_s) head;
 } sp_node_t, *sp_node_p;
 
@@ -151,7 +152,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			for (j = 0; j < cnt; ++j) {
 				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
 				int32_t done = 0, copy = 0;
-				//fprintf(stderr, "[%d,%d]\tqlen=%d\ttarget_dist=%d,target_hash=%x\tdist=%d,mlen=%d,hash=%x\n", src, off + j, ql, t->target_dist, t->target_hash, (uint32_t)(r->di>>32), r->mlen, r->hash);
+				//fprintf(stderr, "src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,mlen=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, (uint32_t)(r->di>>32) - g->seg[src>>1].len, r->mlen_pre, r->hash);
 				if (t->n_path == 0) { // keep the shortest path
 					copy = 1;
 				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
@@ -162,11 +163,11 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 						int32_t d0 = p->di >> 32, d1 = r->di >> 32;
 						d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
 						d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-						if (d1 - r->mlen < d0 - p->mlen) copy = 1;
+						if (d1 - r->mlen_pre < d0 - p->mlen_pre) copy = 1;
 					}
 				}
 				if (copy) {
-					t->path_end = n_out - 1, t->hash = r->hash, t->mlen = r->mlen;
+					t->path_end = n_out - 1, t->hash = r->hash, t->mlen = r->mlen_pre;
 					if (t->target_dist >= 0) {
 						if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) done = 1;
 						else if (r->di>>32 > t->target_dist + MG_SHORT_K_EXT) done = 1;
@@ -197,6 +198,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				p = gen_sp_node(km, g, ai->w, d, id++);
 				p->pre = n_out - 1;
 				p->hash = r->hash + __ac_Wang_hash(ai->w);
+				p->mlen_pre = r->mlen;
 				p->mlen = r->mlen + q->mlen;
 				kavl_insert(sp, &root, p, 0);
 				q->p[q->k++] = p;
@@ -207,6 +209,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 					p->di = (uint64_t)d<<32 | (id++);
 					p->pre = n_out - 1;
 					p->hash = r->hash + __ac_Wang_hash(ai->w);
+					p->mlen_pre = r->mlen;
 					p->mlen = r->mlen + q->mlen;
 					kavl_insert(sp, &root, p, 0);
 					ks_heapdown_sp(0, q->k, q->p);
