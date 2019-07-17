@@ -6,8 +6,6 @@
 
 #define GFA_VERSION "0.1-r40"
 
-#define GFA_MAX_SHORT_K  15
-
 /*
   A segment is a sequence. A vertex is one side of a segment. In the code,
   segment_id is an integer, and vertex_id=segment_id<<1|orientation. The

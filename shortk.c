@@ -22,7 +22,7 @@ KSORT_INIT(sp, sp_node_p, sp_node_lt)
 
 typedef struct {
 	int32_t k, mlen;
-	sp_node_t *p[GFA_MAX_SHORT_K]; // this forms a max-heap
+	sp_node_t *p[MG_MAX_SHORT_K]; // this forms a max-heap
 } sp_topk_t;
 
 KHASH_MAP_INIT_INT(sp, sp_topk_t)
@@ -93,7 +93,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	if (n_dst <= 0) return 0;
 	for (i = 0; i < n_dst; ++i)
 		dst[i].dist = -1, dst[i].n_path = 0, dst[i].path_end = -1;
-	if (max_k > GFA_MAX_SHORT_K) max_k = GFA_MAX_SHORT_K;
+	if (max_k > MG_MAX_SHORT_K) max_k = MG_MAX_SHORT_K;
 	km = (mg_dbg_flag&MG_DBG_NO_KALLOC) && (mg_dbg_flag&MG_DBG_SHORTK)? 0 : km_init2(km0, 0x40000);
 
 	if (ql > 0 && qs) { // build the seed hash table for the query
@@ -156,19 +156,19 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				if (t->n_path == 0) { // keep the shortest path
 					copy = 1;
 				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
-					if (dist == t->target_dist && t->target_hash && r->hash == t->target_hash) { // we found the target path
+					if (dist == t->target_dist && t->check_hash && r->hash == t->target_hash) { // we found the target path
 						copy = 1, done = 1;
 					} else {
 						int32_t d0 = t->dist, d1 = dist;
 						d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
 						d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-						if (d1 - r->mlen_pre/2 < d0 - p->mlen_pre/2) copy = 1;
+						if (d1 - r->mlen_pre/MG_SHORT_KK < d0 - t->mlen/MG_SHORT_KK) copy = 1;
 					}
 				}
 				if (copy) {
 					t->path_end = n_out - 1, t->dist = dist, t->hash = r->hash, t->mlen = r->mlen_pre;
 					if (t->target_dist >= 0) {
-						if (dist == t->target_dist && t->target_hash && r->hash == t->target_hash) done = 1;
+						if (dist == t->target_dist && t->check_hash && r->hash == t->target_hash) done = 1;
 						else if (dist > t->target_dist + MG_SHORT_K_EXT) done = 1;
 					}
 				}

@@ -18,6 +18,8 @@
 #define MG_SEED_SEG_SHIFT  48
 #define MG_SEED_SEG_MASK   (0xffULL<<(MG_SEED_SEG_SHIFT))
 
+#define MG_MAX_SHORT_K  15
+
 #ifndef KSTRING_T
 #define KSTRING_T kstring_t
 typedef struct __kstring_t {
@@ -32,7 +34,7 @@ typedef struct {
 	uint32_t v;
 	int32_t target_dist;
 	uint32_t target_hash;
-	int32_t meta;
+	uint32_t meta:31, check_hash:1;
 	int32_t qlen;
 	// output
 	int32_t n_path, path_end;
