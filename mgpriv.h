@@ -10,6 +10,7 @@
 #define MG_DBG_LCHAIN      0x8
 #define MG_DBG_INSERT      0x10
 #define MG_DBG_SHORTK      0x20
+#define MG_DBG_GC1         0x40
 
 #define MG_SEED_IGNORE     (1ULL<<41)
 #define MG_SEED_TANDEM     (1ULL<<42)
@@ -32,6 +33,7 @@ typedef struct {
 	int32_t target_dist;
 	uint32_t target_hash;
 	int32_t meta;
+	int32_t qlen;
 	// output
 	int32_t n_path, path_end;
 	int32_t dist, mlen;

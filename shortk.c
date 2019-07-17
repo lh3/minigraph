@@ -68,7 +68,7 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 {
 	sp_node_t *p;
 	KMALLOC(km, p, 1);
-	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1, p->mlen = 0;
+	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1, p->mlen = p->mlen_pre = 0;
 	return p;
 }
 
@@ -132,7 +132,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	kavl_insert(sp, &root, p, 0);
 	k = kh_put(sp, h, src, &absent);
 	q = &kh_val(h, k);
-	q->k = 1, q->p[0] = p;
+	q->k = 1, q->p[0] = p, q->mlen = 0;
 
 	n_done = 0;
 	while (kavl_size(head, root) > 0) {
@@ -148,29 +148,28 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 		k = kh_get(sp2, h2, r->v);
 		if (k != kh_end(h2)) { // we have reached one dst vertex
-			int32_t j, off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
+			int32_t j, dist = r->di>>32, off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
 			for (j = 0; j < cnt; ++j) {
 				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
 				int32_t done = 0, copy = 0;
-				//fprintf(stderr, "src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,mlen=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, (uint32_t)(r->di>>32) - g->seg[src>>1].len, r->mlen_pre, r->hash);
+				if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,mlen=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, (uint32_t)(r->di>>32) - g->seg[src>>1].len, r->mlen_pre, r->hash);
 				if (t->n_path == 0) { // keep the shortest path
 					copy = 1;
 				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
-					if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) { // we found the target path
+					if (dist == t->target_dist && t->target_hash && r->hash == t->target_hash) { // we found the target path
 						copy = 1, done = 1;
 					} else {
-						sp_node_t *p = out[t->path_end];
-						int32_t d0 = p->di >> 32, d1 = r->di >> 32;
+						int32_t d0 = t->dist, d1 = dist;
 						d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
 						d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
 						if (d1 - r->mlen_pre/2 < d0 - p->mlen_pre/2) copy = 1;
 					}
 				}
 				if (copy) {
-					t->path_end = n_out - 1, t->hash = r->hash, t->mlen = r->mlen_pre;
+					t->path_end = n_out - 1, t->dist = dist, t->hash = r->hash, t->mlen = r->mlen_pre;
 					if (t->target_dist >= 0) {
-						if (r->di>>32 == t->target_dist && t->target_hash && r->hash == t->target_hash) done = 1;
-						else if (r->di>>32 > t->target_dist + MG_SHORT_K_EXT) done = 1;
+						if (dist == t->target_dist && t->target_hash && r->hash == t->target_hash) done = 1;
+						else if (dist > t->target_dist + MG_SHORT_K_EXT) done = 1;
 					}
 				}
 				++t->n_path;
@@ -222,20 +221,16 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 		}
 	}
 
-	n_found = 0;
-	for (i = 0; i < n_dst; ++i) {
-		mg_path_dst_t *t = &dst[i];
-		t->dist = t->n_path > 0? out[t->path_end]->di>>32 : -1;
-		if (t->n_path) ++n_found;
-	}
-
 	kfree(km, dst_group);
 	kfree(km, dst_done);
 	kh_destroy(sp, h);
 	mg_idx_hfree(h_seeds);
 	kfree(km, seeds);
 	kfree(km, mini.a);
-	// NB: AVL nodes are not deallocated; when km==0, they are not freed
+	// NB: AVL nodes are not deallocated. When km==0, they are memory leaks.
+
+	for (i = 0, n_found = 0; i < n_dst; ++i)
+		if (dst[i].n_path > 0) ++n_found;
 
 	if (n_found > 0 && n_pathv) { // then generate the backtrack array
 		int32_t n, *trans;
