@@ -71,7 +71,7 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 	return p;
 }
 
-mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, mg_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int32_t *n_pathv)
+mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, mg_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int is_rev, int32_t *n_pathv)
 {
 	sp_node_t *p, *root = 0, **out;
 	sp_topk_t *q;
@@ -97,6 +97,9 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 	if (ql > 0 && qs) { // build the seed hash table for the query
 		mg_sketch(km, qs, ql, MG_SHORT_KW, MG_SHORT_KK, 0, &mini);
+		if (is_rev)
+			for (i = 0; i < mini.n; ++i)
+				mini.a[i].y = (ql - (((int32_t)mini.a[i].y>>1) + 1 - MG_SHORT_KK) - 1) << 1 | ((mini.a[i].y&1)^1);
 		h_seeds = mg_idx_a2h(km, mini.n, mini.a, 0, &seeds, &n_seeds);
 	}
 
@@ -188,6 +191,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			if (absent) { // a new vertex visited
 				q->k = 0;
 				q->mlen = d + ai->lw <= max_dist? node_mlen(km, g, ai->w, &mini, h_seeds, n_seeds, seeds) : 0;
+				//if (ql && qs) fprintf(stderr, "ql=%d,src=%d\tv=%c%s[%d],n_seeds=%d,mlen=%d\n", ql, src, "><"[ai->w&1], g->seg[ai->w>>1].name, ai->w, n_seeds, q->mlen);
 			}
 			if (q->k < max_k) { // enough room: add to the heap
 				p = gen_sp_node(km, g, ai->w, d, id++);
