@@ -163,7 +163,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 						int32_t d0 = p->di >> 32, d1 = r->di >> 32;
 						d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
 						d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-						if (d1 - r->mlen_pre < d0 - p->mlen_pre) copy = 1;
+						if (d1 - r->mlen_pre/2 < d0 - p->mlen_pre/2) copy = 1;
 					}
 				}
 				if (copy) {

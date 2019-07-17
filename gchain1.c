@@ -151,7 +151,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			lj = &lc[dj->meta];
 			if (lj->qe <= li->qs) sc = li->score;
 			else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499); // dealing with overlap on query
-			sc += dj->mlen; // TODO: is this line the right thing to do?
+			//sc += dj->mlen; // TODO: is this line the right thing to do?
 			sc -= gap == 0? 0 : mg_ilog2_32(gap) + (int32_t)(gap * sc_per_col + .499);
 			sc += f[dj->meta];
 			//fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc, lc[dj->meta].qs, lc[dj->meta].qe);
