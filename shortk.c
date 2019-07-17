@@ -224,7 +224,6 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 	kfree(km, dst_group);
 	kfree(km, dst_done);
-	kh_destroy(sp2, h2);
 	kh_destroy(sp, h);
 	mg_idx_hfree(h_seeds);
 	kfree(km, seeds);
