@@ -76,7 +76,7 @@ void mg_idx_hfree(void *h_);
 const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n);
 int32_t mg_idx_cal_max_occ(const mg_idx_t *gi, float f);
 
-int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b);
+int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b, int32_t *st_high, int32_t *en_high);
 int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, int32_t k, int32_t max_occ);
 
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t extra_u, int32_t *n_u_, int32_t *n_v_);

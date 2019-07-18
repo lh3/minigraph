@@ -132,7 +132,7 @@ void *kmalloc(void *_km, size_t n_bytes)
 
 	if (n_bytes == 0) return 0;
 	if (km == NULL) return malloc(n_bytes);
-	n_units = (n_bytes + sizeof(size_t) + sizeof(header_t) - 1) / sizeof(header_t) + 1;
+	n_units = (n_bytes + sizeof(size_t) + sizeof(header_t) - 1) / sizeof(header_t); /* header+n_bytes requires at least this number of units */
 
 	if (!(q = km->loop_head)) /* the first time when kmalloc() is called, intialize it */
 		q = km->loop_head = km->base.ptr = &km->base;
@@ -167,18 +167,18 @@ void *kcalloc(void *_km, size_t count, size_t size)
 void *krealloc(void *_km, void *ap, size_t n_bytes) // TODO: this can be made more efficient in principle
 {
 	kmem_t *km = (kmem_t*)_km;
-	size_t n_units, *p, *q;
+	size_t cap, *p, *q;
 
 	if (n_bytes == 0) {
 		kfree(km, ap); return 0;
 	}
 	if (km == NULL) return realloc(ap, n_bytes);
 	if (ap == NULL) return kmalloc(km, n_bytes);
-	n_units = (n_bytes + sizeof(size_t) + sizeof(header_t) - 1) / sizeof(header_t);
 	p = (size_t*)ap - 1;
-	if (*p >= n_units) return ap; /* TODO: this prevents shrinking */
+	cap = (*p) * sizeof(header_t) - sizeof(size_t);
+	if (cap >= n_bytes) return ap; /* TODO: this prevents shrinking */
 	q = (size_t*)kmalloc(km, n_bytes);
-	memcpy(q, ap, (*p - 1) * sizeof(header_t));
+	memcpy(q, ap, cap);
 	kfree(km, ap);
 	return q;
 }

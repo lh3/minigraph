@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "mgpriv.h"
 #include "algo.h"
 #include "kalloc.h"
@@ -16,9 +17,11 @@ static int32_t mg_fc_kmer(int32_t len, const char *seq, int32_t rid, int32_t k, 
 	return n;
 }
 
-int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b)
+int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b, int32_t *st_high, int32_t *en_high)
 {
 	int32_t i, mlen, n_lis, *lis;
+	if (st_high) *st_high = -1;
+	if (en_high) *en_high = -1;
 	if (n_b == 0) return 0;
 	radix_sort_64(b, b + n_b);
 	for (i = 0; i < n_b; ++i)
@@ -26,10 +29,12 @@ int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b)
 	KMALLOC(km, lis, n_b);
 	n_lis = mg_lis_64(km, n_b, b, lis);
 	for (i = 1, mlen = k; i < n_lis; ++i) {
-		int32_t ll2 = (b[lis[i]]>>32) - (b[lis[i-1]]>>32);
+		int32_t ll2 = (int32_t)(b[lis[i]]>>32) - (int32_t)(b[lis[i-1]]>>32);
 		int32_t ll1 = (int32_t)b[lis[i]] - (int32_t)b[lis[i-1]];
 		mlen += ll1 > k && ll2 > k? k : ll1 < ll2? ll1 : ll2;
 	}
+	if (st_high) *st_high = (uint32_t)b[lis[0]] + 1 - k;
+	if (en_high) *en_high = (uint32_t)b[lis[n_lis-1]] + 1;
 	kfree(km, lis);
 	return mlen;
 }
@@ -65,7 +70,7 @@ int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char 
 		}
 	}
 	kfree(km, a);
-	mlen = mg_anchor2mlen(km, k, n_b, b);
+	mlen = mg_anchor2mlen(km, k, n_b, b, 0, 0);
 	kfree(km, b);
 	return mlen;
 }
