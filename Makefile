@@ -53,6 +53,6 @@ map.o: kthread.h kvec.h kalloc.h mgpriv.h minigraph.h gfa.h sys.h bseq.h
 map.o: khash.h ksort.h
 misc.o: mgpriv.h minigraph.h gfa.h ksort.h
 options.o: mgpriv.h minigraph.h gfa.h sys.h
-shortk.o: mgpriv.h minigraph.h gfa.h ksort.h kavl.h khash.h kalloc.h
+shortk.o: mgpriv.h minigraph.h gfa.h ksort.h kavl.h algo.h khash.h kalloc.h
 sketch.o: kvec.h kalloc.h mgpriv.h minigraph.h gfa.h
 sys.o: sys.h
