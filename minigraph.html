@@ -1,0 +1,434 @@
+<HTML><HEAD>
+<style type="text/css">
+a:link {
+	text-decoration: none;
+	color: #0092e8;
+}
+a:visited {
+	text-decoration: none;
+	color: #0092e8;
+}
+a:hover {
+	text-decoration: underline;
+	color: #0092e8;
+}
+body, td, th {
+	font: 12px consolas, andale mono, courier, mono;
+}
+body {
+	color: #000;
+	background: #fff;
+	margin: 0;
+	padding: 0;
+}
+table {
+	border: solid 0px #ccc;
+}
+td {
+	vertical-align: top;
+	padding: 0.2em;
+}
+th {
+	font-weight: bold;
+	text-align: left;
+	padding: 0.2em;
+}
+#tbl table {
+	border: solid 1px #ccc;
+}
+#tbl td {
+	border: solid 1px #ccc;
+	padding: 0.3em;
+}
+#wrap {
+  width: 780px;
+  text-align: left;
+  margin: 0 auto;
+}
+hr {
+	margin: 1em 0;
+	color: #C7C7C7;
+	background: #C7C7C7;
+	border-color: #C7C7C7;
+	border-style: none;
+	height: 1px;
+}
+h1, h2, h3, h4, h5, h6 {
+	font-family: "Trebuchet MS", arial, sans-serif;
+	font-weight: bold;
+}
+p {
+    text-align: justify;
+}
+</style>
+<TITLE>Manual Page - minigraph(1)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0F0F0 text=#000000 link=#0000ff vlink=#C000C0 alink=#ff0000><div id="wrap"><A NAME=top></A>
+<CENTER>
+<H1><HR><I>Manual Reference Pages &nbsp;-&nbsp;</I><NOBR>minigraph (1)</NOBR><HR></H1>
+</CENTER>
+<P>
+<A name=0></A>
+
+     <H3>NAME</H3>
+
+
+<BLOCKQUOTE>
+<P>
+minigraph - sequence-to-graph mapping and incremental sequence graph generation
+<P>
+</BLOCKQUOTE>
+<A name=contents></A><H3>CONTENTS</H3></A>
+<BLOCKQUOTE>
+<A HREF=#1>Synopsis</A><BR>
+<A HREF=#2>Description</A><BR>
+<A HREF=#3>Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#4>Indexing options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#5>Mapping options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#6>Input/output options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#7>Graph generation options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#8>Preset options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#9>Miscellaneous options</A><BR>
+<A HREF=#10>Output Format</A><BR>
+<A HREF=#11>Limitations</A><BR>
+<A HREF=#12>See Also</A><BR>
+</BLOCKQUOTE>
+<A name=13></A>
+
+     <H3>SYNOPSIS</H3>
+
+
+<BLOCKQUOTE>
+* Sequence-to-graph mapping:
+<BLOCKQUOTE>
+<B>minigraph</B> [<B>-x</B> <I>preset</I>] [<B>-t</B> <I>nThreads</I>] <I>graph.gfa</I> <I>query1.fa</I> [<I>...</I>] <B>&gt;</B> <I>out.gaf</I> </BLOCKQUOTE>
+<P>
+* Incremental graph generation:
+<BLOCKQUOTE>
+<B>minigraph</B> <B>-x ggs</B> [<B>-t</B> <I>nThreads</I>] <I>initGraph.gfa</I> <I>sample1Asm.fa</I> [<I>...</I>] <B>&gt;</B> <I>finalGraph.gfa</I> <P>
+</BLOCKQUOTE>
+</BLOCKQUOTE>
+<A name=2></A>
+
+     <H3>DESCRIPTION</H3>
+
+
+<BLOCKQUOTE>
+<P>
+Minigraph is a
+<I>proof-of-concept</I> sequence-to-graph mapper and graph constructor. It finds approximate locations
+of a query sequence in a sequence graph and incrementally augments an existing
+graph with long query subsequences.
+<P>
+</BLOCKQUOTE>
+<A name=3></A>
+
+     <H3>OPTIONS</H3>
+
+
+<BLOCKQUOTE>
+</BLOCKQUOTE>
+<A name=4></A>
+
+    <H4>&nbsp; &nbsp; Indexing options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-k</B><I> INT</I> </TD><TD valign=bottom>
+Minimizer k-mer length [15]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-w</B><I> INT</I> </TD><TD valign=bottom>
+Minimizer window size [10]. A minimizer is the smallest k-mer in a window of w
+consecutive k-mers.
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=5></A>
+
+    <H4>&nbsp; &nbsp; Mapping options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-U</B><I> INT</I> </TD><TD valign=bottom>
+Ignore minimizers with occurrences above
+<I>INT</I> [100].
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-g</B><I> NUM</I> </TD><TD valign=bottom>
+Stop chain enlongation if there are no minimizers within
+<I>INT</I>-bp [10k]. K/k/M/m suffixes are recognized.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-r</B><I> NUM</I> </TD><TD valign=bottom>
+Bandwidth used in chaining [2k]. This option approximately controls the maximum
+gap size.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>-n</B><I> INT1</I><B>[,</B><I>INT2</I><B>]</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Drop graph chains consisting of
+&lt;<I>INT1</I> minimizers and drop linear chains consisting of
+&lt;<I>INT2</I> minimizers [5,3]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>-m</B><I> INT1</I><B>[,</B><I>INT2</I><B>]</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Drop graph chains with graph chaining score
+&lt;<I>INT1</I> and drop linear chains with linear chaining score
+&lt;<I>INT2</I> [50,30]. Linear chaining score equals the approximate number of matching bases
+minus a weak concave gap penalty. Graph chaining score uses a linear gap
+penalty.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-p</B><I> FLOAT</I> </TD><TD valign=bottom>
+Minimal secondary-to-primary score ratio to output secondary mappings [0.8].
+Between two chains overlaping over half of the shorter chain (controlled by
+<B>-M</B>), the chain with a lower score is secondary to the chain with a higher score.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-N</B><I> INT</I> </TD><TD valign=bottom>
+Output at most
+<I>INT</I> secondary mappings [5]. This option has no effect when
+<B>-P</B> is applied.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-P</B> </TD><TD valign=bottom>
+Retain all chains and don&#146;t attempt to set primary chains. Options
+<B>-p</B> and
+<B>-N</B> have no effect when this option is in use.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-M</B><I> FLOAT</I> </TD><TD valign=bottom>
+Mark as secondary a chain that overlaps with a better chain by
+<I>FLOAT</I> or more of the shorter chain [0.5]
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=6></A>
+
+    <H4>&nbsp; &nbsp; Input/output options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-o</B><I> FILE</I> </TD><TD valign=bottom>
+Output alignments to
+<I>FILE</I> [stdout].
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-t</B><I> INT</I> </TD><TD valign=bottom>
+Number of threads [4]. Minigraph uses at most three threads when indexing target
+sequences, and uses up to
+<I>INT</I>+1 threads when mapping (the extra thread is for I/O, which is frequently idle and
+takes little CPU time).
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-K</B><I> NUM</I> </TD><TD valign=bottom>
+Number of bases loaded into memory to process in a mini-batch [500M].
+K/M/G/k/m/g suffix is accepted. A large
+<I>NUM</I> helps load balancing in the multi-threading mode, at the cost of increased
+memory. This option has no effect if
+<B>--ggen</B> is applied.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--secondary</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Whether to output secondary alignments [no]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--show-unmap</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Print unmapped query sequences in GAF [no]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--version</B> </TD><TD valign=bottom>
+Print version number to stdout
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=7></A>
+
+    <H4>&nbsp; &nbsp; Graph generation options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD colspan=2>
+<B>--ggen</B>=[<B>simple</B>] </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Graph generation algorithm. So far only a
+<B>simple</B> algorithm is implemented [simple]. With this option, all query sequences are
+loaded into memory.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-l</B><I> NUM</I> </TD><TD valign=bottom>
+Minimum chain length to consider [50k]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-d</B><I> NUM</I> </TD><TD valign=bottom>
+Minimum chain length for depth calculation [10k]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-q</B><I> INT</I> </TD><TD valign=bottom>
+Minimum mapping quality [5]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--gg-match-pen</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Penalty for a pair of matching anchors [5]. Larger value for more fragmented inserts.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--ins-qovlp</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Forcefully resolve query overlaps [yes]
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=8></A>
+
+    <H4>&nbsp; &nbsp; Preset options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-x</B><I> STR</I> </TD><TD valign=bottom>
+Preset []. This option applies multiple options at the same time. Other options
+on the command line will always override values set by
+<B>-x</B>. Available
+<I>STR</I> are:
+<TABLE width=100% cellpadding=3><!-- tsb: Preset []. This option applies multiple options at the same time. Other options
+ -->
+<TR></TR><TR></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>lr</B> </TD><TD valign=bottom>
+Mapping noisy long reads
+(<B>-k15</B> <B>-w10 -g5k</B> <B>-r2k</B>). This is the same as the default setting.
+</TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>se</B> </TD><TD valign=bottom>
+Mapping short single-end reads
+(<B>-k21</B> <B>-w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes</B> <B>-K50m</B>). Paired-end mapping is not supported.
+</TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>asm20</B> </TD><TD valign=bottom>
+Mapping long contigs or high-quality CCS reads
+(<B>-k19</B> <B>-w10 -g10k -r10k -n5,3</B> <B>-m1000,40</B>). </TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>ggs</B> </TD><TD valign=bottom>
+Simple algorithm for incremental graph generation
+(<B>-k19</B> <B>-w10 -g10k -r10k -n5,3 -m1000,40</B> <B>--ggen=simple</B>). </TD></TR>
+<TR></TR></TABLE></TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=9></A>
+
+    <H4>&nbsp; &nbsp; Miscellaneous options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD colspan=2>
+<B>--no-kalloc</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Use the libc default allocator instead of the kalloc thread-local allocator.
+This debugging option is mostly used with Valgrind to detect invalid memory
+accesses. Minimap2 runs slower with this option, especially in the
+multi-threading mode.
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=10></A>
+
+     <H3>OUTPUT FORMAT</H3>
+
+
+<BLOCKQUOTE>
+<P>
+Minigraph outputs mapping positions in the Graph mApping Format (GAF) by
+default. GAF is a TAB-delimited text format with each line consisting of at
+least 12 fields as are described in the following table:
+<P><BLOCKQUOTE><div id='tbl'><TABLE border=1 cellspacing=0 cellpadding=3>
+<TR valign=top>
+<TD align=center><B>Col</B></TD><TD align=center><B>Type</B></TD><TD align=center><B>Description</B></TD></TR>
+<TR></TR><TR></TR>
+<TR valign=top>
+<TD align=right>1</TD><TD align=center>string</TD><TD>Query sequence name</TD></TR>
+<TR valign=top>
+<TD align=right>2</TD><TD align=center>int</TD><TD>Query sequence length</TD></TR>
+<TR valign=top>
+<TD align=right>3</TD><TD align=center>int</TD><TD>Query start coordinate (0-based; closed)</TD></TR>
+<TR valign=top>
+<TD align=right>4</TD><TD align=center>int</TD><TD>Query end coordinate (0-based; open)</TD></TR>
+<TR valign=top>
+<TD align=right>5</TD><TD align=center>char</TD><TD>&#145;+&#146; if query/path on the same strand; &#145;-&#146; if opposite</TD></TR>
+<TR valign=top>
+<TD align=right>6</TD><TD align=center>string</TD><TD>Path matching /([&gt;&lt;][^\s&gt;&lt;]+(:\d+-\d+)?)+|([^\s&gt;&lt;]+)/</TD></TR>
+<TR valign=top>
+<TD align=right>7</TD><TD align=center>int</TD><TD>Path sequence length</TD></TR>
+<TR valign=top>
+<TD align=right>8</TD><TD align=center>int</TD><TD>Path start coordinate</TD></TR>
+<TR valign=top>
+<TD align=right>9</TD><TD align=center>int</TD><TD>Path end coordinate</TD></TR>
+<TR valign=top>
+<TD align=right>10</TD><TD align=center>int</TD><TD>Number of matching bases in the mapping</TD></TR>
+<TR valign=top>
+<TD align=right>11</TD><TD align=center>int</TD><TD>Number bases, including gaps, in the mapping</TD></TR>
+<TR valign=top>
+<TD align=right>12</TD><TD align=center>int</TD><TD>Mapping quality (0-255 with 255 for missing)</TD></TR>
+</TABLE></div></BLOCKQUOTE>
+<P>
+<P>
+When alignment is available, column 11 gives the total number of sequence
+matches, mismatches and gaps in the alignment; column 10 divided by column 11
+gives the BLAST-like alignment identity. When alignment is unavailable,
+these two columns are approximate. PAF may optionally have additional fields in
+the SAM-like typed key-value format. Minimap2 may output the following tags:
+<P><BLOCKQUOTE><div id='tbl'><TABLE border=1 cellspacing=0 cellpadding=3>
+<TR valign=top>
+<TD align=center><B>Tag</B></TD><TD align=center><B>Type</B></TD><TD align=center><B>Description</B></TD></TR>
+<TR></TR><TR></TR>
+<TR valign=top>
+<TD align=right>tp</TD><TD align=center>A</TD><TD>Type of aln: P/primary and S/secondary</TD></TR>
+<TR valign=top>
+<TD align=right>cm</TD><TD align=center>i</TD><TD>Number of minimizers on the chain</TD></TR>
+<TR valign=top>
+<TD align=right>s1</TD><TD align=center>i</TD><TD>Chaining score</TD></TR>
+<TR valign=top>
+<TD align=right>s2</TD><TD align=center>i</TD><TD>Chaining score of the best secondary chain</TD></TR>
+<TR valign=top>
+<TD align=right>dv</TD><TD align=center>f</TD><TD>Approximate per-base sequence divergence</TD></TR>
+</TABLE></div></BLOCKQUOTE>
+<P>
+</BLOCKQUOTE>
+<A name=11></A>
+
+     <H3>LIMITATIONS</H3>
+
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=2% nowrap>
+*
+</TD><TD valign=bottom>
+Minigraph needs to find strong colinear chains first. For a graph consisting of
+many short segments (e.g. one generated from rare SNPs in large populations),
+minigraph will fail to map query sequences.
+</TD></TR>
+<TR valign=top><TD width=2% nowrap>
+*
+</TD><TD valign=bottom>
+When connecting colinear chains on graphs, minigraph doesn&#146;t take full
+advantage of base sequences and may miss the optimal alignments.
+</TD></TR>
+<TR valign=top><TD width=2% nowrap>
+*
+</TD><TD valign=bottom>
+Minigraph doesn&#146;t give base-level alignment.
+</TD></TR>
+<TR valign=top><TD width=2% nowrap>
+*
+</TD><TD valign=bottom>
+Minigraph only inserts segments contained in long graph chains. This
+conservative strategy helps to build relatively accurate graph, but may miss
+more complex events. Other strategies may be explored in future.
+<P>
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=12></A>
+
+     <H3>SEE ALSO</H3>
+
+
+<BLOCKQUOTE>
+<P>
+minimap2(1), gfatools(1).
+</BLOCKQUOTE>
+<P><HR>
+<TABLE width=100%><TR> <TD width=33%><I>minigraph-0.2 (r225)</I></TD> <TD width=33% align=center>minigraph (1)</TD> <TD align=right width=33%><I>18 July 2019</I></TD> </TR></TABLE></div></BODY></HTML>

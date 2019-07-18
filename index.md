@@ -1,6 +1,7 @@
 ## Getting help
 
 * [README][doc]: general documentation
+* [Manpage][man]: explanation of command-line options
 * [rGFA][rgfa]: the reference model minigraph is using
 * [GitHub Issues page][issue]: report bugs, request features and ask questions
 
@@ -22,3 +23,4 @@
 [gfatools]: https://github.com/lh3/gfatools
 [minimap2]: https://github.com/lh3/minimap2
 [rgfa]: https://github.com/lh3/gfatools/blob/master/doc/rGFA.md
+[man]: https://lh3.github.io/minigraph/minigraph.html
