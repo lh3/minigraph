@@ -117,8 +117,8 @@ highlighted in bold. The description may help to tune minigraph parameters.
 4. Perform another round of chaining, taking each linear chain as an anchor.
    For a pair of linear chains, minigraph finds up to 15 shortest paths between
    them and chooses the path of length closest to the distance on the query
-   sequence. Importantly, sequences are ignored in this round of chaining.
-   Chains found at this step are called *graph chains*.
+   sequence. Minigraph checks the base sequences, but doesn't perform thorough
+   graph alignment. Chains found at this step are called *graph chains*.
 
 5. Identify primary chains and estimate mapping quality with a method similar
    to the one used in minimap2.
@@ -140,9 +140,8 @@ highlighted in bold. The description may help to tune minigraph parameters.
   of many short segments (e.g. one generated from rare SNPs in large
   populations), minigraph will fail to map query sequences.
 
-* When connecting colinear chains on graphs, minigraph ignores sequences, and
-  only considers the distances of top 15 shortest paths between colinear
-  chains. It may miss the optimal alignments.
+* When connecting colinear chains on graphs, minigraph doesn't take full
+  advantage of base sequences and may miss the optimal alignments.
 
 * Minigraph doesn't give base-level alignment.
 
