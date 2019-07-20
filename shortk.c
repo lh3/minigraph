@@ -36,7 +36,7 @@ static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, co
 {
 	const gfa_seg_t *s = &g->seg[v>>1];
 	int32_t mlen = 0, m_a, n_a, i;
-	uint64_t *a, a6 = 0, a0 = 0;
+	uint64_t *a;
 	*qs = *qe = -1;
 	if (h == 0 || s->len < MG_SHORT_KK) return 0;
 	mini->n = 0;
@@ -58,8 +58,6 @@ static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, co
 				int32_t q_pos = (uint32_t)x[j] >> 1;
 				if (n_a == m_a) KEXPAND(km, a, m_a);
 				a[n_a++] = (uint64_t)q_pos<<32 | v_pos;
-				if (n_a == 7) a6 = a[6];
-				if (n_a == 6) a0 = a[5];
 			}
 		}
 	}
