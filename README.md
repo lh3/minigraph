@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/lh3/minigraph.svg?branch=master)](https://travis-ci.org/lh3/minigraph)
 ## <a name="started"></a>Getting Started
 
 ```sh
