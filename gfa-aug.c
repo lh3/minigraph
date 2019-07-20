@@ -184,6 +184,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	}
 	free(g->seg);
 	g->seg = seg, g->n_seg = g->m_seg = n_seg;
+	++g->max_rank;
 	GFA_REALLOC(g->arc_aux, g->m_arc);
 	GFA_BZERO(&g->arc_aux[n_old_arc], g->m_arc - n_old_arc);
 	gfa_arc_sort(g);
