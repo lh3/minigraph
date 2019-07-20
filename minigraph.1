@@ -199,7 +199,7 @@ Simple algorithm for incremental graph generation
 .B --no-kalloc
 Use the libc default allocator instead of the kalloc thread-local allocator.
 This debugging option is mostly used with Valgrind to detect invalid memory
-accesses. Minimap2 runs slower with this option, especially in the
+accesses. Minigraph runs slower with this option, especially in the
 multi-threading mode.
 .SH OUTPUT FORMAT
 .PP
@@ -231,7 +231,7 @@ When alignment is available, column 11 gives the total number of sequence
 matches, mismatches and gaps in the alignment; column 10 divided by column 11
 gives the BLAST-like alignment identity. When alignment is unavailable,
 these two columns are approximate. PAF may optionally have additional fields in
-the SAM-like typed key-value format. Minimap2 may output the following tags:
+the SAM-like typed key-value format. Minigraph may output the following tags:
 .TS
 center box;
 cb | cb | cb
