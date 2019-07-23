@@ -225,7 +225,7 @@ int main(int argc, char *argv[])
 	} else {
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_ggen(g, argv[i], &ipt, &opt, &gpt, n_threads);
-		gfa_print(g, stdout, 1);
+		gfa_print(g, stdout, 0);
 	}
 
 	gfa_destroy(g);

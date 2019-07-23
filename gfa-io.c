@@ -328,7 +328,7 @@ gfa_t *gfa_read(const char *fn)
 	return g;
 }
 
-void gfa_print(const gfa_t *g, FILE *fp, int M_only)
+void gfa_print(const gfa_t *g, FILE *fp, int flag)
 {
 	uint32_t i;
 	uint64_t k;
@@ -336,7 +336,7 @@ void gfa_print(const gfa_t *g, FILE *fp, int M_only)
 		const gfa_seg_t *s = &g->seg[i];
 		if (s->del) continue;
 		fprintf(fp, "S\t%s\t", s->name);
-		if (s->seq) fputs(s->seq, fp);
+		if (s->seq && !(flag & GFA_O_NO_SEQ)) fputs(s->seq, fp);
 		else fputc('*', fp);
 		fprintf(fp, "\tLN:i:%d", s->len);
 		if (s->snid >= 0 && s->soff >= 0)
@@ -365,7 +365,7 @@ void gfa_print(const gfa_t *g, FILE *fp, int M_only)
 		const gfa_aux_t *aux = &g->arc_aux[a->link_id];
 		if (a->del || a->comp) continue;
 		fprintf(fp, "L\t%s\t%c\t%s\t%c", g->seg[a->v_lv>>33].name, "+-"[a->v_lv>>32&1], g->seg[a->w>>1].name, "+-"[a->w&1]);
-		if (M_only) {
+		if (!(flag & GFA_O_OV_EXT)) {
 			fprintf(fp, "\t%dM", a->ov < a->ow? a->ov : a->ow);
 		} else {
 			if (a->ov == a->ow) fprintf(fp, "\t%dM", a->ov);
