@@ -129,7 +129,7 @@ int32_t gfa_name2id(const gfa_t *g, const char *name)
 	return k == kh_end(h)? -1 : kh_val(h, k);
 }
 
-uint64_t gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp)
+gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp)
 {
 	gfa_arc_t *a;
 	if (g->m_arc == g->n_arc) {
@@ -142,11 +142,11 @@ uint64_t gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, 
 	}
 	a = &g->arc[g->n_arc++];
 	a->v_lv = (uint64_t)v << 32;
-	a->w = w, a->ov = ov, a->ow = ow, a->lw = 0;
+	a->w = w, a->ov = ov, a->ow = ow, a->rank = -1;
 	a->link_id = link_id >= 0? link_id : g->n_arc - 1;
 	a->del = 0;
 	a->comp = comp;
-	return a->link_id;
+	return a;
 }
 
 void gfa_arc_sort(gfa_t *g)
@@ -200,8 +200,6 @@ void gfa_fix_arc_len(gfa_t *g)
 			a->del = 1;
 		} else {
 			a->v_lv |= g->seg[v>>1].len - a->ov;
-			if (a->ow != INT32_MAX)
-				a->lw = g->seg[w>>1].len - a->ow;
 		}
 	}
 }

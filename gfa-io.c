@@ -223,17 +223,22 @@ int gfa_parse_L(gfa_t *g, char *s)
 	}
 	if (is_ok) {
 		uint32_t v, w;
-		uint64_t link_id;
 		int l_aux, m_aux = 0;
 		uint8_t *aux = 0;
+		gfa_arc_t *arc;
 		v = gfa_add_seg(g, segv) << 1 | oriv;
 		w = gfa_add_seg(g, segw) << 1 | oriw;
-		link_id = gfa_add_arc1(g, v, w, ov, ow, -1, 0);
+		arc = gfa_add_arc1(g, v, w, ov, ow, -1, 0);
 		l_aux = gfa_aux_parse(rest, &aux, &m_aux); // parse optional tags
 		if (l_aux) {
-			gfa_aux_t *a = &g->arc_aux[link_id];
-			uint8_t *s_L1, *s_L2;
+			gfa_aux_t *a = &g->arc_aux[arc->link_id];
+			uint8_t *s_L1, *s_L2, *s_SR;
 			a->l_aux = l_aux, a->m_aux = m_aux, a->aux = aux;
+			s_SR = gfa_aux_get(a->l_aux, a->aux, "SR");
+			if (s_SR && s_SR[0] == 'i') {
+				arc->rank = *(int32_t*)(s_SR+1);
+				a->l_aux = gfa_aux_del(a->l_aux, a->aux, s_SR);
+			}
 			s_L1 = gfa_aux_get(a->l_aux, a->aux, "L1");
 			if (s_L1) {
 				if (ov != INT32_MAX && s_L1[0] == 'i')
@@ -371,8 +376,9 @@ void gfa_print(const gfa_t *g, FILE *fp, int flag)
 			if (a->ov == a->ow) fprintf(fp, "\t%dM", a->ov);
 			else fprintf(fp, "\t%d:%d", a->ov, a->ow);
 		}
+		if (a->rank >= 0) fprintf(fp, "\tSR:i:%d", a->rank);
 		fprintf(fp, "\tL1:i:%d", gfa_arc_len(*a));
-		fprintf(fp, "\tL2:i:%d", a->lw);
+		fprintf(fp, "\tL2:i:%d", gfa_arc_lw(g, *a));
 		if (aux->l_aux) {
 			char *t = 0;
 			int max = 0;

@@ -11,24 +11,24 @@ typedef struct {
 #define split_key(p) ((p).side)
 KRADIX_SORT_INIT(split, gfa_split_t, split_key, 4)
 
-static inline void create_first_arc_semi(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w, int is_comp)
+static inline void create_first_arc_semi(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w, int32_t rank, int is_comp)
 {
 	gfa_arc_t *a;
 	if (g->n_arc == g->m_arc) GFA_EXPAND(g->arc, g->m_arc);
 	a = &g->arc[g->n_arc++];
 	a->v_lv = (uint64_t)v<<32 | seg[v>>1].len;
 	a->w = w;
-	a->lw = seg[w>>1].len;
+	a->rank = rank;
 	a->ov = a->ow = 0;
 	a->link_id = g->n_arc - 1;
 	a->del = 0;
 	a->comp = !!is_comp;
 }
 
-static inline void create_first_arc(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w)
+static inline void create_first_arc(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w, int32_t rank)
 {
-	create_first_arc_semi(g, seg, v,   w,   0);
-	create_first_arc_semi(g, seg, w^1, v^1, 1);
+	create_first_arc_semi(g, seg, v,   w,   rank, 0);
+	create_first_arc_semi(g, seg, w^1, v^1, rank, 1);
 }
 
 void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char *const* name, const char *const* seq)
@@ -132,7 +132,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		oldcnt[j] = (uint64_t)k0 << 32 | (k - k0);
 		// add new arcs between newly created segments
 		for (i = 0; i < k - k0 - 1; ++i)
-			create_first_arc(g, seg, (uint32_t)(k0+i)<<1, (uint32_t)(k0+i+1)<<1);
+			create_first_arc(g, seg, (uint32_t)(k0+i)<<1, (uint32_t)(k0+i+1)<<1, s->rank);
 	}
 	assert(k == n_old_seg);
 	free(soff);
@@ -147,7 +147,6 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 		a->v_lv = (uint64_t)v << 32 | seg[v>>1].len;
 		off = oldcnt[a->w>>1]>>32, cnt = (uint32_t)oldcnt[a->w>>1];
 		a->w = (a->w&1) == 0? off<<1 : (off+cnt-1)<<1 | 1;
-		a->lw = seg[a->w>>1].len;
 	}
 	free(oldcnt);
 
@@ -167,11 +166,11 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 			t->soff = p->coff[0];
 			t->rank = g->max_rank + 1; // TODO: to deal with SN/SO/SR tags somewhere
 			gfa_sseq_update(g, t);
-			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)k<<1);
-			create_first_arc(g, seg, (uint32_t)k<<1, (uint32_t)ins_side[i]);
+			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)k<<1, t->rank);
+			create_first_arc(g, seg, (uint32_t)k<<1, (uint32_t)ins_side[i], t->rank);
 			++k;
 		} else {
-			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)ins_side[i]);
+			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)ins_side[i], g->max_rank + 1);
 		}
 	}
 	free(ins_side);

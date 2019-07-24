@@ -23,7 +23,7 @@ char *gfa_strndup(const char *src, size_t n);
 
 // add/delete one segment/arc/stable sequence
 int32_t gfa_add_seg(gfa_t *g, const char *name);
-uint64_t gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp);
+gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp);
 int32_t gfa_sseq_add(gfa_t *g, const char *sname);
 void gfa_sseq_update(gfa_t *g, const gfa_seg_t *s);
 

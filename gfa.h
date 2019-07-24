@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define GFA_VERSION "0.1-r45-dirty"
+#define GFA_VERSION "0.1-r46-dirty"
 
 #define GFA_O_OV_EXT   0x1
 #define GFA_O_NO_SEQ   0x2
@@ -32,7 +32,8 @@
 
 typedef struct {
 	uint64_t v_lv; // higher 32 bits: vertex_id; lower 32 bits: lv; packed together for sorting
-	uint32_t w, lw;
+	uint32_t w;
+	int32_t rank;
 	int32_t ov, ow;
 	uint64_t link_id:62, del:1, comp:1;
 } gfa_arc_t;
@@ -40,6 +41,7 @@ typedef struct {
 #define gfa_arc_head(a) ((uint32_t)((a).v_lv>>32))
 #define gfa_arc_tail(a) ((a).w)
 #define gfa_arc_len(a) ((uint32_t)(a).v_lv) // different from the original string graph
+#define gfa_arc_lw(g, a) ((g)->seg[(a).w>>1].len - (a).ow)
 
 #define gfa_arc_n(g, v) ((uint32_t)(g)->idx[(v)])
 #define gfa_arc_a(g, v) (&(g)->arc[(g)->idx[(v)]>>32])
