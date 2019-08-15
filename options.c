@@ -18,6 +18,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->mid_occ_frac = 2e-4f;
 	mo->max_gap = 5000;
 	mo->max_gap_ref = -1;
+	mo->max_frag_len = 800;
 	mo->max_lc_skip = 25, mo->max_lc_iter = 10000;
 	mo->bw = 2000;
 	mo->mini_batch_size = 500000000;
@@ -27,6 +28,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->sub_diff = 6;
 	mo->best_n = 5;
 	mo->pri_ratio = 0.8f;
+	mo->pe_ori = 0; // FF
 }
 
 void mg_ggopt_init(mg_ggopt_t *go)
@@ -68,15 +70,19 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->max_gap = mo->bw = 10000;
 		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
-	} else if (strcmp(preset, "se") == 0) {
+	} else if (strcmp(preset, "se") == 0 || strcmp(preset, "sr") == 0) {
 		io->k = 21, io->w = 10;
-		mo->flag |= MG_M_HEAP_SORT;
+		mo->flag |= MG_M_SR | MG_M_HEAP_SORT | MG_M_2_IO_THREADS;
 		mo->mid_occ = 1000;
 		mo->max_gap = 100, mo->bw = 100;
 		mo->pri_ratio = 0.5f;
 		mo->min_lc_cnt = 2, mo->min_lc_score = 25;
 		mo->min_gc_cnt = 3, mo->min_gc_score = 40;
 		mo->mini_batch_size = 50000000;
+		if (strcmp(preset, "sr") == 0) {
+			mo->flag |= MG_M_FRAG_MODE;
+			mo->pe_ori = 0<<1|1; // FR
+		}
 	} else return -1;
 	return 0;
 }

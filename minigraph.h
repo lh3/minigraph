@@ -22,8 +22,6 @@
 #define MG_M_SHOW_UNMAP   0x100000
 #define MG_M_NO_COMP_PATH 0x200000
 
-#define MG_MAX_SEG        255
-
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1
 
@@ -118,18 +116,25 @@ extern double mg_realtime0;
 extern "C" {
 #endif
 
+// options
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go);
 int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t *go);
 void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go);
 
+// index operations
 mg_idx_t *mg_index(gfa_t *g, int k, int w, int b, int n_threads);
 void mg_idx_destroy(mg_idx_t *gi);
 
+// mapping
 mg_tbuf_t *mg_tbuf_init(void);
 void mg_tbuf_destroy(mg_tbuf_t *b);
 mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname);
-int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
 
+// high-level mapping APIs
+int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
+int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads);
+
+// graph generation
 int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);
 
 #ifdef __cplusplus

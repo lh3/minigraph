@@ -33,6 +33,7 @@ static ko_longopt_t long_options[] = {
 	{ "gg-min-end-frac", ko_required_argument, 310 },
 	{ "no-comp-path", ko_no_argument,       312 },
 	{ "gg-match-pen", ko_required_argument, 313 },
+	{ "frag",         ko_no_argument,       314 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -70,7 +71,7 @@ static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *a
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -111,6 +112,7 @@ int main(int argc, char *argv[])
 		else if (c == 'U') opt.mid_occ = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
 		else if (c == 'g') opt.max_gap = mg_parse_num(o.arg);
+		else if (c == 'F') opt.max_frag_len = mg_parse_num(o.arg);
 		else if (c == 'K') opt.mini_batch_size = mg_parse_num(o.arg);
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'N') opt.best_n = mg_parse_num(o.arg);
@@ -126,6 +128,7 @@ int main(int argc, char *argv[])
 		else if (c == 310) gpt.ggs_min_end_frac = atof(o.arg); // --gg-min-end-frac
 		else if (c == 312) opt.flag |= MG_M_NO_COMP_PATH;     // --no-comp-path
 		else if (c == 313) gpt.match_pen = atoi(o.arg);       // --gg-match-pen
+		else if (c == 314) opt.flag |= MG_M_FRAG_MODE;        // --frag
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
@@ -180,6 +183,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
 		fprintf(fp_help, "    -U INT       ignore minimizers with occurrences above INT [%d]\n", opt.mid_occ);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
+		fprintf(fp_help, "    -F NUM       max fragment length (effective with -xsr or in the fragment mode) [%d]\n", opt.max_frag_len);
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining [%d]\n", opt.bw);
 		fprintf(fp_help, "    -n INT[,INT] minimal number of minimizers on a graph/linear chain [%d,%d]\n", opt.min_gc_cnt, opt.min_lc_cnt);
 		fprintf(fp_help, "    -m INT[,INT] minimal graph/linear chaining score [%d,%d]\n", opt.min_gc_score, opt.min_lc_score);
@@ -198,7 +202,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -x STR       preset []\n");
 		fprintf(fp_help, "                 - lr: noisy long read mapping (the default)\n");
 		fprintf(fp_help, "                 - asm20: asm-to-ref mapping, for ~5%% sequence divergence\n");
-		fprintf(fp_help, "                 - se: short single-end reads\n");
+		fprintf(fp_help, "                 - sr: short reads\n");
 		fprintf(fp_help, "                 - ggs: simple algorithm for graph generation\n");
 		return fp_help == stdout? 0 : 1;
 	}
@@ -219,8 +223,12 @@ int main(int argc, char *argv[])
 		mg_opt_update(gi, &opt, 0);
 		if (mg_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] indexed the graph\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0));
-		for (i = o.ind + 1; i < argc; ++i)
-			mg_map_file(gi, argv[i], &opt, n_threads);
+		if (opt.flag & MG_M_FRAG_MODE) {
+			mg_map_file_frag(gi, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_threads);
+		} else {
+			for (i = o.ind + 1; i < argc; ++i)
+				mg_map_file(gi, argv[i], &opt, n_threads);
+		}
 		mg_idx_destroy(gi);
 	} else {
 		for (i = o.ind + 1; i < argc; ++i)

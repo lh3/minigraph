@@ -181,7 +181,7 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, mg_gchains_t **gcs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
-	int i, rep_len, qlen_sum, n_lc, n_gc, n_mini_pos;
+	int i, l, rep_len, qlen_sum, n_lc, n_gc, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MG_M_SPLICE), is_sr = !!(opt->flag & MG_M_SR);
 	uint32_t hash;
 	int64_t n_a;
@@ -190,6 +190,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	mg128_t *a;
 	mg128_v mv = {0,0,0};
 	mg_lchain_t *lc;
+	char *seq_cat;
 	km_stat_t kmst;
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
@@ -263,9 +264,15 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	if (mg_dbg_flag & MG_DBG_LCHAIN)
 		mg_print_lchain(stdout, gi, n_lc, lc, a, qname);
 
-	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, seqs[0], &u);
+	KMALLOC(b->km, seq_cat, qlen_sum);
+	for (i = l = 0; i < n_segs; ++i) {
+		strncpy(&seq_cat[l], seqs[i], qlens[i]);
+		l += qlens[i];
+	}
+	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, seq_cat, &u);
 	gcs[0] = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score);
 	gcs[0]->rep_len = rep_len;
+	kfree(b->km, seq_cat);
 	kfree(b->km, a);
 	kfree(b->km, lc);
 	kfree(b->km, u);
@@ -396,8 +403,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (i = seg_st; i < seg_en; ++i) {
 				mg_bseq1_t *t = &s->seq[i];
 				mg_write_paf(&p->str, p->gi->g, s->gcs[i], t->l_seq, t->name, p->opt->flag, km);
+				if (p->str.l) mg_err_fputs(p->str.s, stdout);
 			}
-			if (p->str.l) mg_err_fputs(p->str.s, stdout);
 			for (i = seg_st; i < seg_en; ++i) {
 				mg_gchain_free(s->gcs[i]);
 				free(s->seq[i].seq); free(s->seq[i].name);
