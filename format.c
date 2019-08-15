@@ -82,10 +82,11 @@ void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_lchain_t *
 	free(str.s);
 }
 
-void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t qlen, const char *qname, uint64_t flag, void *km)
+void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t n_seg, const int32_t *qlens, const char *qname, uint64_t flag, void *km)
 {
-	int32_t i, j;
+	int32_t i, j, qlen;
 	s->l = 0;
+	for (i = 0, qlen = 0; i < n_seg; ++i) qlen += qlens[i];
 	if ((gs == 0 || gs->n_gc == 0) && (flag&MG_M_SHOW_UNMAP)) {
 		mg_sprintf_lite(s, "%s\t%d\t0\t0\t*\t*\t0\t0\t0\t0\t0\t0\n", qname, qlen);
 		return;
@@ -156,6 +157,10 @@ void mg_write_paf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			if (p->div == 0.0f) buf[0] = '0', buf[1] = 0;
 			else snprintf(buf, 16, "%.4f", p->div);
 			mg_sprintf_lite(s, "\tdv:f:%s", buf);
+		}
+		if (n_seg > 1) {
+			mg_sprintf_lite(s, "\tql:B:i");
+			for (j = 0; j < n_seg; ++j) mg_sprintf_lite(s, ",%d", qlens[j]);
 		}
 		mg_sprintf_lite(s, "\n");
 	}

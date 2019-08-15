@@ -9,6 +9,7 @@
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
 #define MG_M_FRAG_MODE    0x40
+#define MG_M_FRAG_MERGE   0x80
 #define MG_M_FOR_ONLY     0x100
 #define MG_M_REV_ONLY     0x200
 #define MG_M_HEAP_SORT    0x400

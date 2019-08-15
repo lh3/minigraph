@@ -80,7 +80,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->min_gc_cnt = 3, mo->min_gc_score = 40;
 		mo->mini_batch_size = 50000000;
 		if (strcmp(preset, "sr") == 0) {
-			mo->flag |= MG_M_FRAG_MODE;
+			mo->flag |= MG_M_FRAG_MODE | MG_M_FRAG_MERGE;
 			mo->pe_ori = 0<<1|1; // FR
 		}
 	} else return -1;
@@ -89,6 +89,11 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 
 int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t *go)
 {
+	if ((mo->flag & MG_M_FRAG_MODE) && !(mo->flag & MG_M_FRAG_MERGE)) {
+		if (mg_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m the fragment-without-merge mode is not implemented\033[0m\n");
+		return -1;
+	}
 	return 0;
 }
 

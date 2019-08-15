@@ -400,10 +400,21 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		if (!(mg_dbg_flag & MG_DBG_NO_KALLOC)) km = km_init();
 		for (k = 0; k < s->n_frag; ++k) {
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
-			for (i = seg_st; i < seg_en; ++i) {
-				mg_bseq1_t *t = &s->seq[i];
-				mg_write_paf(&p->str, p->gi->g, s->gcs[i], t->l_seq, t->name, p->opt->flag, km);
+			if ((p->opt->flag & MG_M_FRAG_MODE) && (p->opt->flag & MG_M_FRAG_MERGE)) {
+				mg_bseq1_t *t = &s->seq[seg_st];
+				int32_t *qlens;
+				KMALLOC(km, qlens, seg_en - seg_st); // TODO: if this is an issue (quite unlikely), preallocate
+				for (i = seg_st; i < seg_en; ++i)
+					qlens[i - seg_st] = s->seq[i].l_seq;
+				mg_write_gaf(&p->str, p->gi->g, s->gcs[seg_st], seg_en - seg_st, qlens, t->name, p->opt->flag, km);
+				kfree(km, qlens);
 				if (p->str.l) mg_err_fputs(p->str.s, stdout);
+			} else {
+				for (i = seg_st; i < seg_en; ++i) {
+					mg_bseq1_t *t = &s->seq[i];
+					mg_write_gaf(&p->str, p->gi->g, s->gcs[i], 1, &t->l_seq, t->name, p->opt->flag, km);
+					if (p->str.l) mg_err_fputs(p->str.s, stdout);
+				}
 			}
 			for (i = seg_st; i < seg_en; ++i) {
 				mg_gchain_free(s->gcs[i]);

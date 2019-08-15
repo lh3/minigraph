@@ -14,7 +14,7 @@ struct mg_bseq_file_s;
 typedef struct mg_bseq_file_s mg_bseq_file_t;
 
 typedef struct {
-	int l_seq, rid;
+	int32_t l_seq, rid;
 	char *name, *seq, *qual, *comment;
 } mg_bseq1_t;
 
@@ -27,16 +27,16 @@ int mg_bseq_eof(mg_bseq_file_t *fp);
 extern unsigned char seq_nt4_table[256];
 extern unsigned char gfa_comp_table[256];
 
-static inline int mg_qname_len(const char *s)
+static inline int32_t mg_qname_len(const char *s)
 {
-	int l;
+	int32_t l;
 	l = strlen(s);
 	return l >= 3 && s[l-1] >= '0' && s[l-1] <= '9' && s[l-2] == '/'? l - 2 : l;
 }
 
-static inline int mg_qname_same(const char *s1, const char *s2)
+static inline int32_t mg_qname_same(const char *s1, const char *s2)
 {
-	int l1, l2;
+	int32_t l1, l2;
 	l1 = mg_qname_len(s1);
 	l2 = mg_qname_len(s2);
 	return (l1 == l2 && strncmp(s1, s2, l1) == 0);
@@ -44,7 +44,7 @@ static inline int mg_qname_same(const char *s1, const char *s2)
 
 static inline void mg_revcomp_bseq(mg_bseq1_t *s)
 {
-	int i, t, l = s->l_seq;
+	int32_t i, t, l = s->l_seq;
 	for (i = 0; i < l>>1; ++i) {
 		t = s->seq[l - i - 1];
 		s->seq[l - i - 1] = gfa_comp_table[(uint8_t)s->seq[i]];
