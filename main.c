@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 		else if (c == 310) gpt.ggs_min_end_frac = atof(o.arg); // --gg-min-end-frac
 		else if (c == 312) opt.flag |= MG_M_NO_COMP_PATH;     // --no-comp-path
 		else if (c == 313) gpt.match_pen = atoi(o.arg);       // --gg-match-pen
-		else if (c == 314) opt.flag |= MG_M_FRAG_MODE;        // --frag
+		else if (c == 314) opt.flag |= MG_M_FRAG_MODE | MG_M_FRAG_MERGE; // --frag
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
