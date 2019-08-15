@@ -62,7 +62,7 @@ static double mg_score_per_col(void *km, int32_t n_lc, const mg_lchain_t *lc)
 }
 
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw,
-					  const char *qseq, uint64_t **u_)
+					  const char *qseq, const mg128_t *an, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *p, *v, *t;
@@ -112,6 +112,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		int32_t max_f = li->score;
 		int32_t max_j = -1, max_d = -1;
 		int32_t x = li->qs + bw, min_qs = li->qs;
+		int32_t segi = (an[li->off].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
 		uint32_t max_hash = 0;
 		if (x > qlen) x = qlen;
 		x = find_max(i, a, x);
@@ -120,14 +121,20 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			gc_frag_t *aj = &a[j];
 			mg_lchain_t *lj = &lc[aj->i];
 			mg_path_dst_t *q;
-			int32_t min_dist, target_dist;
-			if (lj->qe + max_dist_q < li->qs) break; // if query gap too large, stop
+			int32_t min_dist, target_dist, segj, dq;
+			dq = li->qs - lj->qe;
+			segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
+			if (segi == segj) {
+				if (dq > max_dist_q) break; // if query gap too large, stop
+			} else {
+				if (dq > max_dist_g && dq > max_dist_q) break;
+			}
 			if (lj->qe < min_qs) min_qs = lj->qe;
 			if (lj->qs >= li->qs) continue; // lj is contained in li
 			if (li->v == lj->v) continue; // we don't deal with lchains on the same segment
 			min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re); // minimal graph gap
 			if (min_dist > max_dist_g) continue; // graph gap too large
-			if (min_dist - bw > li->qs - lj->qe) continue; // when li->qs < lj->qe, the condition turns to min_dist + (lj->qe - li->qs) > bw, which is desired
+			if (segi == segj && min_dist - bw > li->qs - lj->qe) continue; // when li->qs < lj->qe, the condition turns to min_dist + (lj->qe - li->qs) > bw, which is desired
 			target_dist = mg_target_dist(g, lj, li);
 			if (target_dist < 0) continue; // this may happen if the query overlap is far too large
 			if (n_dst == m_dst) KEXPAND(km, dst, m_dst); // TODO: watch out the quadratic behavior!
@@ -145,12 +152,13 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		for (j = 0; j < n_dst; ++j) {
 			mg_path_dst_t *dj = &dst[j];
 			mg_lchain_t *lj;
-			int32_t gap, sc;
+			int32_t gap, sc, segj;
 			if (dj->n_path == 0) continue;
 			gap = dj->dist - dj->target_dist;
-			if (gap < 0) gap = -gap;
-			if (gap > bw) continue;
 			lj = &lc[dj->meta];
+			segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
+			if (gap < 0) gap = -gap;
+			if (segi == segj && gap > bw) continue;
 			if (lj->qe <= li->qs) sc = li->score;
 			else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499); // dealing with overlap on query
 			//sc += dj->mlen; // TODO: is this line the right thing to do?
