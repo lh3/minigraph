@@ -88,7 +88,9 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 	s->l = 0;
 	for (i = 0, qlen = 0; i < n_seg; ++i) qlen += qlens[i];
 	if ((gs == 0 || gs->n_gc == 0) && (flag&MG_M_SHOW_UNMAP)) {
-		mg_sprintf_lite(s, "%s\t%d\t0\t0\t*\t*\t0\t0\t0\t0\t0\t0\n", qname, qlen);
+		mg_sprintf_lite(s, "%s", qname);
+		if ((flag&MG_M_FRAG_MERGE) && n_seg == 2 && s->l > 2 && s->s[s->l-1] == '1' && s->s[s->l-2] == '/') s->l -= 2;
+		mg_sprintf_lite(s, "\t%d\t0\t0\t*\t*\t0\t0\t0\t0\t0\t0\n", qlen);
 		return;
 	}
 	if (gs == 0) return;
@@ -97,7 +99,9 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 		int32_t sign_pos, compact;
 		if (p->id != p->parent && !(flag&MG_M_PRINT_2ND)) continue;
 		if (p->cnt == 0) continue;
-		mg_sprintf_lite(s, "%s\t%d\t%d\t%d\t+\t", qname, qlen, p->qs, p->qe);
+		mg_sprintf_lite(s, "%s", qname);
+		if ((flag&MG_M_FRAG_MERGE) && n_seg == 2 && s->l > 2 && s->s[s->l-1] == '1' && s->s[s->l-2] == '/') s->l -= 2;
+		mg_sprintf_lite(s, "\t%d\t%d\t%d\t+\t", qlen, p->qs, p->qe);
 		assert(p->cnt > 0);
 		sign_pos = s->l - 2;
 		if (flag & MG_M_VERTEX_COOR) {
