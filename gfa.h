@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define GFA_VERSION "0.2-r51"
+#define GFA_VERSION "0.2-r57-dirty"
 
 #define GFA_O_OV_EXT   0x1
 #define GFA_O_NO_SEQ   0x2
@@ -98,20 +98,6 @@ typedef struct {
 	gfa_aux_t *arc_aux;
 	uint64_t *idx;
 } gfa_t;
-
-// linearized subgraphs
-
-typedef struct {
-	uint32_t v, d;
-	int32_t off, n;
-} gfa_subv_t;
-
-typedef struct {
-	int32_t n_v, n_a, is_dag;
-	gfa_subv_t *v;
-	int32_t *a;
-	void *km;
-} gfa_sub_t;
 
 // graph augmentation
 

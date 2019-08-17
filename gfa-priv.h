@@ -14,6 +14,20 @@
 
 typedef struct { uint64_t x, y; } gfa128_t;
 
+// linearized subgraphs
+
+typedef struct {
+	uint32_t v, d;
+	int32_t off, n;
+} gfa_subv_t;
+
+typedef struct {
+	int32_t n_v, n_a, is_dag;
+	gfa_subv_t *v;
+	int32_t *a;
+	void *km;
+} gfa_sub_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -59,6 +73,8 @@ int32_t gfa_ins_filter(const gfa_t *g, int32_t n_ins, gfa_ins_t *ins);
 void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char *const* name, const char *const* seq);
 
 gfa_sfa_t *gfa_gfa2sfa(const gfa_t *g, int32_t *n_sfa_, int32_t write_seq);
+
+void gfa_blacklist_print(const gfa_t *g, FILE *fp, int32_t min_len); // FIXME: doesn't work with translocations
 
 #ifdef __cplusplus
 }
