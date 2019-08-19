@@ -2,7 +2,7 @@
 #include "mgpriv.h"
 #include "gfa-priv.h"
 
-void mg_count_cov_simple(const gfa_t *g, const mg_gchains_t *gt, int32_t min_mapq, int32_t min_blen, int64_t *c_seg, int32_t *c_link)
+void mg_count_cov_simple(const gfa_t *g, const mg_gchains_t *gt, int32_t min_mapq, int32_t min_blen, int64_t *c_seg, int32_t *c_link, const char *qname)
 {
 	int32_t i, j, a_off = 0;
 	if (c_seg == 0 && c_link == 0) return;
@@ -29,9 +29,9 @@ void mg_count_cov_simple(const gfa_t *g, const mg_gchains_t *gt, int32_t min_map
 			a10 = gfa_find_arc(g, lc1->v^1, lc0->v^1);
 			if (a01 < 0 || a10 < 0) {
 				if (mg_verbose >= 2)
-					fprintf(stderr, "[W] Multi/disconnected link: %c%s[%d] -> %c%s[%d] (%ld,%ld). Continue anyway!\n",
+					fprintf(stderr, "[W] Multi/disconnected link: %c%s[%d] -> %c%s[%d] (%s, %ld, %ld). Continue anyway!\n",
 							"><"[lc0->v&1], g->seg[lc0->v>>1].name, lc0->v,
-							"><"[lc1->v&1], g->seg[lc1->v>>1].name, lc1->v, (long)a01, (long)a10);
+							"><"[lc1->v&1], g->seg[lc1->v>>1].name, lc1->v, qname, (long)a01, (long)a10);
 				continue;
 			}
 			assert((g->arc[a01].comp ^ g->arc[a10].comp) == 1);
