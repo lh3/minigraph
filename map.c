@@ -311,6 +311,8 @@ typedef struct {
 	mg_bseq_file_t **fp;
 	const mg_idx_t *gi;
 	kstring_t str;
+	int64_t *c_seg;
+	int32_t *c_link;
 } pipeline_t;
 
 typedef struct {
@@ -406,13 +408,17 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				KMALLOC(km, qlens, seg_en - seg_st); // TODO: if this is an issue (quite unlikely), preallocate
 				for (i = seg_st; i < seg_en; ++i)
 					qlens[i - seg_st] = s->seq[i].l_seq;
-				mg_write_gaf(&p->str, p->gi->g, s->gcs[seg_st], seg_en - seg_st, qlens, t->name, p->opt->flag, km);
+				if (p->opt->flag & MG_M_CAL_COV)
+					mg_count_cov_simple(p->gi->g, s->gcs[seg_st], p->opt->min_cov_mapq, p->opt->min_cov_blen, p->c_seg, p->c_link);
+				else mg_write_gaf(&p->str, p->gi->g, s->gcs[seg_st], seg_en - seg_st, qlens, t->name, p->opt->flag, km);
 				kfree(km, qlens);
 				if (p->str.l) mg_err_fputs(p->str.s, stdout);
 			} else {
 				for (i = seg_st; i < seg_en; ++i) {
 					mg_bseq1_t *t = &s->seq[i];
-					mg_write_gaf(&p->str, p->gi->g, s->gcs[i], 1, &t->l_seq, t->name, p->opt->flag, km);
+					if (p->opt->flag & MG_M_CAL_COV)
+						mg_count_cov_simple(p->gi->g, s->gcs[i], p->opt->min_cov_mapq, p->opt->min_cov_blen, p->c_seg, p->c_link);
+					else mg_write_gaf(&p->str, p->gi->g, s->gcs[i], 1, &t->l_seq, t->name, p->opt->flag, km);
 					if (p->str.l) mg_err_fputs(p->str.s, stdout);
 				}
 			}
@@ -450,7 +456,7 @@ static mg_bseq_file_t **open_bseqs(int n, const char **fn)
 	return fp;
 }
 
-int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads)
+int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads, int64_t *c_seg, int32_t *c_link)
 {
 	int i, pl_threads;
 	pipeline_t pl;
@@ -462,6 +468,7 @@ int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_
 	pl.opt = opt, pl.gi = idx;
 	pl.n_threads = n_threads > 1? n_threads : 1;
 	pl.mini_batch_size = opt->mini_batch_size;
+	pl.c_seg = c_seg, pl.c_link = c_link;
 	pl_threads = n_threads == 1? 1 : (opt->flag&MG_M_2_IO_THREADS)? 3 : 2;
 	kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
 
@@ -474,5 +481,5 @@ int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_
 
 int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads)
 {
-	return mg_map_file_frag(idx, 1, &fn, opt, n_threads);
+	return mg_map_file_frag(idx, 1, &fn, opt, n_threads, 0, 0);
 }

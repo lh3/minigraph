@@ -29,6 +29,8 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->best_n = 5;
 	mo->pri_ratio = 0.8f;
 	mo->pe_ori = 0; // FF
+	mo->min_cov_mapq = 20;
+	mo->min_cov_blen = 1000;
 }
 
 void mg_ggopt_init(mg_ggopt_t *go)
@@ -63,6 +65,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->bw = 10000, mo->max_gap = 10000;
 		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
+		mo->min_cov_blen = 50000;
 	} else if (strcmp(preset, "ggs") == 0 || strcmp(preset, "ggsimple") == 0) {
 		io->k = 19, io->w = 10;
 		go->algo = MG_G_GGSIMPLE;
@@ -70,6 +73,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->max_gap = mo->bw = 10000;
 		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
+		mo->min_cov_blen = 50000;
 	} else if (strcmp(preset, "se") == 0 || strcmp(preset, "sr") == 0) {
 		io->k = 21, io->w = 10;
 		mo->flag |= MG_M_SR | MG_M_HEAP_SORT | MG_M_2_IO_THREADS;
@@ -79,6 +83,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->min_lc_cnt = 2, mo->min_lc_score = 25;
 		mo->min_gc_cnt = 3, mo->min_gc_score = 40;
 		mo->mini_batch_size = 50000000;
+		mo->min_cov_blen = 50;
 		if (strcmp(preset, "sr") == 0) {
 			mo->flag |= MG_M_FRAG_MODE | MG_M_FRAG_MERGE;
 			mo->pe_ori = 0<<1|1; // FR

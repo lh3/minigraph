@@ -100,6 +100,8 @@ int mg_gchain_flt_sub(float pri_ratio, int min_diff, int best_n, int n, mg_gchai
 void mg_gchain_drop_flt(void *km, mg_gchains_t *gcs);
 void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int qlen, int max_mini, int min_gc_score);
 
+void mg_count_cov_simple(const gfa_t *g, const mg_gchains_t *gt, int32_t min_mapq, int32_t min_blen, int64_t *c_seg, int32_t *c_link);
+
 void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t *lc, const mg128_t *a, const char *qname);
 void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t n_seg, const int32_t *qlens, const char *qname, uint64_t flag, void *km);
 

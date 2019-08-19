@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.3-r249-dirty"
+#define MG_VERSION "0.3-r251-dirty"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -16,6 +16,7 @@
 #define MG_M_VERTEX_COOR  0x800
 #define MG_M_ALL_CHAINS   0x1000
 #define MG_M_PRINT_2ND    0x2000
+#define MG_M_CAL_COV      0x4000
 #define MG_M_COPY_COMMENT 0x10000
 #define MG_M_INDEPEND_SEG 0x20000
 #define MG_M_NO_QUAL      0x40000
@@ -52,6 +53,8 @@ typedef struct {
 	int sub_diff;
 	int best_n;
 	float pri_ratio;
+
+	int min_cov_mapq, min_cov_blen;
 } mg_mapopt_t;
 
 typedef struct {
@@ -133,7 +136,7 @@ mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b
 
 // high-level mapping APIs
 int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
-int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads);
+int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads, int64_t *c_seg, int32_t *c_link);
 
 // graph generation
 int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);

@@ -50,6 +50,8 @@ void gfa_arc_rm(gfa_t *g);
 void gfa_cleanup(gfa_t *g); // permanently delete arcs marked as deleted, sort and then index
 void gfa_finalize(gfa_t *g);
 
+void gfa_print_with_count(const gfa_t *g, FILE *fp, int flag, int n_sample, const int64_t *c_seg, const int32_t *c_link);
+
 // assembly related routines
 int gfa_arc_del_trans(gfa_t *g, int fuzz); // transitive reduction
 int gfa_arc_del_short(gfa_t *g, float drop_ratio); // delete short arcs
@@ -75,6 +77,15 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 gfa_sfa_t *gfa_gfa2sfa(const gfa_t *g, int32_t *n_sfa_, int32_t write_seq);
 
 void gfa_blacklist_print(const gfa_t *g, FILE *fp, int32_t min_len); // FIXME: doesn't work with translocations
+
+static inline int64_t gfa_find_arc(const gfa_t *g, uint32_t v, uint32_t w)
+{
+	uint32_t i, nv = gfa_arc_n(g, v), nw = 0, k = (uint32_t)-1;
+	gfa_arc_t *av = gfa_arc_a(g, v);
+	for (i = 0; i < nv; ++i)
+		if (av[i].w == w) ++nw, k = i;
+	return nw != 1? -1LL : (int64_t)(&av[k] - g->arc);
+}
 
 #ifdef __cplusplus
 }

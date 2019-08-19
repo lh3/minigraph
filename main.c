@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "mgpriv.h"
+#include "gfa-priv.h"
 #include "sys.h"
 #include "ketopt.h"
 
@@ -34,6 +35,7 @@ static ko_longopt_t long_options[] = {
 	{ "no-comp-path", ko_no_argument,       312 },
 	{ "gg-match-pen", ko_required_argument, 313 },
 	{ "frag",         ko_no_argument,       314 },
+	{ "cov",          ko_no_argument,       315 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -129,6 +131,7 @@ int main(int argc, char *argv[])
 		else if (c == 312) opt.flag |= MG_M_NO_COMP_PATH;     // --no-comp-path
 		else if (c == 313) gpt.match_pen = atoi(o.arg);       // --gg-match-pen
 		else if (c == 314) opt.flag |= MG_M_FRAG_MODE | MG_M_FRAG_MERGE; // --frag
+		else if (c == 315) opt.flag |= MG_M_CAL_COV;          // --cov
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
@@ -215,6 +218,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[M::%s::%.3f*%.2f] loaded the graph from \"%s\"\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), argv[o.ind]);
 
 	if (gpt.algo == MG_G_NONE) {
+		int32_t n_sample, *c_link = 0;
+		int64_t *c_seg = 0;
 		gi = mg_index(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);
 		if (gi == 0) {
 			fprintf(stderr, "[ERROR] failed to create the index for the graph\n");
@@ -223,13 +228,23 @@ int main(int argc, char *argv[])
 		mg_opt_update(gi, &opt, 0);
 		if (mg_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] indexed the graph\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0));
+		if (opt.flag & MG_M_CAL_COV) {
+			c_seg = (int64_t*)calloc(gi->g->n_seg, 8);
+			c_link = (int32_t*)calloc(gi->g->n_arc, 4);
+		}
 		if (opt.flag & MG_M_FRAG_MODE) {
-			mg_map_file_frag(gi, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_threads);
+			n_sample = 1;
+			mg_map_file_frag(gi, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_threads, c_seg, c_link);
 		} else {
+			n_sample = argc - (o.ind + 1);
 			for (i = o.ind + 1; i < argc; ++i)
-				mg_map_file(gi, argv[i], &opt, n_threads);
+				mg_map_file_frag(gi, 1, (const char**)&argv[i], &opt, n_threads, c_seg, c_link);
 		}
 		mg_idx_destroy(gi);
+		if (opt.flag & MG_M_CAL_COV) {
+			gfa_print_with_count(g, stdout, 0, n_sample, c_seg, c_link);
+			free(c_seg); free(c_link);
+		}
 	} else {
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_ggen(g, argv[i], &ipt, &opt, &gpt, n_threads);

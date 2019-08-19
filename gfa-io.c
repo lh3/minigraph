@@ -333,7 +333,7 @@ gfa_t *gfa_read(const char *fn)
 	return g;
 }
 
-void gfa_print(const gfa_t *g, FILE *fp, int flag)
+void gfa_print_with_count(const gfa_t *g, FILE *fp, int flag, int n_sample, const int64_t *c_seg, const int32_t *c_link)
 {
 	uint32_t i;
 	uint64_t k;
@@ -348,6 +348,10 @@ void gfa_print(const gfa_t *g, FILE *fp, int flag)
 			fprintf(fp, "\tSN:Z:%s\tSO:i:%d", g->sseq[s->snid].name, s->soff);
 		if (s->rank >= 0)
 			fprintf(fp, "\tSR:i:%d", s->rank);
+		if (n_sample > 0 && c_seg) {
+			// TODO: check existing CV tags
+			fprintf(fp, "\tCV:f:%.4f", (double)c_seg[i] / n_sample / s->len);
+		}
 		if (s->aux.l_aux > 0) {
 			char *t = 0;
 			int max = 0;
@@ -379,6 +383,10 @@ void gfa_print(const gfa_t *g, FILE *fp, int flag)
 		if (a->rank >= 0) fprintf(fp, "\tSR:i:%d", a->rank);
 		fprintf(fp, "\tL1:i:%d", gfa_arc_len(*a));
 		fprintf(fp, "\tL2:i:%d", gfa_arc_lw(g, *a));
+		if (n_sample > 0 && c_link) {
+			// TODO: check existing CV tags
+			fprintf(fp, "\tCV:f:%.4f", (double)c_link[k] / n_sample);
+		}
 		if (aux->l_aux) {
 			char *t = 0;
 			int max = 0;
@@ -388,4 +396,9 @@ void gfa_print(const gfa_t *g, FILE *fp, int flag)
 		}
 		fputc('\n', fp);
 	}
+}
+
+void gfa_print(const gfa_t *g, FILE *fp, int flag)
+{
+	gfa_print_with_count(g, fp, flag, 0, 0, 0);
 }
