@@ -84,7 +84,7 @@ static inline int64_t gfa_find_arc(const gfa_t *g, uint32_t v, uint32_t w)
 	gfa_arc_t *av = gfa_arc_a(g, v);
 	for (i = 0; i < nv; ++i)
 		if (av[i].w == w) ++nw, k = i;
-	return nw != 1? -1LL : (int64_t)(&av[k] - g->arc);
+	return nw == 1? (int64_t)(&av[k] - g->arc) : nw == 0? -1 : -2;
 }
 
 #ifdef __cplusplus

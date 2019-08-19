@@ -27,7 +27,13 @@ void mg_count_cov_simple(const gfa_t *g, const mg_gchains_t *gt, int32_t min_map
 			int64_t a01, a10;
 			a01 = gfa_find_arc(g, lc0->v, lc1->v);
 			a10 = gfa_find_arc(g, lc1->v^1, lc0->v^1);
-			assert(a01 >= 0 && a10 >= 0);
+			if (a01 < 0 || a10 < 0) {
+				if (mg_verbose >= 2)
+					fprintf(stderr, "[W] Multi/disconnected link: %c%s[%d] -> %c%s[%d] (%ld,%ld). Continue anyway!\n",
+							"><"[lc0->v&1], g->seg[lc0->v>>1].name, lc0->v,
+							"><"[lc1->v&1], g->seg[lc1->v>>1].name, lc1->v, (long)a01, (long)a10);
+				continue;
+			}
 			assert((g->arc[a01].comp ^ g->arc[a10].comp) == 1);
 			if (c_link) ++c_link[g->arc[a01].comp == 0? a01 : a10];
 		}
