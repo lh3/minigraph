@@ -129,7 +129,7 @@ int32_t gfa_name2id(const gfa_t *g, const char *name)
 	return k == kh_end(h)? -1 : kh_val(h, k);
 }
 
-gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp)
+gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t aux_id, int comp)
 {
 	gfa_arc_t *a;
 	if (g->m_arc == g->n_arc) {
@@ -143,8 +143,8 @@ gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow
 	a = &g->arc[g->n_arc++];
 	a->v_lv = (uint64_t)v << 32;
 	a->w = w, a->ov = ov, a->ow = ow, a->rank = -1;
-	a->link_id = link_id >= 0? link_id : g->n_arc - 1;
-	if (link_id >= 0) a->rank = g->arc[link_id].rank;
+	a->aux_id = aux_id >= 0? aux_id : g->n_arc - 1;
+	if (aux_id >= 0) a->rank = g->arc[aux_id].rank; // TODO: this is not always correct!
 	a->del = 0;
 	a->comp = comp;
 	return a;
@@ -257,13 +257,13 @@ uint32_t gfa_fix_symm(gfa_t *g)
 				if (awj->del || awj->comp) continue;
 				if (awj->w == (v^1) && awj->ov == avi->ow && awj->ow == avi->ov) { // complement found
 					awj->comp = 1;
-					awj->link_id = avi->link_id;
+					awj->aux_id = avi->aux_id;
 					break;
 				}
 			}
 			if (j == nw) {
 				gfa_arc_t *arc_old = g->arc, *arc_new;
-				arc_new = gfa_add_arc1(g, avi->w^1, v^1, avi->ow, avi->ov, avi->link_id, 1);
+				arc_new = gfa_add_arc1(g, avi->w^1, v^1, avi->ow, avi->ov, avi->aux_id, 1);
 				if (arc_old != g->arc) av = gfa_arc_a(g, v); // g->arc may be reallocated
 				arc_new->rank = av[i].rank;
 			}

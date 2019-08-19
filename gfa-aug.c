@@ -20,7 +20,7 @@ static inline void create_first_arc_semi(gfa_t *g, const gfa_seg_t *seg, uint32_
 	a->w = w;
 	a->rank = rank;
 	a->ov = a->ow = 0;
-	a->link_id = g->n_arc - 1;
+	a->aux_id = g->n_arc - 1;
 	a->del = 0;
 	a->comp = !!is_comp;
 }
