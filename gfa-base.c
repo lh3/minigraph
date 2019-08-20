@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <assert.h>
 #include <ctype.h>
 #include "gfa-priv.h"
 
@@ -308,16 +309,16 @@ void gfa_cleanup(gfa_t *g)
 
 int32_t gfa_check_multi(const gfa_t *g)
 {
-	uint32_t v;
+	uint32_t v, n_vtx = gfa_n_vtx(g);
 	int32_t max_nv = -1, n_multi = 0;
 	uint64_t *buf; // actually, uint32_t is enough
-	for (v = 0; v < g->n_seg<<1; ++v) {
+	for (v = 0; v < n_vtx; ++v) {
 		int32_t nv = gfa_arc_n(g, v);
 		max_nv = max_nv > nv? max_nv : nv;
 	}
 	if (max_nv == 1) return 0;
 	GFA_MALLOC(buf, max_nv);
-	for (v = 0; v < g->n_seg<<1; ++v) {
+	for (v = 0; v < n_vtx; ++v) {
 		int32_t i, s, nv = gfa_arc_n(g, v);
 		const gfa_arc_t *av = gfa_arc_a(g, v);
 		for (i = 0; i < nv; ++i) buf[i] = av[i].w;
@@ -328,6 +329,55 @@ int32_t gfa_check_multi(const gfa_t *g)
 	}
 	free(buf);
 	return n_multi;
+}
+
+uint32_t gfa_fix_multi(gfa_t *g)
+{
+	uint32_t v, n_vtx = gfa_n_vtx(g), n_rm = 0;
+	int32_t max_nv = -1;
+	uint64_t *buf; // actually, uint32_t is enough
+	for (v = 0; v < n_vtx; ++v) {
+		int32_t nv = gfa_arc_n(g, v);
+		max_nv = max_nv > nv? max_nv : nv;
+	}
+	if (max_nv == 1) return 0;
+	GFA_MALLOC(buf, max_nv);
+	for (v = 0; v < n_vtx; ++v) {
+		int32_t i, j, s, nv = gfa_arc_n(g, v);
+		gfa_arc_t *av = gfa_arc_a(g, v);
+		for (i = 0; i < nv; ++i) buf[i] = (uint64_t)av[i].w<<32|i;
+		radix_sort_gfa64(buf, buf + nv);
+		for (s = 0, i = 1; i <= nv; ++i) {
+			if (i == nv || buf[i]>>32 != buf[s]>>32) {
+				if (i - s > 1) {
+					if (av[s].w == (v^1)) { // a weird loop
+						if (gfa_verbose >= 2)
+							fprintf(stderr, "[W::%s] can't fix multiple edges due to '>v -- <v' involving segment %s\n", __func__, g->seg[v>>1].name);
+					} else {
+						int32_t n_wdel, k = (int32_t)buf[s]; // keep the shortest edge from v
+						int32_t nw = gfa_arc_n(g, av[k].w^1);
+						gfa_arc_t *aw = gfa_arc_a(g, av[k].w^1);
+						uint64_t aux_id = av[k].aux_id;
+						n_rm += i - s - 1;
+						for (j = s + 1; j < i; ++j) av[(int32_t)buf[j]].del = 1;
+						for (j = 0, n_wdel = 0; j < nw; ++j)
+							if (aw[j].w == (v^1) && aw[j].aux_id != aux_id)
+								aw[j].del = 1, ++n_wdel;
+						assert(n_wdel == i - s - 1);
+					}
+				}
+				s = i;
+			}
+		}
+	}
+	free(buf);
+	if (n_rm > 0) {
+		if (gfa_verbose >= 2)
+			fprintf(stderr, "[W::%s] removed %d multiple edges (counting both dual edges)\n", __func__, n_rm);
+		gfa_arc_rm(g);
+		gfa_arc_index(g);
+	}
+	return n_rm;
 }
 
 void gfa_finalize(gfa_t *g)

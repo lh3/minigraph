@@ -51,6 +51,7 @@ void gfa_arc_rm(gfa_t *g);
 void gfa_cleanup(gfa_t *g); // permanently delete arcs marked as deleted, sort and then index
 void gfa_finalize(gfa_t *g);
 int32_t gfa_check_multi(const gfa_t *g);
+uint32_t gfa_fix_multi(gfa_t *g);
 
 void gfa_print_with_count(const gfa_t *g, FILE *fp, int flag, int n_sample, const int64_t *c_seg, const int32_t *c_link);
 
@@ -86,7 +87,7 @@ static inline int64_t gfa_find_arc(const gfa_t *g, uint32_t v, uint32_t w)
 	gfa_arc_t *av = gfa_arc_a(g, v);
 	for (i = 0; i < nv; ++i)
 		if (av[i].w == w) ++nw, k = i;
-	return nw != 1? -1LL : (int64_t)(&av[k] - g->arc);
+	return nw == 1? (int64_t)(&av[k] - g->arc) : nw == 0? -1 : -2;
 }
 
 #ifdef __cplusplus

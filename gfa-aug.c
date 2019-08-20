@@ -153,7 +153,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	// create newly inserted segments
 	for (i = 0, k = n_old_seg; i < n_ins; ++i) {
 		const gfa_ins_t *p = &ins[i];
-		if (p->coff[0] < p->coff[1]) {
+		if (p->coff[0] < p->coff[1]) { // not a pure deletion
 			gfa_seg_t *t = &seg[k];
 			snprintf(buf, 15, "s%d", k + 1);
 			t->name = gfa_strdup(buf);
@@ -169,7 +169,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)k<<1, t->rank);
 			create_first_arc(g, seg, (uint32_t)k<<1, (uint32_t)ins_side[i], t->rank);
 			++k;
-		} else {
+		} else { // a pure deletion
 			create_first_arc(g, seg, ins_side[i]>>32, (uint32_t)ins_side[i], g->max_rank + 1);
 		}
 	}
@@ -188,6 +188,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	GFA_BZERO(&g->arc_aux[n_old_arc], g->m_arc - n_old_arc);
 	gfa_arc_sort(g);
 	gfa_arc_index(g);
+	gfa_fix_multi(g);
 	// k = gfa_fix_symm(g); assert(k == 0); // for debugging; the graph should be symmetric
 }
 
