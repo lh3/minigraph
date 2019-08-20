@@ -154,7 +154,7 @@ void *mg_idx_a2h(void *km, int32_t n_a, mg128_t *a, int suflen, uint64_t **q_, i
 				int k;
 				for (k = 0; k < n; ++k)
 					q[start_q + k] = a[start_a + k].y;
-				radix_sort_64(&q[start_q], &q[start_q + n]); // sort by position; needed as in-place radix_sort_128x() is not stable
+				radix_sort_gfa64(&q[start_q], &q[start_q + n]); // sort by position; needed as in-place radix_sort_128x() is not stable
 				kh_val(h, itr) = (uint64_t)start_q<<32 | n;
 				start_q += n;
 			}

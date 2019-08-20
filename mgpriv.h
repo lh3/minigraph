@@ -106,7 +106,7 @@ void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t 
 void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t n_seg, const int32_t *qlens, const char *qname, uint64_t flag, void *km);
 
 void radix_sort_128x(mg128_t *beg, mg128_t *end);
-void radix_sort_64(uint64_t *beg, uint64_t *end);
+void radix_sort_gfa64(uint64_t *beg, uint64_t *end);
 uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
 
 #ifdef __cplusplus

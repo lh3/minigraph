@@ -23,7 +23,7 @@ int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b, int32_t *s
 	if (st_high) *st_high = -1;
 	if (en_high) *en_high = -1;
 	if (n_b == 0) return 0;
-	radix_sort_64(b, b + n_b);
+	radix_sort_gfa64(b, b + n_b);
 	for (i = 0; i < n_b; ++i)
 		b[i] = b[i]>>32 | b[i]<<32;
 	KMALLOC(km, lis, n_b);

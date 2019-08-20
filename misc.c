@@ -9,7 +9,4 @@ double mg_realtime0;
 #define sort_key_128x(a) ((a).x)
 KRADIX_SORT_INIT(128x, mg128_t, sort_key_128x, 8) 
 
-#define sort_key_64(x) (x)
-KRADIX_SORT_INIT(64, uint64_t, sort_key_64, 8)
-
 KSORT_INIT_GENERIC(uint32_t)

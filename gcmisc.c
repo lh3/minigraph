@@ -87,7 +87,7 @@ void mg_gchain_set_parent(void *km, float mask_level, int n, mg_gchain_t *r, int
 			goto set_parent_test; // no overlapping primary hits; then i is a new primary hit
 		} else if (n_cov > 0) { // there are overlapping primary hits; find the length not covered by existing primary hits
 			int j, x = si;
-			radix_sort_64(cov, cov + n_cov);
+			radix_sort_gfa64(cov, cov + n_cov);
 			for (j = 0; j < n_cov; ++j) {
 				if ((int)(cov[j]>>32) > x) uncov_len += (cov[j]>>32) - x;
 				x = (int32_t)cov[j] > x? (int32_t)cov[j] : x;

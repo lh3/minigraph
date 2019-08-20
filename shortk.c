@@ -130,7 +130,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	KMALLOC(km, dst_group, n_dst);
 	for (i = 0; i < n_dst; ++i) // multiple dst[] may have the same dst[].v. We need to group them first.
 		dst_group[i] = (uint64_t)dst[i].v<<32 | i;
-	radix_sort_64(dst_group, dst_group + n_dst);
+	radix_sort_gfa64(dst_group, dst_group + n_dst);
 
 	h2 = kh_init2(sp2, km); // this hash table keeps all destinations
 	kh_resize(sp2, h2, n_dst * 2);

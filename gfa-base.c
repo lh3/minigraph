@@ -10,6 +10,9 @@ typedef khash_t(seg) seghash_t;
 #define gfa_arc_key(a) ((a).v_lv)
 KRADIX_SORT_INIT(arc, gfa_arc_t, gfa_arc_key, 8)
 
+#define generic_key(x) (x)
+KRADIX_SORT_INIT(gfa64, uint64_t, generic_key, 8)
+
 int gfa_verbose = 2;
 
 gfa_t *gfa_init(void)
@@ -301,6 +304,30 @@ void gfa_cleanup(gfa_t *g)
 		g->idx = 0;
 	}
 	if (g->idx == 0) gfa_arc_index(g);
+}
+
+int32_t gfa_check_multi(const gfa_t *g)
+{
+	uint32_t v;
+	int32_t max_nv = -1, n_multi = 0;
+	uint64_t *buf; // actually, uint32_t is enough
+	for (v = 0; v < g->n_seg<<1; ++v) {
+		int32_t nv = gfa_arc_n(g, v);
+		max_nv = max_nv > nv? max_nv : nv;
+	}
+	if (max_nv == 1) return 0;
+	GFA_MALLOC(buf, max_nv);
+	for (v = 0; v < g->n_seg<<1; ++v) {
+		int32_t i, s, nv = gfa_arc_n(g, v);
+		const gfa_arc_t *av = gfa_arc_a(g, v);
+		for (i = 0; i < nv; ++i) buf[i] = av[i].w;
+		radix_sort_gfa64(buf, buf + nv);
+		for (s = 0, i = 1; i <= nv; ++i)
+			if (i == nv || buf[i] != buf[s])
+				n_multi += i - s - 1, s = i;
+	}
+	free(buf);
+	return n_multi;
 }
 
 void gfa_finalize(gfa_t *g)

@@ -330,6 +330,10 @@ gfa_t *gfa_read(const char *fn)
 	gfa_finalize(g);
 	ks_destroy(ks);
 	gzclose(fp);
+	if ((dret = gfa_check_multi(g))) {
+		if (gfa_verbose >= 2)
+			fprintf(stderr, "[W] the input graph has %d multiple edges (including dual edges)\n", dret);
+	}
 	return g;
 }
 
