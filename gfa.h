@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define GFA_VERSION "0.2-r65-dirty"
+#define GFA_VERSION "0.2-r67-dirty"
 
 #define GFA_O_OV_EXT   0x1
 #define GFA_O_NO_SEQ   0x2
@@ -35,7 +35,7 @@ typedef struct {
 	uint32_t w;
 	int32_t rank;
 	int32_t ov, ow;
-	uint64_t aux_id:62, del:1, comp:1;
+	uint64_t link_id:62, del:1, comp:1; // link_id: a pair of dual arcs are supposed to have the same link_id
 } gfa_arc_t;
 
 #define gfa_arc_head(a) ((uint32_t)((a).v_lv>>32))
@@ -95,7 +95,7 @@ typedef struct {
 	// links
 	uint64_t m_arc, n_arc:62, is_srt:1, is_symm:1;
 	gfa_arc_t *arc;
-	gfa_aux_t *arc_aux;
+	gfa_aux_t *link_aux;
 	uint64_t *idx;
 } gfa_t;
 

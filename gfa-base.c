@@ -47,8 +47,8 @@ void gfa_destroy(gfa_t *g)
 	for (i = 0; i < g->n_sseq; ++i) free(g->sseq[i].name);
 	kh_destroy(seg, (seghash_t*)g->h_snames);
 	for (k = 0; k < g->n_arc; ++k)
-		free(g->arc_aux[k].aux);
-	free(g->idx); free(g->seg); free(g->arc); free(g->arc_aux); free(g->sseq);
+		free(g->link_aux[k].aux);
+	free(g->idx); free(g->seg); free(g->arc); free(g->link_aux); free(g->sseq);
 	free(g);
 }
 
@@ -133,7 +133,7 @@ int32_t gfa_name2id(const gfa_t *g, const char *name)
 	return k == kh_end(h)? -1 : kh_val(h, k);
 }
 
-gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t aux_id, int comp)
+gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow, int64_t link_id, int comp)
 {
 	gfa_arc_t *a;
 	if (g->m_arc == g->n_arc) {
@@ -141,14 +141,14 @@ gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow
 		g->m_arc = g->m_arc? g->m_arc<<1 : 16;
 		g->arc = (gfa_arc_t*)realloc(g->arc, g->m_arc * sizeof(gfa_arc_t));
 		memset(&g->arc[old_m], 0, (g->m_arc - old_m) * sizeof(gfa_arc_t));
-		g->arc_aux = (gfa_aux_t*)realloc(g->arc_aux, g->m_arc * sizeof(gfa_aux_t));
-		memset(&g->arc_aux[old_m], 0, (g->m_arc - old_m) * sizeof(gfa_aux_t));
+		g->link_aux = (gfa_aux_t*)realloc(g->link_aux, g->m_arc * sizeof(gfa_aux_t));
+		memset(&g->link_aux[old_m], 0, (g->m_arc - old_m) * sizeof(gfa_aux_t));
 	}
 	a = &g->arc[g->n_arc++];
 	a->v_lv = (uint64_t)v << 32;
 	a->w = w, a->ov = ov, a->ow = ow, a->rank = -1;
-	a->aux_id = aux_id >= 0? aux_id : g->n_arc - 1;
-	if (aux_id >= 0) a->rank = g->arc[aux_id].rank; // TODO: this is not always correct!
+	a->link_id = link_id >= 0? link_id : g->n_arc - 1;
+	if (link_id >= 0) a->rank = g->arc[link_id].rank; // TODO: this is not always correct!
 	a->del = 0;
 	a->comp = comp;
 	return a;
@@ -261,13 +261,13 @@ uint32_t gfa_fix_symm(gfa_t *g)
 				if (awj->del || awj->comp) continue;
 				if (awj->w == (v^1) && awj->ov == avi->ow && awj->ow == avi->ov) { // complement found
 					awj->comp = 1;
-					awj->aux_id = avi->aux_id;
+					awj->link_id = avi->link_id;
 					break;
 				}
 			}
 			if (j == nw) {
 				gfa_arc_t *arc_old = g->arc, *arc_new;
-				arc_new = gfa_add_arc1(g, avi->w^1, v^1, avi->ow, avi->ov, avi->aux_id, 1);
+				arc_new = gfa_add_arc1(g, avi->w^1, v^1, avi->ow, avi->ov, avi->link_id, 1);
 				if (arc_old != g->arc) av = gfa_arc_a(g, v); // g->arc may be reallocated
 				arc_new->rank = av[i].rank;
 			}
@@ -365,12 +365,12 @@ uint32_t gfa_fix_multi(gfa_t *g)
 					} else {
 						int32_t nw = gfa_arc_n(g, av[k].w^1), n_wdel;
 						gfa_arc_t *aw = gfa_arc_a(g, av[k].w^1);
-						uint64_t aux_id = av[k].aux_id;
+						uint64_t link_id = av[k].link_id;
 						n_rm += i - s - 1;
 						for (j = s + 1; j < i; ++j)
 							av[(int32_t)buf[j]].del = 1;
 						for (j = 0, n_wdel = 0; j < nw; ++j)
-							if (aw[j].w == (v^1) && aw[j].aux_id != aux_id)
+							if (aw[j].w == (v^1) && aw[j].link_id != link_id)
 								aw[j].del = 1, ++n_wdel;
 						assert(n_wdel == i - s - 1);
 					}

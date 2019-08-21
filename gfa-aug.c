@@ -11,7 +11,7 @@ typedef struct {
 #define split_key(p) ((p).side)
 KRADIX_SORT_INIT(split, gfa_split_t, split_key, 4)
 
-static inline void create_first_arc_semi(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w, int32_t rank, uint64_t aux_id, int is_comp)
+static inline void create_first_arc_semi(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w, int32_t rank, uint64_t link_id, int is_comp)
 {
 	gfa_arc_t *a;
 	if (g->n_arc == g->m_arc) GFA_EXPAND(g->arc, g->m_arc);
@@ -20,16 +20,16 @@ static inline void create_first_arc_semi(gfa_t *g, const gfa_seg_t *seg, uint32_
 	a->w = w;
 	a->rank = rank;
 	a->ov = a->ow = 0;
-	a->aux_id = aux_id;
+	a->link_id = link_id;
 	a->del = 0;
 	a->comp = !!is_comp;
 }
 
 static inline void create_first_arc(gfa_t *g, const gfa_seg_t *seg, uint32_t v, uint32_t w, int32_t rank)
 {
-	uint64_t aux_id = g->n_arc - 1;
-	create_first_arc_semi(g, seg, v,   w,   rank, aux_id, 0);
-	create_first_arc_semi(g, seg, w^1, v^1, rank, aux_id, 1);
+	uint64_t link_id = g->n_arc;
+	create_first_arc_semi(g, seg, v,   w,   rank, link_id, 0);
+	create_first_arc_semi(g, seg, w^1, v^1, rank, link_id, 1);
 }
 
 void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, const char *const* name, const char *const* seq)
@@ -185,8 +185,8 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	free(g->seg);
 	g->seg = seg, g->n_seg = g->m_seg = n_seg;
 	++g->max_rank;
-	GFA_REALLOC(g->arc_aux, g->m_arc);
-	GFA_BZERO(&g->arc_aux[n_old_arc], g->m_arc - n_old_arc);
+	GFA_REALLOC(g->link_aux, g->m_arc);
+	GFA_BZERO(&g->link_aux[n_old_arc], g->m_arc - n_old_arc);
 	gfa_arc_sort(g);
 	gfa_arc_index(g);
 	gfa_fix_multi(g);

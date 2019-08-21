@@ -231,7 +231,7 @@ int gfa_parse_L(gfa_t *g, char *s)
 		arc = gfa_add_arc1(g, v, w, ov, ow, -1, 0);
 		l_aux = gfa_aux_parse(rest, &aux, &m_aux); // parse optional tags
 		if (l_aux) {
-			gfa_aux_t *a = &g->arc_aux[arc->aux_id];
+			gfa_aux_t *a = &g->link_aux[arc->link_id];
 			uint8_t *s_L1, *s_L2, *s_SR;
 			a->l_aux = l_aux, a->m_aux = m_aux, a->aux = aux;
 			s_SR = gfa_aux_get(a->l_aux, a->aux, "SR");
@@ -371,7 +371,7 @@ void gfa_print_with_count(const gfa_t *g, FILE *fp, int flag, int n_sample, cons
 	}
 	for (k = 0; k < g->n_arc; ++k) {
 		const gfa_arc_t *a = &g->arc[k];
-		const gfa_aux_t *aux = &g->arc_aux[a->aux_id];
+		const gfa_aux_t *aux = &g->link_aux[a->link_id];
 		if (a->del || a->comp) continue;
 		fprintf(fp, "L\t%s\t%c\t%s\t%c", g->seg[a->v_lv>>33].name, "+-"[a->v_lv>>32&1], g->seg[a->w>>1].name, "+-"[a->w&1]);
 		if (!(flag & GFA_O_OV_EXT)) {
