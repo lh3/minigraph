@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define GFA_VERSION "0.2-r62-dirty"
+#define GFA_VERSION "0.2-r63-dirty"
 
 #define GFA_O_OV_EXT   0x1
 #define GFA_O_NO_SEQ   0x2
