@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 //	char *rg = 0;
 	char *s;
 	FILE *fp_help = stderr;
-	double *cov_seg, *cov_link;
+	double *cov_seg = 0, *cov_link = 0;
 	gfa_t *g;
 	mg_idx_t *gi;
 
