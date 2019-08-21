@@ -221,6 +221,22 @@ int gfa_ins_adj(const gfa_t *g, int pen, gfa_ins_t *ins, const char *seq) // min
 	return tot;
 }
 
+static inline int check_multi(const gfa_t *g, const gfa_ins_t *ins)
+{
+	if (ins->v[0] != ins->v[1] && ins->coff[1] - ins->coff[0] == 0) {
+		const gfa_seg_t *s[2];
+		uint32_t v[2];
+		s[0] = &g->seg[ins->v[0]>>1];
+		s[1] = &g->seg[ins->v[1]>>1];
+		if (ins->voff[0] != 0 && ins->voff[0] != s[0]->len) return 0;
+		if (ins->voff[1] != 0 && ins->voff[1] != s[1]->len) return 0;
+		v[0] = ins->voff[0] == 0? ins->v[0]^1 : ins->v[0];
+		v[1] = ins->voff[1] == 0? ins->v[1] : ins->v[1]^1;
+		if (gfa_find_arc(g, v[0], v[1]) >= 0) return 1;
+		return 0;
+	} else return 0;
+}
+
 int32_t gfa_ins_filter(const gfa_t *g, int32_t n_ins, gfa_ins_t *ins) // filter out impossible inserts
 {
 	int32_t i, k, n;
@@ -232,7 +248,14 @@ int32_t gfa_ins_filter(const gfa_t *g, int32_t n_ins, gfa_ins_t *ins) // filter 
 			if (side == (0<<1|0) || side == (vlen<<1|1))
 				break;
 		}
-		if (k == 2) ins[n++] = ins[i];
+		if (k != 2) continue;
+		if (check_multi(g, p)) {
+			if (gfa_verbose >= 2)
+				fprintf(stderr, "[W::%s] multi-link between %c%s and %c%s derived from the %d-th query\n", __func__,
+						"><"[p->v[0]&1], g->seg[p->v[0]>>1].name, "><"[p->v[1]&1], g->seg[p->v[1]>>1].name, p->ctg);
+			continue;
+		}
+		ins[n++] = ins[i];
 	}
 	return n;
 }
