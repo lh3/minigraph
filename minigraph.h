@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.3-r260-dirty"
+#define MG_VERSION "0.3-r261-dirty"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -28,6 +28,7 @@
 #define MG_G_GGSIMPLE     1
 
 #define MG_G_NO_QOVLP     0x1
+#define MG_G_CAL_COV      0x2
 
 typedef struct { uint64_t x, y; } mg128_t;
 typedef struct { size_t n, m; mg128_t *a; } mg128_v;
@@ -136,10 +137,10 @@ mg_gchains_t *mg_map(const mg_idx_t *gi, int qlen, const char *seq, mg_tbuf_t *b
 
 // high-level mapping APIs
 int mg_map_file(const mg_idx_t *idx, const char *fn, const mg_mapopt_t *opt, int n_threads);
-int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads, int64_t *c_seg, int32_t *c_link);
+int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads, double *c_seg, double *c_link);
 
 // graph generation
-int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads);
+int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads, double *cov_seg, double *cov_link);
 
 #ifdef __cplusplus
 }

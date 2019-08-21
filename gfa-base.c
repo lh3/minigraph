@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include "gfa-priv.h"
+#include "kstring.h"
 
 #include "khash.h"
 KHASH_MAP_INIT_STR(seg, uint32_t)
@@ -441,6 +442,35 @@ int gfa_aux_del(int l_data, uint8_t *data, uint8_t *s)
 	__skip_tag(s);
 	memmove(p, s, l_data - (s - data));
 	return l_data - (s - p);
+}
+
+void gfa_aux_update_f(gfa_aux_t *a, const char tag[2], float x)
+{
+	uint8_t *p = 0;
+	if (a->l_aux > 0)
+		p = gfa_aux_get(a->l_aux, a->aux, "cv");
+	if (p) {
+		memcpy(p + 1, &x, 4);
+	} else {
+		kstring_t str;
+		str.l = a->l_aux, str.m = a->m_aux, str.s = (char*)a->aux;
+		ks_resize(&str, str.l + 7);
+		kputsn_(tag, 2, &str);
+		kputc_('f', &str);
+		kputsn_(&x, 4, &str);
+		a->l_aux = str.l, a->m_aux = str.m, a->aux = (uint8_t*)str.s;
+	}
+}
+
+void gfa_aux_update_cv(gfa_t *g, const double *cov_seg, const double *cov_link)
+{
+	int64_t i;
+	if (cov_seg)
+		for (i = 0; i < g->n_seg; ++i)
+			gfa_aux_update_f(&g->seg[i].aux, "cv", cov_seg[i]);
+	if (cov_link)
+		for (i = 0; i < g->n_arc; ++i)
+			gfa_aux_update_f(&g->link_aux[g->arc[i].link_id], "cv", cov_link[i]);
 }
 
 /*********************

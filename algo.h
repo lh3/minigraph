@@ -24,6 +24,7 @@ int32_t mg_lis_64(void *km, int32_t n, const MG_LIS_TYPE *a, int32_t *b);
 mg_msseg_t *mg_mss_all(void *km, int32_t n, const MG_MSS_TYPE *S, MG_MSS_TYPE min_sc, MG_MSS_TYPE xdrop, int32_t *n_seg);
 int32_t mg_intv_index(int32_t n, mg_intv_t *a);
 int32_t mg_intv_overlap(void *km, int32_t n_a, const mg_intv_t *a, int32_t st, int32_t en, int32_t **b_, int32_t *m_b_);
+void radix_sort_mg_intv(mg_intv_t *st, mg_intv_t *en);
 
 #ifdef __cplusplus
 }

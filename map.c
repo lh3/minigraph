@@ -311,8 +311,7 @@ typedef struct {
 	mg_bseq_file_t **fp;
 	const mg_idx_t *gi;
 	kstring_t str;
-	int64_t *c_seg;
-	int32_t *c_link;
+	double *c_seg, *c_link;
 } pipeline_t;
 
 typedef struct {
@@ -409,7 +408,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				for (i = seg_st; i < seg_en; ++i)
 					qlens[i - seg_st] = s->seq[i].l_seq;
 				if (p->opt->flag & MG_M_CAL_COV)
-					mg_count_cov_simple(p->gi->g, s->gcs[seg_st], p->opt->min_cov_mapq, p->opt->min_cov_blen, p->c_seg, p->c_link, t->name);
+					mg_cov_map(p->gi->g, s->gcs[seg_st], p->opt->min_cov_mapq, p->opt->min_cov_blen, p->c_seg, p->c_link, t->name);
 				else mg_write_gaf(&p->str, p->gi->g, s->gcs[seg_st], seg_en - seg_st, qlens, t->name, p->opt->flag, km);
 				kfree(km, qlens);
 				if (p->str.l) mg_err_fputs(p->str.s, stdout);
@@ -417,7 +416,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				for (i = seg_st; i < seg_en; ++i) {
 					mg_bseq1_t *t = &s->seq[i];
 					if (p->opt->flag & MG_M_CAL_COV)
-						mg_count_cov_simple(p->gi->g, s->gcs[i], p->opt->min_cov_mapq, p->opt->min_cov_blen, p->c_seg, p->c_link, t->name);
+						mg_cov_map(p->gi->g, s->gcs[i], p->opt->min_cov_mapq, p->opt->min_cov_blen, p->c_seg, p->c_link, t->name);
 					else mg_write_gaf(&p->str, p->gi->g, s->gcs[i], 1, &t->l_seq, t->name, p->opt->flag, km);
 					if (p->str.l) mg_err_fputs(p->str.s, stdout);
 				}
@@ -456,7 +455,7 @@ static mg_bseq_file_t **open_bseqs(int n, const char **fn)
 	return fp;
 }
 
-int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads, int64_t *c_seg, int32_t *c_link)
+int mg_map_file_frag(const mg_idx_t *idx, int n_segs, const char **fn, const mg_mapopt_t *opt, int n_threads, double *c_seg, double *c_link)
 {
 	int i, pl_threads;
 	pipeline_t pl;

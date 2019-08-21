@@ -26,7 +26,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	s->gcs[i] = mg_map(s->gi, s->seq[i].l_seq, s->seq[i].seq, s->buf[tid], s->opt, s->seq[i].name);
 }
 
-int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads)
+int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads, double *cov_seg, double *cov_link)
 {
 	int i;
 	mg_bseq_file_t *fp;
@@ -60,7 +60,10 @@ int mg_ggen(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t 
 	for (i = 0; i < n_threads; ++i) mg_tbuf_destroy(s->buf[i]);
 	free(s->buf);
 
-	mg_ggsimple(0, go, g, s->n_seq, s->seq, s->gcs);
+	if (go->flag & MG_G_CAL_COV)
+		mg_cov_asm(g, s->n_seq, s->gcs, go->min_mapq, go->min_map_len, cov_seg, cov_link);
+	else
+		mg_ggsimple(0, go, g, s->n_seq, s->seq, s->gcs);
 
 	// free the rest
 	for (i = 0; i < s->n_seq; ++i) {
