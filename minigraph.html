@@ -202,6 +202,14 @@ Retain all chains and don&#146;t attempt to set primary chains. Options
 Mark as secondary a chain that overlaps with a better chain by
 <I>FLOAT</I> or more of the shorter chain [0.5]
 </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--min-cov-blen</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Minimum alignment block length to count [1k]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--min-cov-mapq</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Minimum mapping quality to count [20]
+</TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=6></A>
 
@@ -255,6 +263,17 @@ Graph generation algorithm. So far only a
 loaded into memory.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
+<B>--cov</B> </TD><TD valign=bottom>
+Remap and generate segment and link use frequencies. This option triggers GFA
+output. When used with
+<B>--ggen</B>, minigraph writes the frequency of link uses and the average breadth of coverage
+of each segment to the
+<B>cf</B> tag. When used without
+<B>--ggen</B>, minigraph writes the count of link uses and the average depth of coverage of
+each segment to the
+<B>dc</B> tag.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
 <B>-l</B><I> NUM</I> </TD><TD valign=bottom>
 Minimum chain length to consider [50k]
 </TD></TR>
@@ -293,17 +312,17 @@ on the command line will always override values set by
 <TR valign=top><TD width=8% nowrap>
 <B>lr</B> </TD><TD valign=bottom>
 Mapping noisy long reads
-(<B>-k15</B> <B>-w10 -g5k</B> <B>-r2k</B>). This is the same as the default setting.
+(<B>-k15</B> <B>-w10 -g5k -r2k</B> <B>--min-cov-blen=1000</B>). This is the same as the default setting.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
-<B>se</B> </TD><TD valign=bottom>
-Mapping short single-end reads
-(<B>-k21</B> <B>-w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes</B> <B>-K50m</B>). Paired-end mapping is not supported.
+<B>sr</B> </TD><TD valign=bottom>
+Mapping short single-end or paired-end reads
+(<B>-k21</B> <B>-w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes -K50m --frag</B> <B>--min-cov-blen=50</B>). Paired-end mapping is not supported.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>asm20</B> </TD><TD valign=bottom>
 Mapping long contigs or high-quality CCS reads
-(<B>-k19</B> <B>-w10 -g10k -r10k -n5,3</B> <B>-m1000,40</B>). </TD></TR>
+(<B>-k19</B> <B>-w10 -g10k -r10k -n5,3 -m1000,40</B> <B>--min-cov-blen=50k</B>). </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>ggs</B> </TD><TD valign=bottom>
 Simple algorithm for incremental graph generation
@@ -320,7 +339,7 @@ Simple algorithm for incremental graph generation
 <B>--no-kalloc</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Use the libc default allocator instead of the kalloc thread-local allocator.
 This debugging option is mostly used with Valgrind to detect invalid memory
-accesses. Minimap2 runs slower with this option, especially in the
+accesses. Minigraph runs slower with this option, especially in the
 multi-threading mode.
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
@@ -369,7 +388,7 @@ When alignment is available, column 11 gives the total number of sequence
 matches, mismatches and gaps in the alignment; column 10 divided by column 11
 gives the BLAST-like alignment identity. When alignment is unavailable,
 these two columns are approximate. PAF may optionally have additional fields in
-the SAM-like typed key-value format. Minimap2 may output the following tags:
+the SAM-like typed key-value format. Minigraph may output the following tags:
 <P><BLOCKQUOTE><div id='tbl'><TABLE border=1 cellspacing=0 cellpadding=3>
 <TR valign=top>
 <TD align=center><B>Tag</B></TD><TD align=center><B>Type</B></TD><TD align=center><B>Description</B></TD></TR>
@@ -384,6 +403,12 @@ the SAM-like typed key-value format. Minimap2 may output the following tags:
 <TD align=right>s2</TD><TD align=center>i</TD><TD>Chaining score of the best secondary chain</TD></TR>
 <TR valign=top>
 <TD align=right>dv</TD><TD align=center>f</TD><TD>Approximate per-base sequence divergence</TD></TR>
+<TR valign=top>
+<TD align=right>cf</TD><TD align=center>f</TD><TD>Avg. segment breadth of coverage and link use freq</TD></TR>
+<TR valign=top>
+<TD align=right>dc</TD><TD align=center>f</TD><TD>Avg. segment depth of coverage and link use counts</TD></TR>
+<TR valign=top>
+<TD align=right>ql</TD><TD align=center>B,i</TD><TD>Lengths of single-end reads</TD></TR>
 </TABLE></div></BLOCKQUOTE>
 <P>
 </BLOCKQUOTE>
@@ -431,4 +456,4 @@ more complex events. Other strategies may be explored in future.
 minimap2(1), gfatools(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minigraph-0.2 (r225)</I></TD> <TD width=33% align=center>minigraph (1)</TD> <TD align=right width=33%><I>18 July 2019</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minigraph-0.4 (r264)</I></TD> <TD width=33% align=center>minigraph (1)</TD> <TD align=right width=33%><I>21 August 2019</I></TD> </TR></TABLE></div></BODY></HTML>
