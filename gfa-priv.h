@@ -79,7 +79,7 @@ gfa_sfa_t *gfa_gfa2sfa(const gfa_t *g, int32_t *n_sfa_, int32_t write_seq);
 
 void gfa_blacklist_print(const gfa_t *g, FILE *fp, int32_t min_len); // FIXME: doesn't work with translocations
 
-void gfa_aux_update_cv(gfa_t *g, const double *cov_seg, const double *cov_link);
+void gfa_aux_update_cv(gfa_t *g, const char *tag, const double *cov_seg, const double *cov_link);
 
 static inline int64_t gfa_find_arc(const gfa_t *g, uint32_t v, uint32_t w)
 {

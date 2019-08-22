@@ -36,6 +36,8 @@ static ko_longopt_t long_options[] = {
 	{ "gg-match-pen", ko_required_argument, 313 },
 	{ "frag",         ko_no_argument,       314 },
 	{ "cov",          ko_no_argument,       315 },
+	{ "min-cov-blen", ko_required_argument, 316 },
+	{ "min-cov-mapq", ko_required_argument, 317 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -133,6 +135,8 @@ int main(int argc, char *argv[])
 		else if (c == 313) gpt.match_pen = atoi(o.arg);       // --gg-match-pen
 		else if (c == 314) opt.flag |= MG_M_FRAG_MODE | MG_M_FRAG_MERGE;       // --frag
 		else if (c == 315) opt.flag |= MG_M_CAL_COV, gpt.flag |= MG_G_CAL_COV; // --cov
+		else if (c == 316) opt.min_cov_blen = mg_parse_num(o.arg);             // --min-cov-blen
+		else if (c == 317) opt.min_cov_mapq = atoi(o.arg);                     // --min-cov-mapq
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
@@ -193,6 +197,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -m INT[,INT] minimal graph/linear chaining score [%d,%d]\n", opt.min_gc_score, opt.min_lc_score);
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(fp_help, "    -N INT       retain at most INT secondary mappings [%d]\n", opt.best_n);
+		fprintf(fp_help, "    --cov        remap and generate segment and link use frequencies; output GFA\n");
 		fprintf(fp_help, "  Graph generation:\n");
 		fprintf(fp_help, "    --ggen       perform incremental graph generation\n");
 		fprintf(fp_help, "    -q INT       min mapping quality [%d]\n", gpt.min_mapq);
@@ -241,10 +246,6 @@ int main(int argc, char *argv[])
 		mg_idx_destroy(gi);
 	} else {
 		int32_t n_sample = argc - (o.ind + 1);
-		if (gpt.flag & MG_G_CAL_COV) {
-			GFA_CALLOC(cov_seg, g->n_seg);
-			GFA_CALLOC(cov_link, g->n_arc);
-		}
 		for (i = o.ind + 1; i < argc; ++i)
 			mg_ggen(g, argv[i], &ipt, &opt, &gpt, n_threads, cov_seg, cov_link);
 		if (gpt.flag & MG_G_CAL_COV) { // normalize by the number of samples
@@ -255,11 +256,12 @@ int main(int argc, char *argv[])
 	}
 
 	if ((opt.flag & MG_M_CAL_COV) || (gpt.flag & MG_G_CAL_COV)) {
-		gfa_aux_update_cv(g, cov_seg, cov_link);
+		gfa_aux_update_cv(g, gpt.algo == MG_G_NONE? "dc" : "cf", cov_seg, cov_link);
 		free(cov_seg); free(cov_link);
 	}
 
-	gfa_print(g, stdout, 0);
+	if (gpt.algo != MG_G_NONE || (opt.flag & MG_M_CAL_COV))
+		gfa_print(g, stdout, 0);
 	gfa_destroy(g);
 
 	if (fflush(stdout) == EOF) {

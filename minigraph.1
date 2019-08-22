@@ -1,4 +1,4 @@
-.TH minigraph 1 "16 August 2019" "minigraph-0.3-dirty (r249)" "Bioinformatics tools"
+.TH minigraph 1 "21 August 2019" "minigraph-0.4 (r264)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -104,6 +104,12 @@ have no effect when this option is in use.
 Mark as secondary a chain that overlaps with a better chain by
 .I FLOAT
 or more of the shorter chain [0.5]
+.TP
+.BI --min-cov-blen \ NUM
+Minimum alignment block length to count [1k]
+.TP
+.BI --min-cov-mapq \ INT
+Minimum mapping quality to count [20]
 .SS Input/output options
 .TP 10
 .BI -o \ FILE
@@ -143,6 +149,20 @@ Graph generation algorithm. So far only a
 algorithm is implemented [simple]. With this option, all query sequences are
 loaded into memory.
 .TP
+.B --cov
+Remap and generate segment and link use frequencies. This option triggers GFA
+output. When used with
+.BR --ggen ,
+minigraph writes the frequency of link uses and the average breadth of coverage
+of each segment to the
+.B cf
+tag. When used without
+.BR --ggen ,
+minigraph writes the count of link uses and the average depth of coverage of
+each segment to the
+.B dc
+tag.
+.TP
 .BI -l \ NUM
 Minimum chain length to consider [50k]
 .TP
@@ -171,22 +191,22 @@ are:
 .B lr
 Mapping noisy long reads
 .RB ( -k15
-.B -w10 -g5k
-.BR -r2k ).
+.B -w10 -g5k -r2k
+.BR --min-cov-blen=1000 ).
 This is the same as the default setting.
 .TP
 .B sr
 Mapping short single-end or paired-end reads
 .RB ( -k21
-.B -w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes --frag
-.BR -K50m ).
+.B -w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes -K50m --frag
+.BR --min-cov-blen=50 ).
 Paired-end mapping is not supported.
 .TP
 .B asm20
 Mapping long contigs or high-quality CCS reads
 .RB ( -k19
-.B -w10 -g10k -r10k -n5,3
-.BR -m1000,40 ).
+.B -w10 -g10k -r10k -n5,3 -m1000,40
+.BR --min-cov-blen=50k ).
 .TP
 .B ggs
 Simple algorithm for incremental graph generation
@@ -243,6 +263,8 @@ cm	i	Number of minimizers on the chain
 s1	i	Chaining score
 s2	i	Chaining score of the best secondary chain
 dv	f	Approximate per-base sequence divergence
+cf	f	Avg. segment breadth of coverage and link use freq
+dc	f	Avg. segment depth of coverage and link use counts
 ql	B,i	Lengths of single-end reads
 .TE
 

@@ -462,15 +462,16 @@ void gfa_aux_update_f(gfa_aux_t *a, const char tag[2], float x)
 	}
 }
 
-void gfa_aux_update_cv(gfa_t *g, const double *cov_seg, const double *cov_link)
+void gfa_aux_update_cv(gfa_t *g, const char *tag, const double *cov_seg, const double *cov_link)
 {
 	int64_t i;
 	if (cov_seg)
 		for (i = 0; i < g->n_seg; ++i)
-			gfa_aux_update_f(&g->seg[i].aux, "cv", cov_seg[i]);
+			gfa_aux_update_f(&g->seg[i].aux, tag, cov_seg[i]);
 	if (cov_link)
 		for (i = 0; i < g->n_arc; ++i)
-			gfa_aux_update_f(&g->link_aux[g->arc[i].link_id], "cv", cov_link[i]);
+			if (g->arc[i].comp == 0)
+				gfa_aux_update_f(&g->link_aux[g->arc[i].link_id], tag, cov_link[i]);
 }
 
 /*********************

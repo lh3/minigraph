@@ -1,3 +1,21 @@
+Release 0.4-r264 (21 August 2019)
+---------------------------------
+
+Notable changes:
+
+ * Support paired-end mapping for short reads.
+
+ * Fixed multiple edges in the generated graphs.
+
+ * Remap and calculate coverage (see the new --cov option in the manpage).
+
+On the 14-genome dataset, this release produces a graph identical to the one
+produced by v0.3, except the removal of one multiple edge.
+
+(21 August 2019, r264)
+
+
+
 Release 0.3-r243 (7 August 2019)
 --------------------------------
 
