@@ -3,6 +3,7 @@
 #include "khash.h"
 #include "kthread.h"
 #include "kvec.h"
+#include "sys.h"
 
 #define idx_hash(a) ((a)>>1)
 #define idx_eq(a, b) ((a)>>1 == (b)>>1)
@@ -184,7 +185,7 @@ int mg_gfa_overlap(const gfa_t *g)
 	return 0;
 }
 
-mg_idx_t *mg_index(gfa_t *g, int k, int w, int b, int n_threads)
+mg_idx_t *mg_index_core(gfa_t *g, int k, int w, int b, int n_threads)
 {
 	mg_idx_t *gi;
 	mg128_v a = {0,0,0};
@@ -206,5 +207,17 @@ mg_idx_t *mg_index(gfa_t *g, int k, int w, int b, int n_threads)
 	}
 	free(a.a);
 	kt_for(n_threads, worker_post, gi, 1<<gi->b);
+	return gi;
+}
+
+mg_idx_t *mg_index(gfa_t *g, const mg_idxopt_t *io, int n_threads, mg_mapopt_t *mo)
+{
+	mg_idx_t *gi;
+	gi = mg_index_core(g, io->k, io->w, io->bucket_bits, n_threads);
+	if (gi == 0) return 0;
+	if (mg_verbose >= 3)
+		fprintf(stderr, "[M::%s::%.3f*%.2f] indexed the graph\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0));
+	if (mo) mg_opt_update(gi, mo, 0);
 	return gi;
 }

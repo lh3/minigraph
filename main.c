@@ -80,13 +80,10 @@ int main(int argc, char *argv[])
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
 	mg_ggopt_t gpt;
-	int i, c, n_threads = 4;
-//	char *rg = 0;
+	int i, c, ret, n_threads = 4;
 	char *s;
 	FILE *fp_help = stderr;
-	double *cov_seg = 0, *cov_link = 0;
 	gfa_t *g;
-	mg_idx_t *gi;
 
 	mg_verbose = 3;
 	liftrlimit();
@@ -220,44 +217,14 @@ int main(int argc, char *argv[])
 	if (g == 0) {
 		fprintf(stderr, "[ERROR] failed to load the graph from file '%s'\n", argv[o.ind]);
 		return 1;
-	} else if (mg_verbose >= 3)
+	} else if (mg_verbose >= 3) {
 		fprintf(stderr, "[M::%s::%.3f*%.2f] loaded the graph from \"%s\"\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), argv[o.ind]);
-
-	if ((opt.flag & MG_M_CAL_COV) || (gpt.flag & MG_G_CAL_COV)) {
-		GFA_CALLOC(cov_seg, g->n_seg);
-		GFA_CALLOC(cov_link, g->n_arc);
 	}
 
 	if (gpt.algo == MG_G_NONE) {
-		gi = mg_index(g, ipt.k, ipt.w, ipt.bucket_bits, n_threads);
-		if (gi == 0) {
-			fprintf(stderr, "[ERROR] failed to create the index for the graph\n");
-			return 1;
-		}
-		mg_opt_update(gi, &opt, 0);
-		if (mg_verbose >= 3)
-			fprintf(stderr, "[M::%s::%.3f*%.2f] indexed the graph\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0));
-		if (opt.flag & MG_M_FRAG_MODE) {
-			mg_map_file_frag(gi, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_threads, cov_seg, cov_link);
-		} else {
-			for (i = o.ind + 1; i < argc; ++i)
-				mg_map_file_frag(gi, 1, (const char**)&argv[i], &opt, n_threads, cov_seg, cov_link);
-		}
-		mg_idx_destroy(gi);
+		ret = mg_map_files(g, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &ipt, &opt, n_threads);
 	} else {
-		int32_t n_sample = argc - (o.ind + 1);
-		for (i = o.ind + 1; i < argc; ++i)
-			mg_ggen(g, argv[i], &ipt, &opt, &gpt, n_threads, cov_seg, cov_link);
-		if (gpt.flag & MG_G_CAL_COV) { // normalize by the number of samples
-			int64_t j;
-			for (j = 0; j < g->n_seg; ++j) cov_seg[j] /= n_sample;
-			for (j = 0; j < g->n_arc; ++j) cov_link[j] /= n_sample;
-		}
-	}
-
-	if ((opt.flag & MG_M_CAL_COV) || (gpt.flag & MG_G_CAL_COV)) {
-		gfa_aux_update_cv(g, gpt.algo == MG_G_NONE? "dc" : "cf", cov_seg, cov_link);
-		free(cov_seg); free(cov_link);
+		ret = mg_ggen(g, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &ipt, &opt, &gpt, n_threads);
 	}
 
 	if (gpt.algo != MG_G_NONE || (opt.flag & MG_M_CAL_COV))
@@ -276,5 +243,5 @@ int main(int argc, char *argv[])
 			fprintf(stderr, " %s", argv[i]);
 		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec; Peak RSS: %.3f GB\n", __func__, realtime() - mg_realtime0, cputime(), peakrss() / 1024.0 / 1024.0 / 1024.0);
 	}
-	return 0;
+	return !!ret;
 }

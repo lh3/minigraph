@@ -1,18 +1,23 @@
-Release 0.4-r264 (21 August 2019)
+Release 0.4-r267 (22 August 2019)
 ---------------------------------
 
 Notable changes:
 
  * Support paired-end mapping for short reads.
 
- * Fixed multiple edges in the generated graphs.
-
  * Remap and calculate coverage (see the new --cov option in the manpage).
 
-On the 14-genome dataset, this release produces a graph identical to the one
-produced by v0.3, except the removal of one multiple edge.
+ * Fixed multiple edges in the generated graphs. The v0.3 14-genome graph
+   contains one multiple edge.
 
-(21 August 2019, r264)
+ * Use dynamic minimizer occurrence cutoff. For human data, the dynamic cutoff
+   is around 137, higher than the default cutoff 100 used in earlier versions.
+   As a result, graph generations will become a little slower.
+
+Due to the last two changes, graphs generated with this version are different
+from the previous versions.
+
+(22 August 2019, r267)
 
 
 
