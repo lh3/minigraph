@@ -149,10 +149,16 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			} else compact = 0;
 		}
 		if (compact) {
-			const gfa_seg_t *t = &g->seg[gs->lc[p->off].v>>1];
+			int32_t rev = gs->lc[p->off].v&1;
+			const gfa_seg_t *t = &g->seg[gs->lc[rev? p->off + p->cnt - 1 : p->off].v>>1];
 			const gfa_sseq_t *ps = &g->sseq[t->snid];
-			if (gs->lc[p->off].v&1) s->s[sign_pos] = '-';
-			mg_sprintf_lite(s, "%s\t%d\t%d\t%d", ps->name, ps->max, t->soff + p->ps, t->soff + p->pe);
+			mg_sprintf_lite(s, "%s\t%d\t", ps->name, ps->max);
+			if (rev) {
+				s->s[sign_pos] = '-';
+				mg_sprintf_lite(s, "%d\t%d", t->soff + (p->plen - p->pe), t->soff + (p->plen - p->ps));
+			} else {
+				mg_sprintf_lite(s, "%d\t%d", t->soff + p->ps, t->soff + p->pe);
+			}
 		} else mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
 		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);
 		mg_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d\ts2:i:%d", p->id == p->parent? 'P' : 'S', p->n_anchor, p->score, p->subsc);
