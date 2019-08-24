@@ -38,6 +38,7 @@ static ko_longopt_t long_options[] = {
 	{ "cov",          ko_no_argument,       315 },
 	{ "min-cov-blen", ko_required_argument, 316 },
 	{ "min-cov-mapq", ko_required_argument, 317 },
+	{ "gap-pen",      ko_required_argument, 318 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -134,6 +135,7 @@ int main(int argc, char *argv[])
 		else if (c == 315) opt.flag |= MG_M_CAL_COV, gpt.flag |= MG_G_CAL_COV; // --cov
 		else if (c == 316) opt.min_cov_blen = mg_parse_num(o.arg);             // --min-cov-blen
 		else if (c == 317) opt.min_cov_mapq = atoi(o.arg);                     // --min-cov-mapq
+		else if (c == 318) opt.chn_pen_gap = atof(o.arg);     // --gap-pen
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
