@@ -52,18 +52,14 @@ typedef struct {
 extern "C" {
 #endif
 
-static const char LogTable256[256] = {
-#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-	-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-	LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
-	LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
-};
-
-static inline int mg_ilog2_32(uint32_t v)
+static inline float mg_log2(float x) // NB: this doesn't work when x<2
 {
-	uint32_t t, tt;
-	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
-	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
+	union { float f; uint32_t i; } z = { x };
+	float log_2 = ((z.i >> 23) & 255) - 128;
+	z.i &= ~(255 << 23);
+	z.i += 127 << 23;
+	log_2 += (-0.34484843f * z.f + 2.02466578f) * z.f - 0.67487759f;
+	return log_2;
 }
 
 extern unsigned char seq_nt4_table[256];
@@ -81,13 +77,14 @@ int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b, int32_t *s
 int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, int32_t k, int32_t max_occ);
 
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t extra_u, int32_t *n_u_, int32_t *n_v_);
-mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km);
+mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
+					  int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km);
 mg_lchain_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mg128_t *a);
 void mg_update_anchors(int32_t n_a, mg128_t *a, int32_t n, const int32_t *mini_pos);
 
 mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, mg_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int is_rev, int32_t *n_pathv);
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw,
-					  const char *qseq, const mg128_t *an, uint64_t **u_);
+					  float chn_pen_gap, float chn_pen_skip, const char *qseq, const mg128_t *an, uint64_t **u_);
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a,
 							uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score);
 void mg_gchain_free(mg_gchains_t *gs);

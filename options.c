@@ -22,6 +22,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->max_lc_skip = 25, mo->max_lc_iter = 10000;
 	mo->bw = 2000;
 	mo->mini_batch_size = 500000000;
+	mo->chn_pen_gap = 0.2f, mo->chn_pen_skip = 0.02f;
 	mo->min_lc_cnt = 2, mo->min_lc_score = 30;
 	mo->min_gc_cnt = 3, mo->min_gc_score = 50;
 	mo->mask_level = 0.5f;
@@ -60,21 +61,16 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 	} else if (strcmp(preset, "lr") == 0) {
 		io->k = 15, io->w = 10;
 		mo->bw = 2000, mo->max_gap = 5000;
-	} else if (strcmp(preset, "asm20") == 0) {
+	} else if (strcmp(preset, "asm20") == 0 || strcmp(preset, "ggs") == 0) {
 		io->k = 19, io->w = 10;
-		mo->bw = 10000, mo->max_gap = 10000;
-		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
-		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
-		mo->min_cov_blen = 50000;
-	} else if (strcmp(preset, "ggs") == 0 || strcmp(preset, "ggsimple") == 0) {
-		io->k = 19, io->w = 10;
-		go->algo = MG_G_GGSIMPLE;
-		mo->best_n = 0;
 		mo->max_gap = mo->bw = 10000;
 		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 		mo->min_cov_mapq = 5;
 		mo->min_cov_blen = 50000;
+		mo->chn_pen_gap = 1.0f;
+		if (strcmp(preset, "ggs") == 0)
+			go->algo = MG_G_GGSIMPLE, mo->best_n = 0;
 	} else if (strcmp(preset, "se") == 0 || strcmp(preset, "sr") == 0) {
 		io->k = 21, io->w = 10;
 		mo->flag |= MG_M_SR | MG_M_HEAP_SORT | MG_M_2_IO_THREADS;

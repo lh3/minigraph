@@ -58,12 +58,12 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
  *   u[]: score<<32 | #anchors (sum of lower 32 bits of u[] is the returned length of a[])
  * input a[] is deallocated on return
  */
-mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
+mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
+					  int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t k, *f, *p, *t, *v, n_u, n_v;
 	int64_t i, j, st = 0;
-	uint64_t *u, *u2, sum_qspan = 0;
-	float avg_qspan;
+	uint64_t *u, *u2;
 	mg128_t *b, *w;
 
 	if (_u) *_u = 0, *n_u_ = 0;
@@ -73,9 +73,6 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	t = (int32_t*)kmalloc(km, n * 4);
 	v = (int32_t*)kmalloc(km, n * 4);
 	memset(t, 0, n * 4);
-
-	for (i = 0; i < n; ++i) sum_qspan += a[i].y>>32&0xff;
-	avg_qspan = (float)sum_qspan / n;
 
 	// fill the score and backtrack arrays
 	for (i = 0; i < n; ++i) {
@@ -88,8 +85,9 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		if (i - st > max_iter) st = i - max_iter;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
-			int32_t dq = qi - (int32_t)a[j].y, dd, sc, dg, log_dd;
+			int32_t dq = qi - (int32_t)a[j].y, dd, sc, dg;
 			int32_t sidj = (a[j].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
+			float lin_pen, log_pen;
 			if ((sidi == sidj && dr == 0) || dq <= 0) continue; // don't skip if an anchor is used by multiple segments; see below
 			if ((sidi == sidj && dq > max_dist_y) || dq > max_dist_x) continue;
 			dd = dr > dq? dr - dq : dq - dr;
@@ -98,15 +96,13 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			if (n_segs > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) continue;
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
-			log_dd = dd? mg_ilog2_32(dd) : 0;
+			lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
+			log_pen = dd >= 2? mg_log2(dd) : 0; // mg_log2() only works for dd>=2
 			if (is_cdna || sidi != sidj) {
-				int c_log, c_lin;
-				c_lin = (int)(dd * .01 * avg_qspan + dg * .02);
-				c_log = log_dd;
 				if (sidi != sidj && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
-				else if (dr > dq || sidi != sidj) sc -= c_lin < c_log? c_lin : c_log;
-				else sc -= c_lin + (c_log>>1);
-			} else sc -= (int)(dd * .01 * avg_qspan + dg * .02) + (log_dd>>1);
+				else if (dr > dq || sidi != sidj) sc -= lin_pen < log_pen? lin_pen : log_pen; // deletion or jump between paired ends
+				else sc -= lin_pen + log_pen;
+			} else sc -= lin_pen + log_pen;
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;
