@@ -97,12 +97,12 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
 			lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-			log_pen = dd >= 2? mg_log2(dd) : 0; // mg_log2() only works for dd>=2
+			log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
 			if (is_cdna || sidi != sidj) {
 				if (sidi != sidj && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
-				else if (dr > dq || sidi != sidj) sc -= lin_pen < log_pen? lin_pen : log_pen; // deletion or jump between paired ends
-				else sc -= lin_pen + log_pen;
-			} else sc -= lin_pen + log_pen;
+				else if (dr > dq || sidi != sidj) sc -= (int)(lin_pen < log_pen? lin_pen : log_pen); // deletion or jump between paired ends
+				else sc -= (int)(lin_pen + log_pen);
+			} else sc -= (int)(lin_pen + log_pen);
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;

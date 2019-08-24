@@ -135,8 +135,8 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499); // dealing with overlap on query
 			//sc += dj->mlen; // TODO: is this line the right thing to do?
 			lin_pen = chn_pen_gap * (float)gap;
-			log_pen = gap >= 2? mg_log2(gap) : 0;
-			sc -= lin_pen + log_pen;
+			log_pen = gap >= 2? mg_log2(gap) : 0.0f;
+			sc -= (int32_t)(lin_pen + log_pen);
 			sc += f[dj->meta];
 			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc, lc[dj->meta].qs, lc[dj->meta].qe);
 			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash;
