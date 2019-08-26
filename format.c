@@ -181,5 +181,15 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			for (j = 0; j < n_seg; ++j) mg_sprintf_lite(s, ",%d", qlens[j]);
 		}
 		mg_sprintf_lite(s, "\n");
+		if (mg_dbg_flag & MG_DBG_LCHAIN) {
+			for (j = 0; j < p->cnt; ++j) {
+				const mg_llchain_t *lc = &gs->lc[p->off + j];
+				mg_sprintf_lite(s, "- %s\t%d", g->seg[lc->v>>1].name, lc->cnt);
+				if (lc->cnt > 0) {
+					mg_sprintf_lite(s, "\t%d\t%d", (int32_t)gs->a[lc->off].y + 1 - (int32_t)(gs->a[lc->off].y>>32&0xff), (int32_t)gs->a[lc->off + lc->cnt - 1].y + 1);
+				}
+				mg_sprintf_lite(s, "\n");
+			}
+		}
 	}
 }
