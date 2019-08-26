@@ -127,7 +127,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			float lin_pen, log_pen;
 			if (dj->n_path == 0) continue;
 			gap = dj->dist - dj->target_dist;
-			lj = &lc[dj->meta];
+			lj = &lc[a[dj->meta].i];
 			segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
 			if (gap < 0) gap = -gap;
 			if (segi == segj && gap > bw) continue;
