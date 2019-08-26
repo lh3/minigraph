@@ -155,7 +155,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			int32_t gap, sc, segj;
 			if (dj->n_path == 0) continue;
 			gap = dj->dist - dj->target_dist;
-			lj = &lc[dj->meta];
+			lj = &lc[a[dj->meta].i];
 			segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
 			if (gap < 0) gap = -gap;
 			if (segi == segj && gap > bw) continue;
@@ -164,7 +164,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			//sc += dj->mlen; // TODO: is this line the right thing to do?
 			sc -= gap == 0? 0 : mg_ilog2_32(gap) + (int32_t)(gap * sc_per_col + .499);
 			sc += f[dj->meta];
-			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist, dj->dist, sc, lc[dj->meta].qs, lc[dj->meta].qe);
+			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist - g->seg[li->v>>1].len, dj->dist - g->seg[li->v>>1].len, sc, lc[dj->meta].qs, lc[dj->meta].qe);
 			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash;
 		}
 		f[i] = max_f, p[i] = max_j;
