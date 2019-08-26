@@ -53,7 +53,15 @@ consecutive k-mers.
 .BI -U \ INT
 Ignore minimizers with occurrences above
 .I INT
-[100].
+[100]
+.TP
+.BI -f \ FLOAT
+Ignore top
+.I FLOAT
+fraction of repetitive minimizers [0.0002]
+.TP
+.BI -j \ FLOAT
+Expected query-graph sequence divergence [0.1]
 .TP
 .BI -g \ NUM 
 Stop chain enlongation if there are no minimizers within
@@ -191,7 +199,7 @@ are:
 .B lr
 Mapping noisy long reads
 .RB ( -k15
-.B -w10 -g5k -r2k
+.B -w10 -j.1 -g5k -r2k
 .BR --min-cov-blen=1000 ).
 This is the same as the default setting.
 .TP
@@ -202,16 +210,16 @@ Mapping short single-end or paired-end reads
 .BR --min-cov-blen=50 ).
 Paired-end mapping is not supported.
 .TP
-.B asm20
+.B asm
 Mapping long contigs or high-quality CCS reads
 .RB ( -k19
-.B -w10 -g10k -r10k -n5,3 -m1000,40
+.B -w10 -j.01 -g10k -r10k -n5,3 -m1000,40
 .BR --min-cov-blen=50k ).
 .TP
 .B ggs
 Simple algorithm for incremental graph generation
 .RB ( -k19
-.B -w10 -g10k -r10k -n5,3 -m1000,40
+.B -w10 -j.01 -g10k -r10k -n5,3 -m1000,40
 .BR --ggen=simple ).
 .RE
 .SS Miscellaneous options
