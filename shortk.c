@@ -71,7 +71,7 @@ static int32_t path_mlen(sp_node_t **out, int32_t start, khash_t(sp) *h, int32_t
 {
 	int32_t i;
 	double mlen = 0.0;
-	for (i = out[start]->pre; i && out[i]->pre; i = out[i]->pre) {
+	for (i = out[start]->pre; i; i = out[i]->pre) {
 		uint32_t v = out[i]->v;
 		khint_t k;
 		k = kh_get(sp, h, v);
