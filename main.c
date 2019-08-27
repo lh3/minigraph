@@ -38,6 +38,7 @@ static ko_longopt_t long_options[] = {
 	{ "cov",          ko_no_argument,       315 },
 	{ "min-cov-blen", ko_required_argument, 316 },
 	{ "min-cov-mapq", ko_required_argument, 317 },
+	{ "gap-pen",      ko_required_argument, 318 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -75,7 +76,7 @@ static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *a
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -120,6 +121,7 @@ int main(int argc, char *argv[])
 		else if (c == 'N') opt.best_n = mg_parse_num(o.arg);
 		else if (c == 'P') opt.flag |= MG_M_ALL_CHAINS;
 		else if (c == 'M') opt.mask_level = atof(o.arg);
+		else if (c == 'j') opt.div = atof(o.arg);
 		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
@@ -134,6 +136,7 @@ int main(int argc, char *argv[])
 		else if (c == 315) opt.flag |= MG_M_CAL_COV, gpt.flag |= MG_G_CAL_COV; // --cov
 		else if (c == 316) opt.min_cov_blen = mg_parse_num(o.arg);             // --min-cov-blen
 		else if (c == 317) opt.min_cov_mapq = atoi(o.arg);                     // --min-cov-mapq
+		else if (c == 318) opt.chn_pen_gap = atof(o.arg);     // --gap-pen
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
@@ -187,6 +190,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
 		fprintf(fp_help, "    -U INT       ignore minimizers with occurrences above INT [%d]\n", opt.mid_occ);
+		fprintf(fp_help, "    -j FLOAT     expected sequence divergence [%g]\n", opt.div);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(fp_help, "    -F NUM       max fragment length (effective with -xsr or in the fragment mode) [%d]\n", opt.max_frag_len);
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining [%d]\n", opt.bw);
