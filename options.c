@@ -47,7 +47,7 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->match_pen = 10;
 	// for ggs
 	go->ggs_shrink_pen = 9;
-	go->ggs_fc_kmer = 9, go->ggs_fc_max_occ = 10;
+	go->ggs_fc_kmer = 9, go->ggs_fc_max_occ = 100;
 	go->ggs_min_end_cnt = 10;
 	go->ggs_min_end_frac = 0.1f;
 	go->ggs_max_kiden = 0.8f;
