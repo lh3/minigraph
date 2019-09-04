@@ -28,8 +28,8 @@ KHASH_MAP_INIT_INT(sp, sp_topk_t)
 KHASH_MAP_INIT_INT(sp2, uint64_t)
 
 #define MG_SHORT_KK 17
-#define MG_SHORT_KW 9
-#define MG_SHORT_KM 10
+#define MG_SHORT_KW 11
+#define MG_SHORT_KM 50
 #define MG_SHORT_K_EXT 1000
 
 static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, const void *h, int32_t n_seeds, const uint64_t *seeds, int32_t *qs, int32_t *qe)
