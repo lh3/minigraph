@@ -112,6 +112,14 @@ int32_t gfa_sseq_add(gfa_t *g, const char *sname)
 	return kh_val(h, k);
 }
 
+int32_t gfa_sseq_get(const gfa_t *g, const char *sname)
+{
+	khash_t(seg) *h = (khash_t(seg)*)g->h_snames;
+	khint_t k;
+	k = kh_get(seg, h, sname);
+	return k == kh_end(h)? -1 : kh_val(h, k);
+}
+
 void gfa_sseq_update(gfa_t *g, const gfa_seg_t *s)
 {
 	gfa_sseq_t *ps;
