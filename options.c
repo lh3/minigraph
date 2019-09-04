@@ -50,7 +50,7 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->ggs_fc_kmer = 9, go->ggs_fc_max_occ = 100;
 	go->ggs_min_end_cnt = 10;
 	go->ggs_min_end_frac = 0.1f;
-	go->ggs_max_kiden = 0.8f;
+	go->ggs_max_kiden = 0.7f;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go)
