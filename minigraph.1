@@ -1,4 +1,4 @@
-.TH minigraph 1 "21 August 2019" "minigraph-0.4 (r267)" "Bioinformatics tools"
+.TH minigraph 1 "8 September 2019" "minigraph-0.5 (r285)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -118,6 +118,48 @@ Minimum alignment block length to count [1k]
 .TP
 .BI --min-cov-mapq \ INT
 Minimum mapping quality to count [20]
+.SS Graph generation options
+.TP 10
+.BR --ggen =[ simple ]
+Graph generation algorithm. So far only a
+.B simple
+algorithm is implemented [simple]. With this option, all query sequences are
+loaded into memory.
+.TP
+.B --cov
+Remap and generate segment and link use frequencies. This option triggers GFA
+output. When used with
+.BR --ggen ,
+minigraph writes the frequency of link uses and the average breadth of coverage
+of each segment to the
+.B cf
+tag. When used without
+.BR --ggen ,
+minigraph writes the count of link uses and the average depth of coverage of
+each segment to the
+.B dc
+tag.
+.TP
+.BI -q \ INT
+Minimum mapping quality [5]
+.TP
+.BI -l \ NUM
+Minimum chain length to consider [50k]
+.TP
+.BI -d \ NUM
+Minimum chain length for depth calculation [10k]
+.TP
+.BI -L \ INT
+Minimum insertion length [250]
+.TP
+.BI --gg-vkiden \ FLOAT
+Maximum k-mer identity [0.7]
+.TP
+.BI --gg-match-pen \ INT
+Penalty for a pair of matching anchors [5]. Larger value for more fragmented inserts.
+.TP
+.BR --ins-qovlp = yes | no
+Forcefully resolve query overlaps [yes]
 .SS Input/output options
 .TP 10
 .BI -o \ FILE
@@ -149,42 +191,6 @@ Print unmapped query sequences in GAF [no]
 .TP
 .B --version
 Print version number to stdout
-.SS Graph generation options
-.TP 10
-.BR --ggen =[ simple ]
-Graph generation algorithm. So far only a
-.B simple
-algorithm is implemented [simple]. With this option, all query sequences are
-loaded into memory.
-.TP
-.B --cov
-Remap and generate segment and link use frequencies. This option triggers GFA
-output. When used with
-.BR --ggen ,
-minigraph writes the frequency of link uses and the average breadth of coverage
-of each segment to the
-.B cf
-tag. When used without
-.BR --ggen ,
-minigraph writes the count of link uses and the average depth of coverage of
-each segment to the
-.B dc
-tag.
-.TP
-.BI -l \ NUM
-Minimum chain length to consider [50k]
-.TP
-.BI -d \ NUM
-Minimum chain length for depth calculation [10k]
-.TP
-.BI -q \ INT
-Minimum mapping quality [5]
-.TP
-.BI --gg-match-pen \ INT
-Penalty for a pair of matching anchors [5]. Larger value for more fragmented inserts.
-.TP
-.BR --ins-qovlp = yes | no
-Forcefully resolve query overlaps [yes]
 .SS Preset options
 .TP 10
 .BI -x \ STR

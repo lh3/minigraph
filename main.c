@@ -76,7 +76,7 @@ static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *a
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -125,6 +125,7 @@ int main(int argc, char *argv[])
 		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
+		else if (c == 'L') gpt.min_var_len = atoi(o.arg);
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
 		else if (c == 307) gpt.ggs_fc_kmer = atoi(o.arg);     // --gg-vkmer
 		else if (c == 308) gpt.ggs_max_kiden = atof(o.arg);   // --gg-vkiden
@@ -204,6 +205,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -q INT       min mapping quality [%d]\n", gpt.min_mapq);
 		fprintf(fp_help, "    -l NUM       min alignment length [%d]\n", gpt.min_map_len);
 		fprintf(fp_help, "    -d NUM       min alignment length for depth calculation [%d]\n", gpt.min_depth_len);
+		fprintf(fp_help, "    -L INT       min variant length [%d]\n", gpt.min_var_len);
 		fprintf(fp_help, "  Input/output:\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -o FILE      output mappings to FILE [stdout]\n");

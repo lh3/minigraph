@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.4-r284-dirty"
+#define MG_VERSION "0.5-r285"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20

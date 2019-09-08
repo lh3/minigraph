@@ -28,9 +28,11 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
     step_t *s = (step_t*)_data;
 	if (mg_dbg_flag & MG_DBG_QNAME)
 		fprintf(stderr, "QR\t%s\t%d\t%d\n", s->r->seq[i].name, tid, s->r->seq[i].l_seq);
-	if (mg_verbose >= 2 && gfa_sseq_get(s->gi->g, s->r->seq[i].name) >= 0)
-		fprintf(stderr, "[W::%s] stable sequence \"%s\" already present in the graph. This will lead to inconsistent rGFA.\n",
-				__func__, s->r->seq[i].name);
+	if ((s->opt->flag & MG_M_CAL_COV) == 0 && mg_verbose >= 2) {
+		if (gfa_sseq_get(s->gi->g, s->r->seq[i].name) >= 0)
+			fprintf(stderr, "[W::%s] stable sequence \"%s\" already present in the graph. This will lead to inconsistent rGFA.\n",
+					__func__, s->r->seq[i].name);
+	}
 	s->r->gcs[i] = mg_map(s->gi, s->r->seq[i].l_seq, s->r->seq[i].seq, s->buf[tid], s->opt, s->r->seq[i].name);
 }
 

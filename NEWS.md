@@ -1,3 +1,29 @@
+Release 0.5-r285 (8 September 2019)
+-----------------------------------
+
+Notable changes:
+
+ * Fixed a bug that leads to wrong mapping positions in GAF.
+
+ * Fixed two bugs related to graph chaining.
+
+ * Added option `-j` to set expected sequence divergence and to adjust other
+   chaining parameters accordingly.
+
+ * Increased the k-mer thresholds for fast divergence estimate. This improves
+   the alignment around low-complexity regions.
+
+ * Tuned the default parameters to add highly divergent events only.
+
+ * Warn about duplicated sequence names in graph construction (#3).
+
+This version generates graphs different from the previous versions. The mapping
+accuracy is improved due to the bug fixes and parameter tuning.
+
+(8 September 2019, r285)
+
+
+
 Release 0.4-r267 (22 August 2019)
 ---------------------------------
 
