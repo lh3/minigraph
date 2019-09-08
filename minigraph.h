@@ -44,8 +44,8 @@ typedef struct {
 	int seed;
 	int max_qlen;
 	int pe_ori;
-	int mid_occ, max_occ;
-	float mid_occ_frac;
+	int max_occ1;
+	float max_occ_frac1;
 	int bw, max_gap, max_gap_ref, max_frag_len;
 	float div;
 	float chn_pen_gap, chn_pen_skip;

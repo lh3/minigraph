@@ -14,8 +14,8 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 {
 	memset(mo, 0, sizeof(mg_mapopt_t));
 	mo->seed = 11;
-	mo->mid_occ = 100;
-	mo->mid_occ_frac = 2e-4f;
+	mo->max_occ1 = 100;
+	mo->max_occ_frac1 = 2e-4f;
 	mo->max_gap = 5000;
 	mo->max_gap_ref = -1;
 	mo->max_frag_len = 800;
@@ -75,7 +75,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 	} else if (strcmp(preset, "se") == 0 || strcmp(preset, "sr") == 0) {
 		io->k = 21, io->w = 10;
 		mo->flag |= MG_M_SR | MG_M_HEAP_SORT | MG_M_2_IO_THREADS;
-		mo->mid_occ = 1000;
+		mo->max_occ1 = 1000;
 		mo->max_gap = 100, mo->bw = 100;
 		mo->pri_ratio = 0.5f;
 		mo->min_lc_cnt = 2, mo->min_lc_score = 25;
@@ -103,10 +103,10 @@ int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t 
 
 void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go)
 {
-	int32_t mid_occ;
-	mid_occ = mg_idx_cal_max_occ(gi, mo->mid_occ_frac);
-	if (mid_occ > mo->mid_occ)
-		mo->mid_occ = mid_occ;
+	int32_t max_occ1;
+	max_occ1 = mg_idx_cal_max_occ(gi, mo->max_occ_frac1);
+	if (max_occ1 > mo->max_occ1)
+		mo->max_occ1 = max_occ1;
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->mid_occ);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] ignore minimizers occurring >%d times\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->max_occ1);
 }

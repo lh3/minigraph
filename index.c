@@ -71,17 +71,15 @@ const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n)
 	return mg_idx_hget(b->h, b->p, gi->b, minier, n);
 }
 
-int32_t mg_idx_cal_max_occ(const mg_idx_t *gi, float f)
+int32_t mg_idx_cal_quantile(const mg_idx_t *gi, float f)
 {
-	int i;
-	size_t n = 0;
-	uint32_t thres;
+	int32_t i, q;
+	uint64_t n = 0;
 	khint_t *a, k;
-	if (f <= 0.) return INT32_MAX;
 	for (i = 0; i < 1<<gi->b; ++i)
 		if (gi->B[i].h) n += kh_size((idxhash_t*)gi->B[i].h);
 	a = (uint32_t*)malloc(n * 4);
-	for (i = n = 0; i < 1<<gi->b; ++i) {
+	for (i = 0, n = 0; i < 1<<gi->b; ++i) {
 		idxhash_t *h = (idxhash_t*)gi->B[i].h;
 		if (h == 0) continue;
 		for (k = 0; k < kh_end(h); ++k) {
@@ -89,9 +87,14 @@ int32_t mg_idx_cal_max_occ(const mg_idx_t *gi, float f)
 			a[n++] = kh_key(h, k)&1? 1 : (uint32_t)kh_val(h, k);
 		}
 	}
-	thres = ks_ksmall_uint32_t(n, a, (uint32_t)((1. - f) * n)) + 1;
+	q = ks_ksmall_uint32_t(n, a, (uint32_t)((1. - f) * n));
 	free(a);
-	return thres;
+	return q;
+}
+
+int32_t mg_idx_cal_max_occ(const mg_idx_t *gi, float f)
+{
+	return f <= 0.0f? INT32_MAX : mg_idx_cal_quantile(gi, f) + 1;
 }
 
 /***************
