@@ -16,6 +16,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->seed = 11;
 	mo->max_occ1 = 100;
 	mo->max_occ_frac1 = 2e-4f;
+	mo->median_occ = 1;
 	mo->max_gap = 5000;
 	mo->max_gap_ref = -1;
 	mo->max_frag_len = 800;
@@ -103,10 +104,11 @@ int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t 
 
 void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go)
 {
-	int32_t max_occ1;
-	max_occ1 = mg_idx_cal_max_occ(gi, mo->max_occ_frac1);
+	int32_t max_occ1, median;
+	max_occ1 = mg_idx_cal_quantile(gi, mo->max_occ_frac1, &median);
 	if (max_occ1 > mo->max_occ1)
 		mo->max_occ1 = max_occ1;
+	mo->median_occ = median;
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] ignore minimizers occurring >%d times\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->max_occ1);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] minimizer median occurrence: %d; cutoff: %d\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), median, mo->max_occ1);
 }

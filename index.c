@@ -71,7 +71,7 @@ const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n)
 	return mg_idx_hget(b->h, b->p, gi->b, minier, n);
 }
 
-int32_t mg_idx_cal_quantile(const mg_idx_t *gi, float f)
+int32_t mg_idx_cal_quantile(const mg_idx_t *gi, float f, int32_t *med)
 {
 	int32_t i, q;
 	uint64_t n = 0;
@@ -88,13 +88,9 @@ int32_t mg_idx_cal_quantile(const mg_idx_t *gi, float f)
 		}
 	}
 	q = ks_ksmall_uint32_t(n, a, (uint32_t)((1. - f) * n));
+	if (med) *med = ks_ksmall_uint32_t(n, a, n>>1);
 	free(a);
 	return q;
-}
-
-int32_t mg_idx_cal_max_occ(const mg_idx_t *gi, float f)
-{
-	return f <= 0.0f? INT32_MAX : mg_idx_cal_quantile(gi, f) + 1;
 }
 
 /***************
