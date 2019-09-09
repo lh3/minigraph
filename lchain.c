@@ -79,7 +79,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		uint64_t ri = a[i].x;
 		int64_t max_j = -1;
 		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
-		int32_t max_f = q_span, n_skip = 0, min_d;
+		int32_t max_f = q_span, n_skip = 0;
 		int32_t sidi = (a[i].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
 		while (st < i && (ri>>32 != a[st].x>>32 || ri > a[st].x + max_dist_x)) ++st;
 		if (i - st > max_iter) st = i - max_iter;
@@ -94,8 +94,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			dg = dr < dq? dr : dq;
 			if (sidi == sidj && dd > bw) continue;
 			if (n_segs > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) continue;
-			min_d = dq < dr? dq : dr;
-			sc = min_d > q_span? q_span : dq < dr? dq : dr;
+			sc = q_span < dg? q_span : dg;
 			if (a[j].y>>MG_SEED_WT_SHIFT < 255) {
 				int tmp = (int)(0.00392156862745098 * (a[j].y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
 				sc = tmp > 1? tmp : 1;
