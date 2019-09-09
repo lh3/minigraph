@@ -14,9 +14,9 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 {
 	memset(mo, 0, sizeof(mg_mapopt_t));
 	mo->seed = 11;
-	mo->max_occ1 = 100;
-	mo->max_occ_frac1 = 2e-4f;
-	mo->median_occ = 1;
+	mo->occ_max1 = 100;
+	mo->occ_max1_frac = 2e-4f;
+	mo->occ_weight = 20;
 	mo->max_gap = 5000;
 	mo->max_gap_ref = -1;
 	mo->max_frag_len = 800;
@@ -76,7 +76,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 	} else if (strcmp(preset, "se") == 0 || strcmp(preset, "sr") == 0) {
 		io->k = 21, io->w = 10;
 		mo->flag |= MG_M_SR | MG_M_HEAP_SORT | MG_M_2_IO_THREADS;
-		mo->max_occ1 = 1000;
+		mo->occ_max1 = 1000;
 		mo->max_gap = 100, mo->bw = 100;
 		mo->pri_ratio = 0.5f;
 		mo->min_lc_cnt = 2, mo->min_lc_score = 25;
@@ -104,11 +104,13 @@ int mg_opt_check(const mg_idxopt_t *io, const mg_mapopt_t *mo, const mg_ggopt_t 
 
 void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go)
 {
-	int32_t max_occ1, median;
-	max_occ1 = mg_idx_cal_quantile(gi, mo->max_occ_frac1, &median);
-	if (max_occ1 > mo->max_occ1)
-		mo->max_occ1 = max_occ1;
-	mo->median_occ = median;
+	float f[2];
+	int32_t q[2];
+	f[0] = 0.05f, f[1] = mo->occ_max1_frac;
+	mg_idx_cal_quantile(gi, 2, f, q);
+	if (q[0] + 1 > mo->occ_weight) mo->occ_weight = q[0] + 1;
+	if (q[1] + 1 > mo->occ_max1)   mo->occ_max1   = q[1] + 1;
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] minimizer median occurrence: %d; cutoff: %d\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), median, mo->max_occ1);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_weight=%d, occ_max1=%d; 95 percentile: %d\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_weight, mo->occ_max1, q[0]);
 }

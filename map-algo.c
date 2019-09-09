@@ -89,17 +89,18 @@ static mg_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mg_id
 	return m;
 }
 
-static void cal_weight(int median, int n_m, mg_match_t *m)
+static void cal_weight(int base, int n_m, mg_match_t *m)
 {
+	const float b = 10.0, log2_b = 3.321928f; // log2_b is slightly smaller than log_2{b}
 	int i;
 	for (i = 0; i < n_m; ++i) {
 		mg_match_t *p = &m[i];
-		if (p->n > median<<1) {
-			float x = (float)((double)p->n / median);
-			float y = 1.0f / mg_log2(x); // y < 1
-			if (y < 0.1f) y = 0.1f;
-			p->weight = (int)(255.0 * y);
-		} else p->weight = 255;
+		p->weight = 255;
+		if (p->n > base) {
+			float x = (float)(b * p->n / base);
+			float y = log2_b / mg_log2(x); // y < 1 if there were no rounding errors
+			p->weight = y >= 1.0f? 255 : (int)(255.0 * (y > 0.7f? y : 0.7f));
+		}
 	}
 }
 
@@ -112,7 +113,7 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 	mg128_t *a, *heap;
 
 	m = collect_matches(km, &n_m, max_occ, gi, mv, n_a, rep_len, n_mini_pos, mini_pos);
-	cal_weight(opt->median_occ, n_m, m);
+	cal_weight(opt->occ_weight, n_m, m);
 
 	heap = (mg128_t*)kmalloc(km, n_m * sizeof(mg128_t));
 	a = (mg128_t*)kmalloc(km, *n_a * sizeof(mg128_t));
@@ -169,7 +170,7 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	mg_match_t *m;
 	mg128_t *a;
 	m = collect_matches(km, &n_m, max_occ, gi, mv, n_a, rep_len, n_mini_pos, mini_pos);
-	cal_weight(opt->median_occ, n_m, m);
+	cal_weight(opt->occ_weight, n_m, m);
 	a = (mg128_t*)kmalloc(km, *n_a * sizeof(mg128_t));
 	for (i = 0, *n_a = 0; i < n_m; ++i) {
 		mg_match_t *q = &m[i];
@@ -219,8 +220,8 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	hash  = __ac_Wang_hash(hash);
 
 	collect_minimizers(b->km, opt, gi, n_segs, qlens, seqs, &mv);
-	if (opt->flag & MG_M_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->max_occ1, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-	else a = collect_seed_hits(b->km, opt, opt->max_occ1, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
+	if (opt->flag & MG_M_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->occ_max1, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
+	else a = collect_seed_hits(b->km, opt, opt->occ_max1, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 
 	if (mg_dbg_flag & MG_DBG_SEED) {
 		fprintf(stderr, "RS\t%d\n", rep_len);

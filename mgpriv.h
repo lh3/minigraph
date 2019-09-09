@@ -73,7 +73,7 @@ const uint64_t *mg_idx_hget(const void *h_, const uint64_t *q, int suflen, uint6
 void mg_idx_hfree(void *h_);
 
 const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n);
-int32_t mg_idx_cal_quantile(const mg_idx_t *gi, float f, int32_t *med);
+void mg_idx_cal_quantile(const mg_idx_t *gi, int32_t m, float f[], int32_t q[]);
 
 int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b, int32_t *st_high, int32_t *en_high);
 int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, int32_t k, int32_t max_occ);

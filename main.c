@@ -76,7 +76,7 @@ static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *a
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:W:";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -111,8 +111,9 @@ int main(int argc, char *argv[])
 		if (c == 'w') ipt.w = atoi(o.arg);
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
-		else if (c == 'f') opt.max_occ_frac1 = atof(o.arg);
-		else if (c == 'U') opt.max_occ1 = atoi(o.arg);
+		else if (c == 'f') opt.occ_max1_frac = atof(o.arg);
+		else if (c == 'U') opt.occ_max1 = atoi(o.arg);
+		else if (c == 'W') opt.occ_weight = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
 		else if (c == 'g') opt.max_gap = mg_parse_num(o.arg);
 		else if (c == 'F') opt.max_frag_len = mg_parse_num(o.arg);
@@ -189,8 +190,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minizer window size [%d]\n", ipt.w);
 		fprintf(fp_help, "  Mapping:\n");
-		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.max_occ_frac1);
-		fprintf(fp_help, "    -U INT       ignore minimizers with occurrences above INT [%d]\n", opt.max_occ1);
+		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.occ_max1_frac);
+		fprintf(fp_help, "    -U INT       ignore minimizers with occurrences above INT [%d]\n", opt.occ_max1);
 		fprintf(fp_help, "    -j FLOAT     expected sequence divergence [%g]\n", opt.div);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(fp_help, "    -F NUM       max fragment length (effective with -xsr or in the fragment mode) [%d]\n", opt.max_frag_len);

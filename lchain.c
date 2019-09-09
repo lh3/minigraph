@@ -96,6 +96,10 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			if (n_segs > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) continue;
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
+			if (a[j].y>>MG_SEED_WT_SHIFT < 255) {
+				int tmp = (int)(0.00392156862745098 * (a[j].y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
+				sc = tmp > 1? tmp : 1;
+			}
 			lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
 			log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
 			if (is_cdna || sidi != sidj) {
