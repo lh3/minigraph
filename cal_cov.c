@@ -7,11 +7,12 @@
 
 void mg_cov_map(const gfa_t *g, const mg_gchains_t *gt, int32_t min_mapq, int32_t min_blen, double *c_seg, double *c_link, const char *qname)
 {
-	int32_t i, j, a_off = 0;
+	int32_t i, j;
 	if (c_seg == 0 && c_link == 0) return;
 	if (gt == 0 || gt->n_gc == 0) return;
-	for (i = 0; i < gt->n_gc; a_off += gt->gc[i++].n_anchor) {
+	for (i = 0; i < gt->n_gc; ++i) {
 		const mg_gchain_t *gc = &gt->gc[i];
+		const mg128_t *last_an;
 		assert(gc->cnt > 0 && gc->n_anchor > 0);
 		if (gc->mapq < min_mapq || gc->blen < min_blen) continue;
 		// count segment coverage
@@ -24,10 +25,18 @@ void mg_cov_map(const gfa_t *g, const mg_gchains_t *gt, int32_t min_mapq, int32_
 			if (c_seg) c_seg[lc->v>>1] += (double)(e - s) / g->seg[lc->v>>1].len;
 		}
 		// count link
+		assert(gt->lc[gc->off].cnt > 0);
+		last_an = &gt->a[gt->lc[gc->off].off + gt->lc[gc->off].cnt - 1];
 		for (j = 1; j < gc->cnt; ++j) {
 			const mg_llchain_t *lc0 = &gt->lc[gc->off + j - 1];
 			const mg_llchain_t *lc1 = &gt->lc[gc->off + j];
 			int64_t a01, a10;
+			if (lc1->cnt > 0) {
+				const mg128_t *curr_an = &gt->a[lc1->off];
+				int32_t is_skip = (mg_seg_id(*curr_an) != mg_seg_id(*last_an));
+				last_an = &gt->a[lc1->off + lc1->cnt - 1];
+				if (is_skip) continue;
+			}
 			a01 = gfa_find_arc(g, lc0->v, lc1->v);
 			a10 = gfa_find_arc(g, lc1->v^1, lc0->v^1);
 			if (a01 < 0 || a10 < 0) {

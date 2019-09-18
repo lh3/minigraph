@@ -18,6 +18,7 @@
 #define MG_MAX_SEG        255
 #define MG_SEED_SEG_SHIFT  48
 #define MG_SEED_SEG_MASK   (0xffULL<<(MG_SEED_SEG_SHIFT))
+#define mg_seg_id(a) ((int32_t)(((a).y&MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT))
 
 #define MG_SEED_WT_SHIFT   56
 
