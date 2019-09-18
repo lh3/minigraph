@@ -9,6 +9,7 @@ typedef struct sp_node_s {
 	uint32_t v;
 	int32_t pre;
 	uint32_t hash;
+	int32_t is_0;
 	KAVL_HEAD(struct sp_node_s) head;
 } sp_node_t, *sp_node_p;
 
@@ -90,7 +91,7 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 {
 	sp_node_t *p;
 	KMALLOC(km, p, 1);
-	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1;
+	p->v = v, p->di = (uint64_t)d<<32 | id, p->pre = -1, p->is_0 = 1;
 	return p;
 }
 
@@ -189,7 +190,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 					}
 				}
 				if (copy) {
-					t->path_end = n_out - 1, t->dist = dist, t->hash = r->hash, t->mlen = mlen;
+					t->path_end = n_out - 1, t->dist = dist, t->hash = r->hash, t->mlen = mlen, t->is_0 = r->is_0;
 					if (t->target_dist >= 0) {
 						if (dist == t->target_dist && t->check_hash && r->hash == t->target_hash) done = 1;
 						else if (dist > t->target_dist + MG_SHORT_K_EXT) done = 1;
@@ -220,6 +221,8 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				p = gen_sp_node(km, g, ai->w, d, id++);
 				p->pre = n_out - 1;
 				p->hash = r->hash + __ac_Wang_hash(ai->w);
+				p->is_0 = r->is_0;
+				if (ai->rank > 0) p->is_0 = 0;
 				kavl_insert(sp, &root, p, 0);
 				q->p[q->k++] = p;
 				ks_heapup_sp(q->k, q->p);
@@ -229,6 +232,8 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 					p->di = (uint64_t)d<<32 | (id++);
 					p->pre = n_out - 1;
 					p->hash = r->hash + __ac_Wang_hash(ai->w);
+					p->is_0 = r->is_0;
+					if (ai->rank > 0) p->is_0 = 0;
 					kavl_insert(sp, &root, p, 0);
 					ks_heapdown_sp(0, q->k, q->p);
 				} else {

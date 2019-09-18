@@ -113,6 +113,9 @@ Mark as secondary a chain that overlaps with a better chain by
 .I FLOAT
 or more of the shorter chain [0.5]
 .TP
+.BI --ref-bonus \ INT
+Bonus for a reference subwalk [0]
+.TP
 .BI --min-cov-blen \ NUM
 Minimum alignment block length to count [1k]
 .TP
@@ -212,7 +215,7 @@ This is the same as the default setting.
 .B sr
 Mapping short single-end or paired-end reads
 .RB ( -k21
-.B -w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes -K50m --frag
+.B -w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes -K50m --frag --ref-bonus=1
 .BR --min-cov-blen=50 ).
 Paired-end mapping is not supported.
 .TP

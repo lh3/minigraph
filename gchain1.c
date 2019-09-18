@@ -34,7 +34,7 @@ static int32_t mg_target_dist(const gfa_t *g, const mg_lchain_t *l0, const mg_lc
 	return (l1->qs - l0->qe) - (g->seg[l0->v>>1].len - l0->re) + (g->seg[l1->v>>1].len - l1->rs);
 }
 
-int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw,
+int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, int32_t ref_bonus,
 					  float chn_pen_gap, float chn_pen_skip, const char *qseq, const mg128_t *an, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
@@ -134,6 +134,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			if (lj->qe <= li->qs) sc = li->score;
 			else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499); // dealing with overlap on query
 			//sc += dj->mlen; // TODO: is this line the right thing to do?
+			if (dj->is_0) sc += ref_bonus;
 			lin_pen = chn_pen_gap * (float)gap;
 			log_pen = gap >= 2? mg_log2(gap) : 0.0f;
 			sc -= (int32_t)(lin_pen + log_pen);

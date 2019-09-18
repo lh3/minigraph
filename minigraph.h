@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.5-r293-dirty"
+#define MG_VERSION "0.5-r294-dirty"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -56,6 +56,7 @@ typedef struct {
 	int sub_diff;
 	int best_n;
 	float pri_ratio;
+	int ref_bonus;
 
 	int min_cov_mapq, min_cov_blen;
 } mg_mapopt_t;

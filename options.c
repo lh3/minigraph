@@ -31,6 +31,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->sub_diff = 6;
 	mo->best_n = 5;
 	mo->pri_ratio = 0.8f;
+	mo->ref_bonus = 0;
 	mo->pe_ori = 0; // FF
 	mo->min_cov_mapq = 20;
 	mo->min_cov_blen = 1000;
@@ -84,6 +85,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->mini_batch_size = 50000000;
 		mo->min_cov_blen = 50;
 		mo->chn_pen_gap = 0.2f;
+		mo->ref_bonus = 1;
 		if (strcmp(preset, "sr") == 0) {
 			mo->flag |= MG_M_FRAG_MODE | MG_M_FRAG_MERGE;
 			mo->pe_ori = 0<<1|1; // FR
