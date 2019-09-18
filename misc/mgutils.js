@@ -46,39 +46,6 @@ var getopt = function(args, ostr) {
  ***** mgutils commands *****
  ****************************/
 
-function mg_cmd_fa2gfa(args)
-{
-	var c, rank = 0;
-	while ((c = getopt(args, "r:")) != null)
-		if (c == 'r') rank = parseInt(getopt.arg);
-	if (getopt.ind == args.length) {
-		print("Usage: mgutils.js fa2gfa [-r rank] <in.fa>");
-		return;
-	}
-	var file = new File(args[getopt.ind]);
-	var buf = new Bytes();
-	var seq = new Bytes();
-	var name = null, id = 1;
-	while (file.readline(buf) >= 0) {
-		if (buf[0] != 62) {
-			seq.set(buf);
-		} else {
-			var m, s = buf.toString();
-			if ((m = /^>(\S+)/.exec(s)) != null) {
-				if (name != null) {
-					print("S", "s"+id, seq, "SN:Z:"+name, "SO:i:0", "SR:i:"+rank);
-					++id;
-				}
-				name = m[1], seq.length = 0;
-			} else throw Error("Wrong FASTA format!");
-		}
-	}
-	if (name != null)
-		print("S", "s"+id, seq, "SN:Z:"+name, "SO:i:0", "SR:i:"+rank);
-	file.close();
-	buf.destroy();
-}
-
 function mg_cmd_renamefa(args)
 {
 	var c, sep = '#';
@@ -115,14 +82,12 @@ function main(args)
 	if (args.length == 0) {
 		print("Usage: mgutils.js <command> [arguments]");
 		print("Commands:");
-		print("  fa2gfa       convert FASTA to rGFA");
 		print("  renamefa     add a prefix to sequence names in FASTA");
 		exit(1);
 	}
 
 	var cmd = args.shift();
-	if (cmd == 'fa2gfa') mg_cmd_fa2gfa(args);
-	else if (cmd == 'renamefa') mg_cmd_renamefa(args);
+	if (cmd == 'renamefa') mg_cmd_renamefa(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
