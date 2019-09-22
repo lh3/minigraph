@@ -42,6 +42,65 @@ var getopt = function(args, ostr) {
 	return optopt;
 }
 
+function it_index(a) {
+	if (a.length == 0) return -1;
+	a.sort(function(x, y) { return x[0] - y[0] });
+	var last, last_i;
+	for (var i = 0; i < a.length; i += 2) last = a[i][2] = a[i][1], last_i = i;
+	for (var k = 1; 1<<k <= a.length; ++k) {
+		var i0 = (1<<k) - 1, step = 1<<(k+1);
+		for (var i = i0; i < a.length; i += step) {
+			var x = 1<<(k-1);
+			a[i][2] = a[i][1];
+			if (a[i][2] < a[i-x][2]) a[i][2] = a[i-x][2];
+			var e = i + x < a.length? a[i+x][2] : last;
+			if (a[i][2] < e) a[i][2] = e;
+		}
+		last_i = last_i>>k&1? last_i - (1<<(k-1)) : last_i + (1<<(k-1));
+		if (last_i < a.length) last = last > a[last_i][2]? last : a[last_i][2];
+	}
+	return k - 1;
+}
+
+function it_overlap(a, st, en) {
+	if (a == null) return [];
+	var h, stack = [], b = [];
+	for (h = 0; 1<<h <= a.length; ++h);
+	--h;
+	stack.push([(1<<h) - 1, h, 0]);
+	while (stack.length) {
+		var t = stack.pop();
+		var x = t[0], h = t[1], w = t[2];
+		if (h <= 2) {
+			var i0 = x >> h << h, i1 = i0 + (1<<(h+1)) - 1;
+			if (i1 >= a.length) i1 = a.length;
+			for (var i = i0; i < i1; ++i)
+				if (a[i][0] < en && st < a[i][1])
+					b.push(a[i]);
+		} else if (w == 0) { // if left child not processed
+			stack.push([x, h, 1]);
+			var y = x - (1<<(h-1));
+			if (y >= a.length || a[y][2] > st)
+				stack.push([y, h - 1, 0]);
+		} else if (x < a.length && a[x][0] < en) {
+			if (st < a[x][1]) b.push(a[x]);
+			stack.push([x + (1<<(h-1)), h - 1, 0]);
+		}
+	}
+	return b;
+}
+
+function it_contained(a, st, en) {
+	if (a == null) return false;
+	var b = it_overlap(a, st, en);
+	var c = false;
+	for (var i = 0; i < b.length; ++i) {
+		if (b[i][0] <= st && en <= b[i][1])
+			c = true;
+	}
+	return c;
+}
+
 /****************************
  ***** mgutils commands *****
  ****************************/
@@ -121,6 +180,125 @@ function mg_cmd_subgaf(args)
 	buf.destroy();
 }
 
+function mg_cmd_sveval(args)
+{
+	var c, flank = 100, min_var_len = 100, min_test_len = 50, min_sc = 20.0, non_chr = false;
+	while ((c = getopt(args, "f:v:t:s:a")) != null) {
+		if (c == 'f') flank = parseInt(getopt.arg);
+		else if (c == 'v') min_var_len = parseInt(getopt.arg);
+		else if (c == 't') min_test_len = parseInt(getopt.arg);
+		else if (c == 's') min_sc = parseFloat(getopt.arg);
+		else if (c == 'a') non_chr = true;
+	}
+	if (args.length - getopt.ind < 3) {
+		print("Usage: mgutils.js sveval <true.vcf> <true.bed> <call.txt>");
+		exit(1);
+	}
+
+	var file, buf = new Bytes();
+
+	// parse true.bed
+	warn("Reading confident regions...");
+	var bed = {}
+	file = new File(args[getopt.ind + 1]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		if (t.length < 3) continue;
+		if (!non_chr && /^(chr)?[XY]$/.test(t[0])) continue;
+		if (bed[t[0]] == null) bed[t[0]] = [];
+		bed[t[0]].push([parseInt(t[1]), parseInt(t[2])]);
+	}
+	file.close();
+	for (var ctg in bed) it_index(bed[ctg]);
+
+	// parse true.vcf
+	warn("Reading baseline variants...");
+	var vcf = {}, n_vcf = 0;
+	file = new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		if (t[0][0] == '#') continue;
+		if (t.length < 10) continue;
+		if (t[6] != '.' && t[6] != 'PASS') continue;
+		if (bed[t[0]] == null) continue;
+		var ref = t[3];
+		var st = parseInt(t[1]) - 1;
+		var en = st + ref.length;
+		var max_diff = 0;
+		var al = t[4].split(",");
+		al.unshift(ref);
+		for (var i = 1; i < al.length; ++i) {
+			var l = al[i].length - ref.length;
+			if (l < 0) l = -l;
+			if (max_diff < l) max_diff = l;
+		}
+		if (max_diff < min_test_len) continue;
+		var s = t[9].split(':');
+		if (s.length == 0) continue;
+		var gt = s[0].split(/[|\/]/);
+		if (gt == 0) continue;
+		max_diff = 0;
+		for (var i = 0; i < gt.length; ++i) {
+			var x = parseInt(gt[i]);
+			var l = al[x].length - ref.length;
+			if (l < 0) l = -l;
+			if (max_diff < l) max_diff = l;
+		}
+		if (max_diff < min_test_len) continue;
+		if (vcf[t[0]] == null) vcf[t[0]] = [];
+		vcf[t[0]].push([st, en, -1, max_diff]);
+	}
+	file.close();
+	for (var ctg in vcf) it_index(vcf[ctg]);
+
+	// parse rst.txt
+	warn("Reading gt results...");
+	var rst = {};
+	file = new File(args[getopt.ind + 2]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		if (parseFloat(t[3]) < min_sc) continue;
+		if (bed[t[0]] == null) continue;
+		if (rst[t[0]] == null) rst[t[0]] = [];
+		var st = parseInt(t[1]), en = parseInt(t[2]);
+		rst[t[0]].push([st, en]);
+	}
+	file.close();
+	for (var ctg in rst) it_index(rst[ctg]);
+
+	// sensitivity
+	var n_vcf = 0, fn = 0;
+	for (var ctg in vcf) {
+		for (var i = 0; i < vcf[ctg].length; ++i) {
+			var v = vcf[ctg][i];
+			if (!it_contained(bed[ctg], v[0], v[1])) continue;
+			if (v[3] < min_var_len) continue;
+			++n_vcf;
+			var st = v[0] - flank, en = v[1] + flank;
+			if (st < 0) st = 0;
+			var b = it_overlap(rst[ctg], st, en);
+			if (b.length == 0) ++fn;
+		}
+	}
+
+	// specificity
+	var n_rst = 0, fp = 0;
+	for (var ctg in rst) {
+		for (var i = 0; i < rst[ctg].length; ++i) {
+			var v = rst[ctg][i];
+			if (!it_contained(bed[ctg], v[0], v[1])) continue;
+			++n_rst;
+			var st = v[0] - flank, en = v[1] + flank;
+			if (st < 0) st = 0;
+			var b = it_overlap(vcf[ctg], st, en);
+			if (b.length == 0) ++fp;
+		}
+	}
+
+	print("FNR = " + fn + " / " + n_vcf + " = " + (fn/n_vcf).toFixed(4));
+	print("FDR = " + fp + " / " + n_rst + " = " + (fp/n_rst).toFixed(4));
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -132,12 +310,14 @@ function main(args)
 		print("Commands:");
 		print("  renamefa     add a prefix to sequence names in FASTA");
 		print("  subgaf       extract GAF overlapping with a region");
+		print("  sveval       evaluate SV accuracy");
 		exit(1);
 	}
 
 	var cmd = args.shift();
 	if (cmd == 'renamefa') mg_cmd_renamefa(args);
-	else if (cmd = 'subgaf') mg_cmd_subgaf(args);
+	else if (cmd == 'subgaf') mg_cmd_subgaf(args);
+	else if (cmd == 'sveval') mg_cmd_sveval(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
