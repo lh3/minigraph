@@ -227,7 +227,8 @@ function mg_cmd_sveval(args)
 		var t = buf.toString().split("\t");
 		if (t[0][0] == '#') continue;
 		if (t.length < 10) continue;
-		if (flt_vcf && t[6] != '.' && t[6] != 'PASS') continue;
+		var flt = (t[6] != '.' && t[6] != 'PASS');
+		if (flt_vcf && flt) continue;
 		if (bed[t[0]] == null) continue;
 		var ref = t[3];
 		var st = parseInt(t[1]) - 1;
@@ -256,7 +257,7 @@ function mg_cmd_sveval(args)
 		}
 		if (max_diff < min_test_len) continue;
 		if (vcf[t[0]] == null) vcf[t[0]] = [];
-		vcf[t[0]].push([st, en, -1, max_diff, max_ev]);
+		vcf[t[0]].push([st, en, -1, max_diff, max_ev, flt]);
 	}
 	file.close();
 	for (var ctg in vcf) it_index(vcf[ctg]);
@@ -282,6 +283,7 @@ function mg_cmd_sveval(args)
 		for (var i = 0; i < vcf[ctg].length; ++i) {
 			var v = vcf[ctg][i];
 			if (v[3] < min_var_len) continue;
+			if (v[5]) continue;
 			var st = v[0] - flank, en = v[1] + flank;
 			if (st < 0) st = 0;
 			if (!it_contained(bed[ctg], st, en)) continue;
