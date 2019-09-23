@@ -182,16 +182,23 @@ function mg_cmd_subgaf(args)
 
 function mg_cmd_sveval(args)
 {
-	var c, flank = 100, min_var_len = 100, min_test_len = 50, min_sc = 20.0, non_chr = false;
-	while ((c = getopt(args, "f:v:t:s:a")) != null) {
+	var c, flank = 100, min_var_len = 100, min_test_len = 50, min_sc = 20.0, non_chr = false, out_err = false;
+	while ((c = getopt(args, "f:v:t:s:ae")) != null) {
 		if (c == 'f') flank = parseInt(getopt.arg);
 		else if (c == 'v') min_var_len = parseInt(getopt.arg);
 		else if (c == 't') min_test_len = parseInt(getopt.arg);
 		else if (c == 's') min_sc = parseFloat(getopt.arg);
 		else if (c == 'a') non_chr = true;
+		else if (c == 'e') out_err = true;
 	}
 	if (args.length - getopt.ind < 3) {
 		print("Usage: mgutils.js sveval <true.vcf> <true.bed> <call.txt>");
+		print("Options:");
+		print("  -f INT      length of flanking regions [" + flank + "]");
+		print("  -v INT      min INDEL length [" + min_var_len + "]");
+		print("  -t INT      min true INDEL length [" + min_test_len + "]");
+		print("  -s INT      min called score [" + min_sc + "]");
+		print("  -e          print errors");
 		exit(1);
 	}
 
@@ -237,16 +244,17 @@ function mg_cmd_sveval(args)
 		if (s.length == 0) continue;
 		var gt = s[0].split(/[|\/]/);
 		if (gt == 0) continue;
+		var max_ev = 0;
 		max_diff = 0;
 		for (var i = 0; i < gt.length; ++i) {
 			var x = parseInt(gt[i]);
 			var l = al[x].length - ref.length;
-			if (l < 0) l = -l;
-			if (max_diff < l) max_diff = l;
+			var x = l > 0? l : -l;
+			if (max_diff < x) max_diff = x, max_ev = l;
 		}
 		if (max_diff < min_test_len) continue;
 		if (vcf[t[0]] == null) vcf[t[0]] = [];
-		vcf[t[0]].push([st, en, -1, max_diff]);
+		vcf[t[0]].push([st, en, -1, max_diff, max_ev]);
 	}
 	file.close();
 	for (var ctg in vcf) it_index(vcf[ctg]);
@@ -267,17 +275,21 @@ function mg_cmd_sveval(args)
 	for (var ctg in rst) it_index(rst[ctg]);
 
 	// sensitivity
-	var n_vcf = 0, fn = 0;
+	var n_vcf = [0, 0, 0], fn = [0, 0, 0];
 	for (var ctg in vcf) {
 		for (var i = 0; i < vcf[ctg].length; ++i) {
 			var v = vcf[ctg][i];
 			if (!it_contained(bed[ctg], v[0], v[1])) continue;
 			if (v[3] < min_var_len) continue;
-			++n_vcf;
+			var sub = v[4] < 0? 1 : 2;
+			++n_vcf[0], ++n_vcf[sub];
 			var st = v[0] - flank, en = v[1] + flank;
 			if (st < 0) st = 0;
 			var b = it_overlap(rst[ctg], st, en);
-			if (b.length == 0) ++fn;
+			if (b.length == 0) {
+				if (out_err) print("FN", ctg, v[0], v[1], v[4]);
+				++fn[0], ++fn[sub];
+			}
 		}
 	}
 
@@ -291,12 +303,17 @@ function mg_cmd_sveval(args)
 			var st = v[0] - flank, en = v[1] + flank;
 			if (st < 0) st = 0;
 			var b = it_overlap(vcf[ctg], st, en);
-			if (b.length == 0) ++fp;
+			if (b.length == 0) {
+				if (out_err) print("FP", ctg, v[0], v[1]);
+				++fp;
+			}
 		}
 	}
 
-	print("FNR = " + fn + " / " + n_vcf + " = " + (fn/n_vcf).toFixed(4));
-	print("FDR = " + fp + " / " + n_rst + " = " + (fp/n_rst).toFixed(4));
+	print("NA", fn[0], n_vcf[0], (fn[0]/n_vcf[0]).toFixed(4));
+	print("ND", fn[1], n_vcf[1], (fn[1]/n_vcf[1]).toFixed(4));
+	print("NI", fn[2], n_vcf[2], (fn[2]/n_vcf[2]).toFixed(4));
+	print("PA", fp, n_rst, (fp/n_rst).toFixed(4));
 }
 
 /*************************
