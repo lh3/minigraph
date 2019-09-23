@@ -182,14 +182,15 @@ function mg_cmd_subgaf(args)
 
 function mg_cmd_sveval(args)
 {
-	var c, flank = 100, min_var_len = 100, min_test_len = 50, min_sc = 20.0, non_chr = false, out_err = false;
-	while ((c = getopt(args, "f:v:t:s:ae")) != null) {
+	var c, flank = 100, min_var_len = 100, min_test_len = 50, min_sc = 20.0, non_chr = false, out_err = false, flt_vcf = false;
+	while ((c = getopt(args, "f:v:t:s:aeF")) != null) {
 		if (c == 'f') flank = parseInt(getopt.arg);
 		else if (c == 'v') min_var_len = parseInt(getopt.arg);
 		else if (c == 't') min_test_len = parseInt(getopt.arg);
 		else if (c == 's') min_sc = parseFloat(getopt.arg);
 		else if (c == 'a') non_chr = true;
 		else if (c == 'e') out_err = true;
+		else if (c == 'F') flt_vcf = true;
 	}
 	if (args.length - getopt.ind < 3) {
 		print("Usage: mgutils.js sveval <true.vcf> <true.bed> <call.txt>");
@@ -226,7 +227,7 @@ function mg_cmd_sveval(args)
 		var t = buf.toString().split("\t");
 		if (t[0][0] == '#') continue;
 		if (t.length < 10) continue;
-		if (t[6] != '.' && t[6] != 'PASS') continue;
+		if (flt_vcf && t[6] != '.' && t[6] != 'PASS') continue;
 		if (bed[t[0]] == null) continue;
 		var ref = t[3];
 		var st = parseInt(t[1]) - 1;
@@ -247,6 +248,7 @@ function mg_cmd_sveval(args)
 		var max_ev = 0;
 		max_diff = 0;
 		for (var i = 0; i < gt.length; ++i) {
+			if (gt[i] == '.') continue;
 			var x = parseInt(gt[i]);
 			var l = al[x].length - ref.length;
 			var x = l > 0? l : -l;
@@ -279,12 +281,12 @@ function mg_cmd_sveval(args)
 	for (var ctg in vcf) {
 		for (var i = 0; i < vcf[ctg].length; ++i) {
 			var v = vcf[ctg][i];
-			if (!it_contained(bed[ctg], v[0], v[1])) continue;
 			if (v[3] < min_var_len) continue;
-			var sub = v[4] < 0? 1 : 2;
-			++n_vcf[0], ++n_vcf[sub];
 			var st = v[0] - flank, en = v[1] + flank;
 			if (st < 0) st = 0;
+			if (!it_contained(bed[ctg], st, en)) continue;
+			var sub = v[4] < 0? 1 : 2;
+			++n_vcf[0], ++n_vcf[sub];
 			var b = it_overlap(rst[ctg], st, en);
 			if (b.length == 0) {
 				if (out_err) print("FN", ctg, v[0], v[1], v[4]);
@@ -299,9 +301,10 @@ function mg_cmd_sveval(args)
 		for (var i = 0; i < rst[ctg].length; ++i) {
 			var v = rst[ctg][i];
 			if (!it_contained(bed[ctg], v[0], v[1])) continue;
-			++n_rst;
 			var st = v[0] - flank, en = v[1] + flank;
 			if (st < 0) st = 0;
+			if (!it_contained(bed[ctg], st, en)) continue;
+			++n_rst;
 			var b = it_overlap(vcf[ctg], st, en);
 			if (b.length == 0) {
 				if (out_err) print("FP", ctg, v[0], v[1]);
