@@ -271,8 +271,16 @@ function mg_cmd_sveval(args)
 		if (parseFloat(t[3]) < min_sc) continue;
 		if (bed[t[0]] == null) continue;
 		if (rst[t[0]] == null) rst[t[0]] = [];
+		var ref_len = t[7] == '*'? 0 : t[7].length;
+		var max_diff = 0;
+		for (var i = 8; i < t.length; ++i) {
+			var alt_len = t[i] == '*'? 0 : t[8].length;
+			var l = alt_len - ref_len;
+			if (l < 0) l = -l;
+			if (max_diff < l) max_diff = l;
+		}
 		var st = parseInt(t[1]), en = parseInt(t[2]);
-		rst[t[0]].push([st, en]);
+		rst[t[0]].push([st, en, -1, max_diff]);
 	}
 	file.close();
 	for (var ctg in rst) it_index(rst[ctg]);
@@ -302,7 +310,7 @@ function mg_cmd_sveval(args)
 	for (var ctg in rst) {
 		for (var i = 0; i < rst[ctg].length; ++i) {
 			var v = rst[ctg][i];
-			if (!it_contained(bed[ctg], v[0], v[1])) continue;
+			if (v[3] < min_var_len) continue;
 			var st = v[0] - flank, en = v[1] + flank;
 			if (st < 0) st = 0;
 			if (!it_contained(bed[ctg], st, en)) continue;
