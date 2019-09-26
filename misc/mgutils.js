@@ -257,7 +257,7 @@ function mg_cmd_sveval(args)
 		}
 		if (max_diff < min_test_len) continue;
 		if (vcf[t[0]] == null) vcf[t[0]] = [];
-		vcf[t[0]].push([st, en, -1, max_diff, max_ev, flt]);
+		vcf[t[0]].push([st, en, -1, max_diff, max_ev, flt, s[0]]);
 	}
 	file.close();
 	for (var ctg in vcf) it_index(vcf[ctg]);
@@ -272,15 +272,15 @@ function mg_cmd_sveval(args)
 		if (bed[t[0]] == null) continue;
 		if (rst[t[0]] == null) rst[t[0]] = [];
 		var ref_len = t[7] == '*'? 0 : t[7].length;
-		var max_diff = 0;
+		var max_diff = 0, max_ev = 0;
 		for (var i = 8; i < t.length; ++i) {
 			var alt_len = t[i] == '*'? 0 : t[8].length;
 			var l = alt_len - ref_len;
-			if (l < 0) l = -l;
-			if (max_diff < l) max_diff = l;
+			var x = l > 0? l : -l;
+			if (max_diff < x) max_diff = x, max_ev = l;
 		}
 		var st = parseInt(t[1]), en = parseInt(t[2]);
-		rst[t[0]].push([st, en, -1, max_diff]);
+		rst[t[0]].push([st, en, -1, max_diff, max_ev]);
 	}
 	file.close();
 	for (var ctg in rst) it_index(rst[ctg]);
@@ -299,14 +299,14 @@ function mg_cmd_sveval(args)
 			++n_vcf[0], ++n_vcf[sub];
 			var b = it_overlap(rst[ctg], st, en);
 			if (b.length == 0) {
-				if (out_err) print("FN", ctg, v[0], v[1], v[4]);
+				if (out_err) print("FN", ctg, v[0], v[1], v[4], v[6]);
 				++fn[0], ++fn[sub];
 			}
 		}
 	}
 
 	// specificity
-	var n_rst = 0, fp = 0;
+	var n_rst = [0, 0, 0], fp = [0, 0, 0];
 	for (var ctg in rst) {
 		for (var i = 0; i < rst[ctg].length; ++i) {
 			var v = rst[ctg][i];
@@ -314,11 +314,12 @@ function mg_cmd_sveval(args)
 			var st = v[0] - flank, en = v[1] + flank;
 			if (st < 0) st = 0;
 			if (!it_contained(bed[ctg], st, en)) continue;
-			++n_rst;
+			var sub = v[4] < 0? 1 : 2;
+			++n_rst[0], ++n_rst[sub];
 			var b = it_overlap(vcf[ctg], st, en);
 			if (b.length == 0) {
-				if (out_err) print("FP", ctg, v[0], v[1]);
-				++fp;
+				if (out_err) print("FP", ctg, v[0], v[1], v[4]);
+				++fp[0], ++fp[sub];
 			}
 		}
 	}
@@ -326,7 +327,9 @@ function mg_cmd_sveval(args)
 	print("NA", fn[0], n_vcf[0], (fn[0]/n_vcf[0]).toFixed(4));
 	print("ND", fn[1], n_vcf[1], (fn[1]/n_vcf[1]).toFixed(4));
 	print("NI", fn[2], n_vcf[2], (fn[2]/n_vcf[2]).toFixed(4));
-	print("PA", fp, n_rst, (fp/n_rst).toFixed(4));
+	print("PA", fp[0], n_rst[0], (fp[0]/n_rst[0]).toFixed(4));
+	print("PD", fp[1], n_rst[1], (fp[1]/n_rst[1]).toFixed(4));
+	print("PI", fp[2], n_rst[2], (fp[2]/n_rst[2]).toFixed(4));
 }
 
 /*************************
