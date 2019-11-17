@@ -1,3 +1,20 @@
+Release 0.6-r302 (17 November 2019)
+-----------------------------------
+
+Notable changes:
+
+ * Assign weight to seeds based on their repetitiveness. This helps chaining in
+   repetitive regions a little bit.
+
+ * For short-read mapping, prefer the reference path if the alternate path is
+   not much better.
+
+Major changes may be coming in the next release.
+
+(17 November 2019, r302)
+
+
+
 Release 0.5-r285 (8 September 2019)
 -----------------------------------
 
