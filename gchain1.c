@@ -34,8 +34,8 @@ static int32_t mg_target_dist(const gfa_t *g, const mg_lchain_t *l0, const mg_lc
 	return (l1->qs - l0->qe) - (g->seg[l0->v>>1].len - l0->re) + (g->seg[l1->v>>1].len - l1->rs);
 }
 
-int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, int32_t ref_bonus,
-					  float chn_pen_gap, float chn_pen_skip, const char *qseq, const mg128_t *an, uint64_t **u_)
+int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, int32_t max_skip,
+					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, const char *qseq, const mg128_t *an, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *p, *v, *t;
@@ -80,73 +80,96 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 	for (i = 0; i < n_ext; ++i) { // core loop
 		gc_frag_t *ai = &a[i];
 		mg_lchain_t *li = &lc[ai->i];
-		int32_t max_f = li->score;
-		int32_t max_j = -1, max_d = -1;
-		int32_t x = li->qs + bw, min_qs = li->qs;
 		int32_t segi = (an[li->off].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
-		uint32_t max_hash = 0;
-		if (x > qlen) x = qlen;
-		x = find_max(i, a, x);
-		n_dst = 0;
-		for (j = x; j >= 0; --j) { // collect potential destination vertices
-			gc_frag_t *aj = &a[j];
-			mg_lchain_t *lj = &lc[aj->i];
-			mg_path_dst_t *q;
-			int32_t min_dist, target_dist, segj, dq;
-			dq = li->qs - lj->qe;
-			segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
-			if (segi == segj) {
-				if (dq > max_dist_q) break; // if query gap too large, stop
-			} else {
-				if (dq > max_dist_g && dq > max_dist_q) break;
+		{ // collect end points potentially reachable from _i_
+			int32_t x = li->qs + bw, n_skip = 0;
+			if (x > qlen) x = qlen;
+			x = find_max(i, a, x);
+			n_dst = 0;
+			for (j = x; j >= 0; --j) { // collect potential destination vertices
+				gc_frag_t *aj = &a[j];
+				mg_lchain_t *lj = &lc[aj->i];
+				mg_path_dst_t *q;
+				int32_t min_dist, target_dist, segj, dq;
+				dq = li->qs - lj->qe;
+				segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
+				if (segi == segj) {
+					if (dq > max_dist_q) break; // if query gap too large, stop
+				} else {
+					if (dq > max_dist_g && dq > max_dist_q) break;
+				}
+				if (lj->qs >= li->qs) continue; // lj is contained in li
+				if (li->v == lj->v) continue; // we don't deal with lchains on the same segment
+				min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re); // minimal graph gap
+				if (min_dist > max_dist_g) continue; // graph gap too large
+				if (segi == segj && min_dist - bw > li->qs - lj->qe) continue; // when li->qs < lj->qe, the condition turns to min_dist + (lj->qe - li->qs) > bw, which is desired
+				target_dist = mg_target_dist(g, lj, li);
+				if (target_dist < 0) continue; // this may happen if the query overlap is far too large
+				if (n_dst == m_dst) KEXPAND(km, dst, m_dst); // TODO: watch out the quadratic behavior!
+				q = &dst[n_dst++];
+				q->v = lj->v^1;
+				q->meta = j;
+				q->qlen = li->qs - lj->qe;
+				q->target_dist = target_dist;
+				q->target_hash = 0;
+				q->check_hash = 0;
+				if (t[j] == i) {
+					if (++n_skip > max_skip)
+						break;
+				}
+				if (p[j] >= 0) t[p[j]] = i;
 			}
-			if (lj->qe < min_qs) min_qs = lj->qe;
-			if (lj->qs >= li->qs) continue; // lj is contained in li
-			if (li->v == lj->v) continue; // we don't deal with lchains on the same segment
-			min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re); // minimal graph gap
-			if (min_dist > max_dist_g) continue; // graph gap too large
-			if (segi == segj && min_dist - bw > li->qs - lj->qe) continue; // when li->qs < lj->qe, the condition turns to min_dist + (lj->qe - li->qs) > bw, which is desired
-			target_dist = mg_target_dist(g, lj, li);
-			if (target_dist < 0) continue; // this may happen if the query overlap is far too large
-			if (n_dst == m_dst) KEXPAND(km, dst, m_dst); // TODO: watch out the quadratic behavior!
-			q = &dst[n_dst++];
-			q->v = lj->v^1;
-			q->meta = j;
-			q->qlen = li->qs - lj->qe;
-			q->target_dist = target_dist;
-			q->target_hash = 0;
-			q->check_hash = 0;
 		}
-		if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
-		memcpy(qs, &qseq[min_qs], li->qs - min_qs);
-		mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, li->qs - min_qs, qs, 1, 0);
-		for (j = 0; j < n_dst; ++j) {
-			mg_path_dst_t *dj = &dst[j];
-			mg_lchain_t *lj;
-			int32_t gap, sc, segj;
-			float lin_pen, log_pen;
-			if (dj->n_path == 0) continue;
-			gap = dj->dist - dj->target_dist;
-			lj = &lc[a[dj->meta].i];
-			segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
-			if (gap < 0) gap = -gap;
-			if (segi == segj && gap > bw) continue;
-			if (lj->qe <= li->qs) sc = li->score;
-			else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499); // dealing with overlap on query
-			//sc += dj->mlen; // TODO: is this line the right thing to do?
-			if (dj->is_0) sc += ref_bonus;
-			lin_pen = chn_pen_gap * (float)gap;
-			log_pen = gap >= 2? mg_log2(gap) : 0.0f;
-			sc -= (int32_t)(lin_pen + log_pen);
-			sc += f[dj->meta];
-			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist - g->seg[li->v>>1].len, dj->dist - g->seg[li->v>>1].len, sc, lc[dj->meta].qs, lc[dj->meta].qe);
-			if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash;
+		{ // confirm reach-ability
+			int32_t k, min_qs;
+			// test reach-ability without sequences
+			mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, 0, 0, 1, 0);
+			for (j = k = 0, min_qs = li->qs; j < n_dst; ++j) {
+				const mg_lchain_t *lj;
+				if (dst[j].n_path == 0) continue;
+				lj = &lc[a[dst[j].meta].i];
+				if (lj->qe < min_qs) min_qs = lj->qe;
+				dst[k++] = dst[j];
+			}
+			n_dst = k;
+			if (n_dst > 0) {
+				memcpy(qs, &qseq[min_qs], li->qs - min_qs);
+				// test reach-ability considering sequences
+				mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, li->qs - min_qs, qs, 1, 0);
+			}
+			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
 		}
-		f[i] = max_f, p[i] = max_j;
-		li->dist_pre = max_d;
-		li->hash_pre = max_hash;
-		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
-		//fprintf(stderr, "[%d] %d\t%d\tv=%d\ti=%d\tscore=%d\tf[i]=%d\tmax_j=%d\tv[i]=%d\tp[i]=%d\n", i, li->qs, li->qe, li->v, a[i].i, li->score, max_f, max_j, v[i], p[i]);
+		{ // DP
+			int32_t max_f = li->score, max_j = -1, max_d = -1;
+			uint32_t max_hash = 0;
+			for (j = 0; j < n_dst; ++j) {
+				mg_path_dst_t *dj = &dst[j];
+				mg_lchain_t *lj;
+				int32_t gap, sc, segj;
+				float lin_pen, log_pen;
+				if (dj->n_path == 0) continue;
+				gap = dj->dist - dj->target_dist;
+				lj = &lc[a[dj->meta].i];
+				segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
+				if (gap < 0) gap = -gap;
+				if (segi == segj && gap > bw) continue;
+				if (lj->qe <= li->qs) sc = li->score;
+				else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499); // dealing with overlap on query
+				//sc += dj->mlen; // TODO: is this line the right thing to do?
+				if (dj->is_0) sc += ref_bonus;
+				lin_pen = chn_pen_gap * (float)gap;
+				log_pen = gap >= 2? mg_log2(gap) : 0.0f;
+				sc -= (int32_t)(lin_pen + log_pen);
+				sc += f[dj->meta];
+				if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist - g->seg[li->v>>1].len, dj->dist - g->seg[li->v>>1].len, sc, lc[dj->meta].qs, lc[dj->meta].qe);
+				if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash;
+			}
+			f[i] = max_f, p[i] = max_j;
+			li->dist_pre = max_d;
+			li->hash_pre = max_hash;
+			v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
+			//fprintf(stderr, "[%d] %d\t%d\tv=%d\ti=%d\tscore=%d\tf[i]=%d\tmax_j=%d\tv[i]=%d\tp[i]=%d\n", i, li->qs, li->qe, li->v, a[i].i, li->score, max_f, max_j, v[i], p[i]);
+		}
 	}
 	kfree(km, dst);
 	kfree(km, qs);

@@ -20,7 +20,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->max_gap = 5000;
 	mo->max_gap_ref = -1;
 	mo->max_frag_len = 800;
-	mo->max_lc_skip = 25, mo->max_lc_iter = 10000;
+	mo->max_chn_skip = 25, mo->max_lc_iter = 10000;
 	mo->bw = 2000;
 	mo->mini_batch_size = 500000000;
 	mo->div = 0.1f;

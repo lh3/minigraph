@@ -175,7 +175,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			for (j = 0; j < cnt; ++j) {
 				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
 				int32_t done = 0, copy = 0, mlen;
-				mlen = path_mlen(out, n_out - 1, h, t->qlen);
+				mlen = h_seeds? path_mlen(out, n_out - 1, h, t->qlen) : 0;
 				if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,mlen=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, dist - g->seg[src>>1].len, mlen, r->hash);
 				if (t->n_path == 0) { // keep the shortest path
 					copy = 1;
@@ -214,7 +214,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			q = &kh_val(h, k);
 			if (absent) { // a new vertex visited
 				q->k = 0, q->qs = q->qe = -1;
-				q->mlen = d + gfa_arc_lw(g, *ai) <= max_dist? node_mlen(km, g, ai->w, &mini, h_seeds, n_seeds, seeds, &q->qs, &q->qe) : 0;
+				q->mlen = h_seeds && d + gfa_arc_lw(g, *ai) <= max_dist? node_mlen(km, g, ai->w, &mini, h_seeds, n_seeds, seeds, &q->qs, &q->qe) : 0;
 				//if (ql && qs) fprintf(stderr, "ql=%d,src=%d\tv=%c%s[%d],n_seeds=%d,mlen=%d\n", ql, src, "><"[ai->w&1], g->seg[ai->w>>1].name, ai->w, n_seeds, q->mlen);
 			}
 			if (q->k < max_k) { // enough room: add to the heap

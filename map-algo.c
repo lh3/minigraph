@@ -245,34 +245,9 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	chn_pen_gap = opt->chn_pen_gap * tmp;
 	chn_pen_skip = opt->chn_pen_skip * tmp;
 
-	a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_lc_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
+	a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chn_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
 					 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
 
-#if 0 // re-chaining; mostly for short reads
-	if (opt->max_occ > opt->mid_occ && rep_len > 0) {
-		int rechain = 0;
-		if (n_lc > 0) { // test if the best chain has all the segments
-			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
-			for (i = 0; i < n_lc; ++i) { // find the best chain
-				if (max < (int)(u[i]>>32)) max = u[i]>>32, max_i = i, max_off = off;
-				off += (uint32_t)u[i];
-			}
-			for (i = 1; i < (int32_t)u[max_i]; ++i) // count the number of segments in the best chain
-				if ((a[max_off+i].y&MG_SEED_SEG_MASK) != (a[max_off+i-1].y&MG_SEED_SEG_MASK))
-					++n_chained_segs;
-			if (n_chained_segs < n_segs)
-				rechain = 1;
-		} else rechain = 1;
-		if (rechain) { // redo chaining with a higher max_occ threshold
-			kfree(b->km, a);
-			kfree(b->km, u);
-			kfree(b->km, mini_pos);
-			if (opt->flag & MG_M_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->max_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-			else a = collect_seed_hits(b->km, opt, opt->max_occ, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_lc_cnt, opt->min_lc_score, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
-		}
-	}
-#endif
 	b->frag_gap = max_chain_gap_ref;
 	kfree(b->km, mv.a);
 
@@ -290,7 +265,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		strncpy(&seq_cat[l], seqs[i], qlens[i]);
 		l += qlens[i];
 	}
-	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->ref_bonus,
+	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chn_skip, opt->ref_bonus,
 						 chn_pen_gap, chn_pen_skip, seq_cat, a, &u);
 	gcs[0] = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score);
 	gcs[0]->rep_len = rep_len;
