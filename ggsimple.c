@@ -176,6 +176,9 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				}
 				pd -= gfa_ins_adj(g, opt->ggs_shrink_pen, &I, seq[t].seq);
 
+				min_len = pd > I.coff[1] - I.coff[0]? pd : I.coff[1] - I.coff[0];
+				if (I.coff[0] <= min_len || I.coff[1] >= seq[t].l_seq - min_len) continue; // test if the event is close to ends again
+
 				// filtering
 				if (I.coff[1] - I.coff[0] < opt->min_var_len && pd < opt->min_var_len)
 					continue;
