@@ -194,6 +194,29 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	return a;
 }
 
+static int64_t flt_anchors(int64_t n_a, mg128_t *a, int32_t r)
+{
+	int64_t i, j;
+	for (i = 0; i < n_a; ++i) {
+		int64_t n_in = 0;
+		for (j = i - 1; j >= 0; --j) {
+			int32_t dq;
+			int64_t dr;
+			dr = a[i].x - a[j].x;
+			if (dr > r) break;
+			dq = (int32_t)a[i].y - (int32_t)a[j].y;
+			if (dq > r || dq < 0) continue;
+			a[j].y |= MG_SEED_KEPT;
+			++n_in;
+		}
+		if (n_in) a[i].y |= MG_SEED_KEPT;
+	}
+	for (i = j = 0; i < n_a; ++i)
+		if (a[i].y & MG_SEED_KEPT)
+			a[j++] = a[i];
+	return j;
+}
+
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, mg_gchains_t **gcs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
 	int i, l, rep_len, qlen_sum, n_lc, n_gc, n_mini_pos;
@@ -245,6 +268,8 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	chn_pen_gap = opt->chn_pen_gap * tmp;
 	chn_pen_skip = opt->chn_pen_skip * tmp;
 
+	if (!is_splice && !is_sr && opt->max_gap_pre > 0 && opt->max_gap_pre * 2 < opt->max_gap)
+		n_a = flt_anchors(n_a, a, opt->max_gap_pre);
 	a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chn_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
 					 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
 

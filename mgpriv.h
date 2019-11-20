@@ -14,6 +14,7 @@
 
 #define MG_SEED_IGNORE     (1ULL<<41)
 #define MG_SEED_TANDEM     (1ULL<<42)
+#define MG_SEED_KEPT       (1ULL<<43)
 
 #define MG_MAX_SEG        255
 #define MG_SEED_SEG_SHIFT  48
