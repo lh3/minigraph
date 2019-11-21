@@ -50,8 +50,6 @@ non-standard dependency is [zlib][zlib].
 
 ### <a name="map"></a>Sequence-to-graph mapping
 
-<img align="right" width="278" src="doc/example2.png"/>
-
 To map sequences against a graph, you should prepare the graph in the [GFA
 format][gfa1], or preferrably the [rGFA format][rgfa]. If you don't have
 a graph, you can generate a graph from multiple samples (see the [Graph
@@ -102,6 +100,8 @@ Prebuilt human graphs in the rGFA format can be found at
 `ftp://ftp.dfci.harvard.edu/pub/hli/minigraph`.
 
 ### <a name="algo"></a>Algorithm overview
+
+<img align="right" width="278" src="doc/example2.png"/>
 
 In the following, minigraph command line options have a dash ahead and are
 highlighted in bold. The description may help to tune minigraph parameters.
