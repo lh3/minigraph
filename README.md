@@ -16,6 +16,8 @@ gfatools gfa2fa -s out.gfa > out.fa
 
 ## Table of Contents
 
+<img align="right" width="278" src="doc/example1.png"/>
+
 - [Getting Started](#started)
 - [Introduction](#intro)
 - [Users' Guide](#uguide)
@@ -27,8 +29,6 @@ gfatools gfa2fa -s out.gfa > out.fa
 - [Limitations](#limit)
 
 ## <a name="intro"></a>Introduction
-
-<img align="right" width="278" src="doc/example1.png"/>
 
 Minigraph is a *proof-of-concept* sequence-to-graph mapper and graph
 constructor. It finds *approximate* locations of a query sequence in a sequence
@@ -49,6 +49,8 @@ To install minigraph, type `make` in the source code directory. The only
 non-standard dependency is [zlib][zlib].
 
 ### <a name="map"></a>Sequence-to-graph mapping
+
+<img align="right" width="278" src="doc/example2.png"/>
 
 To map sequences against a graph, you should prepare the graph in the [GFA
 format][gfa1], or preferrably the [rGFA format][rgfa]. If you don't have
