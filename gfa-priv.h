@@ -1,6 +1,7 @@
 #ifndef __GFA_PRIV_H__
 #define __GFA_PRIV_H__
 
+#include <stdlib.h>
 #include "gfa.h"
 
 #define GFA_MALLOC(ptr, len) ((ptr) = (__typeof__(ptr))malloc((len) * sizeof(*(ptr))))
@@ -24,9 +25,18 @@ typedef struct {
 typedef struct {
 	int32_t n_v, n_a, is_dag;
 	gfa_subv_t *v;
-	int32_t *a;
+	uint64_t *a; // high 32 bits: point to the neighbor; low 32 bit: arc index in the graph
 	void *km;
 } gfa_sub_t;
+
+typedef struct {
+	int32_t snid, ss, se;
+	uint32_t vs, ve;
+	int32_t n_seg, len_max, len_min;
+	float cf_max, cf_min;
+	uint32_t *v;
+	char *seq_max, *seq_min; // seq_max and seq_min point to v[]
+} gfa_bubble_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,9 +68,11 @@ uint32_t gfa_fix_multi(gfa_t *g);
 int gfa_arc_del_trans(gfa_t *g, int fuzz); // transitive reduction
 int gfa_arc_del_short(gfa_t *g, float drop_ratio); // delete short arcs
 int gfa_cut_tip(gfa_t *g, int max_ext); // cut tips
+int gfa_topocut(gfa_t *g, int max_ext, float drop_ratio);
+int gfa_bub_simple(gfa_t *g, int min_side, int max_side);
 int gfa_cut_internal(gfa_t *g, int max_ext); // drop internal segments
 int gfa_cut_biloop(gfa_t *g, int max_ext); // Hmm... I forgot... Some type of weird local topology
-int gfa_pop_bubble(gfa_t *g, int max_dist); // bubble popping
+int gfa_pop_bubble(gfa_t *g, int max_dist, int protect_tip); // bubble popping
 gfa_t *gfa_ug_gen(const gfa_t *g);
 
 // subset, modifying the graph
@@ -78,7 +90,9 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 
 gfa_sfa_t *gfa_gfa2sfa(const gfa_t *g, int32_t *n_sfa_, int32_t write_seq);
 
-void gfa_blacklist_print(const gfa_t *g, FILE *fp, int32_t min_len); // FIXME: doesn't work with translocations
+gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_); // FIXME: doesn't work with translocation
+
+void gfa_gt_simple_print(const gfa_t *g, float min_dc, int32_t is_path); // FIXME: doesn't work with translocations
 
 void gfa_aux_update_cv(gfa_t *g, const char *tag, const double *cov_seg, const double *cov_link);
 

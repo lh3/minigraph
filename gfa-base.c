@@ -210,10 +210,16 @@ void gfa_fix_arc_len(gfa_t *g)
 	for (k = 0; k < g->n_arc; ++k) {
 		gfa_arc_t *a = &g->arc[k];
 		uint32_t v = gfa_arc_head(*a), w = gfa_arc_tail(*a);
-		if (g->seg[v>>1].del || g->seg[w>>1].del) {
+		const gfa_seg_t *sv = &g->seg[v>>1];
+		if (!sv->del && sv->len < a->ov) {
+			if (gfa_verbose >= 2)
+				fprintf(stderr, "[W] overlap length longer than segment length for '%s': %d > %d\n", sv->name, a->ov, sv->len);
+			a->ov = sv->len;
+		}
+		if (sv->del || g->seg[w>>1].del) {
 			a->del = 1;
 		} else {
-			a->v_lv |= g->seg[v>>1].len - a->ov;
+			a->v_lv |= sv->len - a->ov;
 		}
 	}
 }
@@ -296,6 +302,11 @@ void gfa_arc_rm(gfa_t *g)
 		uint32_t u = g->arc[e].v_lv>>32, v = g->arc[e].w;
 		if (!g->arc[e].del && !g->seg[u>>1].del && !g->seg[v>>1].del)
 			g->arc[n++] = g->arc[e];
+		else {
+			gfa_aux_t *aux = &g->link_aux[g->arc[e].link_id];
+			free(aux->aux);
+			aux->aux = 0, aux->l_aux = aux->m_aux = 0;
+		}
 	}
 	if (n < g->n_arc) { // arc index is out of sync
 		if (g->idx) free(g->idx);
@@ -325,7 +336,7 @@ int32_t gfa_check_multi(const gfa_t *g)
 		int32_t nv = gfa_arc_n(g, v);
 		max_nv = max_nv > nv? max_nv : nv;
 	}
-	if (max_nv == 1) return 0;
+	if (max_nv == 1 || max_nv < 0) return 0;
 	GFA_MALLOC(buf, max_nv);
 	for (v = 0; v < n_vtx; ++v) {
 		int32_t i, s, nv = gfa_arc_n(g, v);
@@ -422,7 +433,7 @@ static inline int gfa_aux_type2size(int x)
 }
 
 #define __skip_tag(s) do { \
-		int type = toupper(*(s)); \
+		int type = *(s); \
 		++(s); \
 		if (type == 'Z') { while (*(s)) ++(s); ++(s); } \
 		else if (type == 'B') (s) += 5 + gfa_aux_type2size(*(s)) * (*(int32_t*)((s)+1)); \
