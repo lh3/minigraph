@@ -1,3 +1,23 @@
+Release 0.7-r310 (21 November 2019)
+-----------------------------------
+
+Notable changes:
+
+ * Increased the default maximum INDEL/event length from 10kb to 100kb for
+   assembly mapping and graph generation.
+
+ * Decreased the default minimum INDEL/event length from 250bp to 100bp.
+
+ * Accelerated graph mapping by pre-filtering isolated anchors and disconnected
+   linear chains. This triples the performance when long gaps are desired.
+
+Due to the change of default parameters, this release generates graphs
+different from the previous versions.
+
+(21 November 2019, r310)
+
+
+
 Release 0.6-r302 (17 November 2019)
 -----------------------------------
 
