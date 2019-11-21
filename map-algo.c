@@ -270,15 +270,22 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 
 	if (!is_splice && !is_sr && opt->max_gap_pre > 0 && opt->max_gap_pre * 2 < opt->max_gap)
 		n_a = flt_anchors(n_a, a, opt->max_gap_pre);
-	a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chn_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
-					 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
+	if (n_a == 0) {
+		if (a) kfree(b->km, a);
+		a = 0, n_lc = 0, u = 0;
+	} else {
+		a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chn_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
+						 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
+	}
 
 	b->frag_gap = max_chain_gap_ref;
 	kfree(b->km, mv.a);
 
-	lc = mg_lchain_gen(b->km, hash, qlen_sum, n_lc, u, a);
-	for (i = 0; i < n_lc; ++i)
-		mg_update_anchors(lc[i].cnt, &a[lc[i].off], n_mini_pos, mini_pos);
+	if (n_lc) {
+		lc = mg_lchain_gen(b->km, hash, qlen_sum, n_lc, u, a);
+		for (i = 0; i < n_lc; ++i)
+			mg_update_anchors(lc[i].cnt, &a[lc[i].off], n_mini_pos, mini_pos);
+	} else lc = 0;
 	kfree(b->km, mini_pos);
 	kfree(b->km, u);
 
@@ -308,7 +315,10 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		km_stat(b->km, &kmst);
 		if (mg_dbg_flag & MG_DBG_QNAME)
 			fprintf(stderr, "QM\t%s\t%d\tcap=%ld,nCore=%ld,largest=%ld\n", qname, qlen_sum, kmst.capacity, kmst.n_cores, kmst.largest);
-		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
+		if (kmst.n_blocks != kmst.n_cores) {
+			fprintf(stderr, "[E::%s] memory leak at %s\n", __func__, qname);
+			abort();
+		}
 		if (kmst.largest > 1U<<28) {
 			km_destroy(b->km);
 			b->km = km_init();

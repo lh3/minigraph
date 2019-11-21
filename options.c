@@ -43,10 +43,10 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	memset(go, 0, sizeof(mg_ggopt_t));
 	go->algo = MG_G_NONE;
 	go->flag |= MG_G_NO_QOVLP;
-	go->min_map_len = 50000;
+	go->min_map_len = 100000;
 	go->min_depth_len = 10000;
 	go->min_mapq = 5;
-	go->min_var_len = 250;
+	go->min_var_len = 100;
 	go->match_pen = 10;
 	// for ggs
 	go->ggs_shrink_pen = 9;
@@ -67,11 +67,11 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->bw = 2000, mo->max_gap = 5000;
 	} else if (strcmp(preset, "asm") == 0 || strcmp(preset, "ggs") == 0) {
 		io->k = 19, io->w = 10;
-		mo->max_gap = mo->bw = 10000;
+		mo->max_gap = mo->bw = 100000;
 		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 		mo->min_cov_mapq = 5;
-		mo->min_cov_blen = 50000;
+		mo->min_cov_blen = 100000;
 		mo->div = 0.01f;
 		if (strcmp(preset, "ggs") == 0)
 			go->algo = MG_G_GGSIMPLE, mo->best_n = 0;
