@@ -50,6 +50,34 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 	return u;
 }
 
+static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t max_dist_x, int32_t max_dist_y, int32_t bw, float chn_pen_gap, float chn_pen_skip, int is_cdna, int n_segs)
+{
+	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, same_seg, q_span, sc;
+	float lin_pen, log_pen;
+	if (dq <= 0 || dq > max_dist_x) return INT32_MIN;
+	same_seg = ((ai->y & MG_SEED_SEG_MASK) == (aj->y & MG_SEED_SEG_MASK));
+	dr = (int32_t)(ai->x - aj->x);
+	if (same_seg && (dq > max_dist_y || dr == 0)) return INT32_MIN; // don't skip if an anchor is used by multiple segments
+	if (n_segs > 1 && !is_cdna && same_seg && dr > max_dist_y) return INT32_MIN;
+	dd = dr > dq? dr - dq : dq - dr;
+	if (same_seg && dd > bw) return INT32_MIN;
+	dg = dr < dq? dr : dq;
+	q_span = aj->y>>32&0xff;
+	sc = q_span < dg? q_span : dg;
+	if (aj->y>>MG_SEED_WT_SHIFT < 255) {
+		int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
+		sc = tmp > 1? tmp : 1;
+	}
+	lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
+	log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
+	if (is_cdna || !same_seg) {
+		if (!same_seg && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
+		else if (dr > dq || !same_seg) sc -= (int)(lin_pen < log_pen? lin_pen : log_pen); // deletion or jump between paired ends
+		else sc -= (int)(lin_pen + log_pen);
+	} else sc -= (int)(lin_pen + log_pen);
+	return sc;
+}
+
 /* Input:
  *   a[].x: tid<<33 | rev<<32 | tpos
  *   a[].y: flags<<40 | q_span<<32 | q_pos
@@ -62,7 +90,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 					  int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t k, *f, *p, *t, *v, n_u, n_v;
-	int64_t i, j, st = 0;
+	int64_t i, j, max_if, max_ii, st = 0;
 	uint64_t *u, *u2;
 	mg128_t *b, *w;
 
@@ -75,37 +103,16 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	memset(t, 0, n * 4);
 
 	// fill the score and backtrack arrays
+	max_if = 0, max_ii = -1;
 	for (i = 0; i < n; ++i) {
-		uint64_t ri = a[i].x;
 		int64_t max_j = -1;
-		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
-		int32_t max_f = q_span, n_skip = 0;
-		int32_t sidi = (a[i].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
-		while (st < i && (ri>>32 != a[st].x>>32 || ri > a[st].x + max_dist_x)) ++st;
+		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
+		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist_x)) ++st;
 		if (i - st > max_iter) st = i - max_iter;
 		for (j = i - 1; j >= st; --j) {
-			int64_t dr = ri - a[j].x;
-			int32_t dq = qi - (int32_t)a[j].y, dd, sc, dg;
-			int32_t sidj = (a[j].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
-			float lin_pen, log_pen;
-			if ((sidi == sidj && dr == 0) || dq <= 0) continue; // don't skip if an anchor is used by multiple segments; see below
-			if ((sidi == sidj && dq > max_dist_y) || dq > max_dist_x) continue;
-			dd = dr > dq? dr - dq : dq - dr;
-			dg = dr < dq? dr : dq;
-			if (sidi == sidj && dd > bw) continue;
-			if (n_segs > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) continue;
-			sc = q_span < dg? q_span : dg;
-			if (a[j].y>>MG_SEED_WT_SHIFT < 255) {
-				int tmp = (int)(0.00392156862745098 * (a[j].y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
-				sc = tmp > 1? tmp : 1;
-			}
-			lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-			log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
-			if (is_cdna || sidi != sidj) {
-				if (sidi != sidj && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
-				else if (dr > dq || sidi != sidj) sc -= (int)(lin_pen < log_pen? lin_pen : log_pen); // deletion or jump between paired ends
-				else sc -= (int)(lin_pen + log_pen);
-			} else sc -= (int)(lin_pen + log_pen);
+			int32_t sc;
+			sc = comput_sc(&a[i], &a[j], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_segs);
+			if (sc == INT32_MIN) continue;
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;
@@ -118,6 +125,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		}
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
+		if (max_if < max_f) max_if = max_f, max_ii = i;
 	}
 
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
