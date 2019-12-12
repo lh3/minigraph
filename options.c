@@ -72,6 +72,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 		mo->min_cov_mapq = 5;
 		mo->min_cov_blen = 100000;
+		mo->max_chn_skip = 100;
 		mo->div = 0.01f;
 		if (strcmp(preset, "ggs") == 0)
 			go->algo = MG_G_GGSIMPLE, mo->best_n = 0;

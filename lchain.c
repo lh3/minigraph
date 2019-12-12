@@ -90,7 +90,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 					  int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t k, *f, *p, *t, *v, n_u, n_v;
-	int64_t i, j, max_if, max_ii, st = 0;
+	int64_t i, j, max_ii, st = 0;
 	uint64_t *u, *u2;
 	mg128_t *b, *w;
 
@@ -103,9 +103,8 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	memset(t, 0, n * 4);
 
 	// fill the score and backtrack arrays
-	max_if = 0, max_ii = -1;
-	for (i = 0; i < n; ++i) {
-		int64_t max_j = -1;
+	for (i = 0, max_ii = -1; i < n; ++i) {
+		int64_t max_j = -1, end_j;
 		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
 		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist_x)) ++st;
 		if (i - st > max_iter) st = i - max_iter;
@@ -123,9 +122,23 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			}
 			if (p[j] >= 0) t[p[j]] = i;
 		}
+		end_j = j;
+		if (max_ii < 0 || a[i].x - a[max_ii].x > (int64_t)max_dist_x) {
+			int32_t max = INT32_MIN;
+			max_ii = -1;
+			for (j = i - 1; j >= st; --j)
+				if (max < f[j]) max = f[j], max_ii = j;
+		}
+		if (max_ii >= 0 && max_ii < end_j) {
+			int32_t tmp;
+			tmp = comput_sc(&a[i], &a[max_ii], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_segs);
+			if (tmp != INT32_MIN && max_f < tmp + f[max_ii])
+				max_f = tmp + f[max_ii], max_j = max_ii;
+		}
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
-		if (max_if < max_f) max_if = max_f, max_ii = i;
+		if (max_ii < 0 || (a[i].x - a[max_ii].x <= (int64_t)max_dist_x && f[max_ii] < f[i]))
+			max_ii = i;
 	}
 
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
