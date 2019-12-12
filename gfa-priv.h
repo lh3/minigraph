@@ -56,23 +56,28 @@ void gfa_sseq_update(gfa_t *g, const gfa_seg_t *s);
 // whole graph operations
 void gfa_arc_sort(gfa_t *g);
 void gfa_arc_index(gfa_t *g);
-uint32_t gfa_fix_symm(gfa_t *g);
-void gfa_symm(gfa_t *g); // delete multiple edges and restore skew-symmetry
+uint32_t gfa_fix_symm_add(gfa_t *g);
+void gfa_fix_symm_del(gfa_t *g); // delete multiple edges and restore skew-symmetry
 void gfa_arc_rm(gfa_t *g);
 void gfa_cleanup(gfa_t *g); // permanently delete arcs marked as deleted, sort and then index
 void gfa_finalize(gfa_t *g);
 int32_t gfa_check_multi(const gfa_t *g);
 uint32_t gfa_fix_multi(gfa_t *g);
 
+int gfa_arc_del_multi_risky(gfa_t *g);
+int gfa_arc_del_asymm_risky(gfa_t *g);
+
 // assembly related routines
 int gfa_arc_del_trans(gfa_t *g, int fuzz); // transitive reduction
-int gfa_arc_del_short(gfa_t *g, float drop_ratio); // delete short arcs
-int gfa_cut_tip(gfa_t *g, int max_ext); // cut tips
-int gfa_topocut(gfa_t *g, int max_ext, float drop_ratio);
+int gfa_arc_del_weak(gfa_t *g);
+int gfa_arc_pair_strong(gfa_t *g);
+int gfa_arc_del_short(gfa_t *g, int min_ovlp_len, float drop_ratio); // delete short arcs
+int gfa_drop_tip(gfa_t *g, int tip_cnt, int tip_len); // cut tips
+int gfa_drop_internal(gfa_t *g, int max_ext);
+int gfa_cut_z(gfa_t *g, int32_t min_dist, int32_t max_dist);
+int gfa_topocut(gfa_t *g, float drop_ratio, int32_t tip_cnt, int32_t tip_len);
 int gfa_bub_simple(gfa_t *g, int min_side, int max_side);
-int gfa_cut_internal(gfa_t *g, int max_ext); // drop internal segments
-int gfa_cut_biloop(gfa_t *g, int max_ext); // Hmm... I forgot... Some type of weird local topology
-int gfa_pop_bubble(gfa_t *g, int max_dist, int protect_tip); // bubble popping
+int gfa_pop_bubble(gfa_t *g, int radius, int max_del, int protect_tip); // bubble popping
 gfa_t *gfa_ug_gen(const gfa_t *g);
 
 // subset, modifying the graph

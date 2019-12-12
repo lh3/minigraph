@@ -47,8 +47,9 @@ void gfa_destroy(gfa_t *g)
 	}
 	for (i = 0; i < g->n_sseq; ++i) free(g->sseq[i].name);
 	kh_destroy(seg, (seghash_t*)g->h_snames);
-	for (k = 0; k < g->n_arc; ++k)
-		free(g->link_aux[k].aux);
+	if (g->link_aux)
+		for (k = 0; k < g->n_arc; ++k)
+			free(g->link_aux[k].aux);
 	free(g->idx); free(g->seg); free(g->arc); free(g->link_aux); free(g->sseq);
 	free(g);
 }
@@ -158,15 +159,23 @@ gfa_arc_t *gfa_add_arc1(gfa_t *g, uint32_t v, uint32_t w, int32_t ov, int32_t ow
 	a->w = w, a->ov = ov, a->ow = ow, a->rank = -1;
 	a->link_id = link_id >= 0? link_id : g->n_arc - 1;
 	if (link_id >= 0) a->rank = g->arc[link_id].rank; // TODO: this is not always correct!
-	a->del = 0;
+	a->del = a->strong = 0;
 	a->comp = comp;
 	return a;
+}
+
+int gfa_arc_is_sorted(const gfa_t *g)
+{
+	uint64_t e;
+	for (e = 1; e < g->n_arc; ++e)
+		if (g->arc[e-1].v_lv > g->arc[e].v_lv)
+			break;
+	return (e == g->n_arc);
 }
 
 void gfa_arc_sort(gfa_t *g)
 {
 	radix_sort_arc(g->arc, g->arc + g->n_arc);
-	// g->is_srt = 1; // FIXME: having this line will lead to errors elsewhere. INVESTIGATE!!!
 }
 
 uint64_t *gfa_arc_index_core(size_t max_seq, size_t n, const gfa_arc_t *a)
@@ -258,7 +267,7 @@ uint32_t gfa_fix_semi_arc(gfa_t *g)
 	return n_err;
 }
 
-uint32_t gfa_fix_symm(gfa_t *g)
+uint32_t gfa_fix_symm_add(gfa_t *g)
 {
 	uint32_t n_err = 0, v, n_vtx = gfa_n_vtx(g);
 	int i;
@@ -303,9 +312,11 @@ void gfa_arc_rm(gfa_t *g)
 		if (!g->arc[e].del && !g->seg[u>>1].del && !g->seg[v>>1].del)
 			g->arc[n++] = g->arc[e];
 		else {
-			gfa_aux_t *aux = &g->link_aux[g->arc[e].link_id];
-			free(aux->aux);
-			aux->aux = 0, aux->l_aux = aux->m_aux = 0;
+			gfa_aux_t *aux = g->arc[e].link_id < g->n_arc? &g->link_aux[g->arc[e].link_id] : 0;
+			if (aux) {
+				free(aux->aux);
+				aux->aux = 0, aux->l_aux = aux->m_aux = 0;
+			}
 		}
 	}
 	if (n < g->n_arc) { // arc index is out of sync
@@ -318,9 +329,8 @@ void gfa_arc_rm(gfa_t *g)
 void gfa_cleanup(gfa_t *g)
 {
 	gfa_arc_rm(g);
-	if (!g->is_srt) {
+	if (!gfa_arc_is_sorted(g)) {
 		gfa_arc_sort(g);
-		g->is_srt = 1;
 		if (g->idx) free(g->idx);
 		g->idx = 0;
 	}
@@ -415,7 +425,7 @@ void gfa_finalize(gfa_t *g)
 	gfa_arc_sort(g);
 	gfa_arc_index(g);
 	gfa_fix_semi_arc(g);
-	gfa_fix_symm(g);
+	gfa_fix_symm_add(g);
 	gfa_fix_arc_len(g);
 	gfa_cleanup(g);
 }

@@ -88,7 +88,6 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 	// compute ins_side[] and split old segments
 	n_seg = n_old_seg + n_ctg_seg;
 	GFA_CALLOC(seg, n_seg);
-	g->is_srt = g->is_symm = 0;
 	GFA_CALLOC(ins_side, n_ins);
 	GFA_MALLOC(oldcnt, g->n_seg);
 	for (j = 0, k = 0; j < g->n_seg; ++j) {
