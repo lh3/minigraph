@@ -1,3 +1,13 @@
+Release 0.8-r316 (11 December 2019)
+-----------------------------------
+
+This release reduces suboptimal chains caused by the chaining heuristics. It
+generates slightly simpler human graphs.
+
+(11 December 2019, r316)
+
+
+
 Release 0.7-r310 (21 November 2019)
 -----------------------------------
 
