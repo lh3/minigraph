@@ -74,6 +74,7 @@ typedef struct {
 	float ggs_max_kiden;
 	// scoring for SW check
 	int8_t scmat[25], gapo, gape, gapo2, gape2;
+	float ggs_max_iden;
 } mg_ggopt_t;
 
 typedef struct {

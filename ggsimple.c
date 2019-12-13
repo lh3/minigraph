@@ -14,7 +14,7 @@
 void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
 	int32_t t, i, j, *scnt, *soff, *qcnt, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins;
-	int32_t l_pseq, m_pseq;
+	int32_t l_pseq, m_pseq, min_nw_score;
 	int64_t sum_acnt, sum_alen;
 	uint64_t *meta;
 	mg_intv_t *sintv, *qintv;
@@ -105,6 +105,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 	m_ins = n_ins = 0, ins = 0;
 	KMALLOC(km, sc, max_acnt);
 	KMALLOC(km, meta, max_acnt);
+	min_nw_score = (int32_t)(opt->min_var_len * opt->ggs_max_iden * opt->scmat[0] + opt->min_var_len * (1.0 - opt->ggs_max_iden) * opt->scmat[1] + .499);
 	for (t = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
@@ -202,19 +203,27 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				}
 				if (k <= le) continue;
 				if (pd - (I.coff[1] - I.coff[0]) < opt->min_var_len && (I.coff[1] - I.coff[0]) - pd < opt->min_var_len) { // if length difference > min_var_len, just insert
-					int32_t qd = I.coff[1] - I.coff[0], mlen, blen;
+					int32_t qd = I.coff[1] - I.coff[0], mlen, blen, score;
 					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
-					mlen = mg_fastcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->ggs_fc_kmer, opt->ggs_fc_max_occ);
-					blen = qd > pd? qd : pd;
-					if (mlen > blen * opt->ggs_max_kiden) continue; // make sure k-mer identity is small enough
-					if (mlen > blen - opt->min_var_len) continue;
+					score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
+									 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+					if (score < min_nw_score) continue;
+					if (mlen > blen * opt->ggs_max_iden) continue; // make sure k-mer identity is small enough
+					if (blen - mlen < opt->min_var_len * opt->ggs_max_iden) continue;
 				}
 				if (mg_dbg_flag & MG_DBG_INSERT) {
+					int32_t mlen, blen, score, qd = I.coff[1] - I.coff[0];
 					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
 					fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
 					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
-					fwrite(&seq[t].seq[I.coff[0]], 1, I.coff[1] - I.coff[0], stderr);
-					fprintf(stderr, "\nIS\t%d==%d\t%d\n", pd, l_pseq, mg_fastcmp(km, l_pseq, pseq, I.coff[1] - I.coff[0], &seq[t].seq[I.coff[0]], opt->ggs_fc_kmer, opt->ggs_fc_max_occ));
+					fwrite(&seq[t].seq[I.coff[0]], 1, qd, stderr);
+					if (pd - qd < opt->min_var_len && qd - pd < opt->min_var_len) {
+						score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
+										 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+					} else score = -1, mlen = 0, blen = pd > qd? pd : qd;
+					fprintf(stderr, "\nIS\t%d==%d\tfastcmp:%d\tnwcmp:%d\tmlen:%d\tblen:%d\n", pd, l_pseq,
+							mg_fastcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->ggs_fc_kmer, opt->ggs_fc_max_occ),
+							score, mlen, blen);
 				}
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 				ins[n_ins++] = I;

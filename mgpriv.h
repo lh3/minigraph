@@ -80,6 +80,8 @@ void mg_idx_cal_quantile(const mg_idx_t *gi, int32_t m, float f[], int32_t q[]);
 
 int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b, int32_t *st_high, int32_t *en_high);
 int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, int32_t k, int32_t max_occ);
+int32_t mg_nwcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, const int8_t mat[25], int8_t gapo, int8_t gape, int8_t gapo2, int8_t gape2,
+				 int32_t bw, int32_t *mlen_, int32_t *blen_);
 
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t extra_u, int32_t *n_u_, int32_t *n_v_);
 mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
