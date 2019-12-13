@@ -71,7 +71,6 @@ typedef struct {
 	int ggs_shrink_pen, ggs_fc_kmer, ggs_fc_max_occ;
 	int ggs_min_end_cnt;
 	float ggs_min_end_frac;
-	float ggs_max_kiden;
 	// scoring for SW check
 	int8_t scmat[25], gapo, gape, gapo2, gape2;
 	float ggs_max_iden;

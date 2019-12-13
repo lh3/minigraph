@@ -67,7 +67,6 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->ggs_fc_kmer = 9, go->ggs_fc_max_occ = 100;
 	go->ggs_min_end_cnt = 10;
 	go->ggs_min_end_frac = 0.1f;
-	go->ggs_max_kiden = 0.7f;
 	mg_ggopt_gen_sc_mat(go->scmat, 2, -4);
 	go->gapo = 4, go->gapo2 = 24;
 	go->gape = 2, go->gape2 = 1;
