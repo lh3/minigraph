@@ -14,7 +14,7 @@
 void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
 	int32_t t, i, j, *scnt, *soff, *qcnt, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins;
-	int32_t l_pseq, m_pseq, min_nw_score;
+	int32_t l_pseq, m_pseq;
 	int64_t sum_acnt, sum_alen;
 	uint64_t *meta;
 	mg_intv_t *sintv, *qintv;
@@ -105,7 +105,6 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 	m_ins = n_ins = 0, ins = 0;
 	KMALLOC(km, sc, max_acnt);
 	KMALLOC(km, meta, max_acnt);
-	min_nw_score = (int32_t)(opt->min_var_len * opt->ggs_max_iden * opt->scmat[0] + opt->min_var_len * (1.0 - opt->ggs_max_iden) * opt->scmat[1] + .499);
 	for (t = 0; t < n_seq; ++t) {
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
@@ -145,7 +144,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 			off_a = gt->lc[gc->off].off;
 			for (j = 0; j < n_ss; ++j) {
 				const mg128_t *p, *q;
-				int32_t st, en, ls, le, span, pd, k, n_ovlp, min_len;
+				int32_t st, en, ls, le, span, pd, k, n_ovlp, min_len, is_inv = 0;
 				gfa_ins_t I;
 
 				// find the initial positions
@@ -207,9 +206,10 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
 					score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
 									 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
-					if (score < min_nw_score) continue;
-					if (mlen > blen * opt->ggs_max_iden) continue; // make sure k-mer identity is small enough
-					if (blen - mlen < opt->min_var_len * opt->ggs_max_iden) continue;
+					if (score > 0) {
+						if (mlen > blen * opt->ggs_max_iden) continue; // make sure k-mer identity is small enough
+						if (blen - mlen < opt->min_var_len * opt->ggs_max_iden) continue;
+					}
 				}
 				if (mg_dbg_flag & MG_DBG_INSERT) {
 					int32_t mlen, blen, score, qd = I.coff[1] - I.coff[0];
