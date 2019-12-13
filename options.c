@@ -64,13 +64,13 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->match_pen = 10;
 	// for ggs
 	go->ggs_shrink_pen = 9;
-	go->ggs_fc_kmer = 9, go->ggs_fc_max_occ = 100;
 	go->ggs_min_end_cnt = 10;
 	go->ggs_min_end_frac = 0.1f;
 	mg_ggopt_gen_sc_mat(go->scmat, 2, -4);
 	go->gapo = 4, go->gapo2 = 24;
 	go->gape = 2, go->gape2 = 1;
-	go->ggs_max_iden = 0.8f;
+	go->ggs_max_iden = 0.80f;
+	go->ggs_min_inv_iden = 0.98f;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go)

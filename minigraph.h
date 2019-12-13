@@ -68,12 +68,12 @@ typedef struct {
 	int min_map_len, min_depth_len;
 	int min_var_len, match_pen;
 	// parameters specific to ggsimple/ggs
-	int ggs_shrink_pen, ggs_fc_kmer, ggs_fc_max_occ;
+	int ggs_shrink_pen;
 	int ggs_min_end_cnt;
 	float ggs_min_end_frac;
 	// scoring for SW check
 	int8_t scmat[25], gapo, gape, gapo2, gape2;
-	float ggs_max_iden;
+	float ggs_max_iden, ggs_min_inv_iden;
 } mg_ggopt_t;
 
 typedef struct {

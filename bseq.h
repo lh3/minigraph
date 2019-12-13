@@ -42,15 +42,21 @@ static inline int32_t mg_qname_same(const char *s1, const char *s2)
 	return (l1 == l2 && strncmp(s1, s2, l1) == 0);
 }
 
+static inline void mg_revcomp_seq(int32_t len, char *seq)
+{
+	int32_t i;
+	for (i = 0; i < len>>1; ++i) {
+		int32_t t = seq[len - i - 1];
+		seq[len - i - 1] = gfa_comp_table[(uint8_t)seq[i]];
+		seq[i] = gfa_comp_table[t];
+	}
+	if (len&1) seq[len>>1] = gfa_comp_table[(uint8_t)seq[len>>1]];
+}
+
 static inline void mg_revcomp_bseq(mg_bseq1_t *s)
 {
 	int32_t i, t, l = s->l_seq;
-	for (i = 0; i < l>>1; ++i) {
-		t = s->seq[l - i - 1];
-		s->seq[l - i - 1] = gfa_comp_table[(uint8_t)s->seq[i]];
-		s->seq[i] = gfa_comp_table[t];
-	}
-	if (l&1) s->seq[l>>1] = gfa_comp_table[(uint8_t)s->seq[l>>1]];
+	mg_revcomp_seq(s->l_seq, s->seq);
 	if (s->qual)
 		for (i = 0; i < l>>1; ++i)
 			t = s->qual[l - i - 1], s->qual[l - i - 1] = s->qual[i], s->qual[i] = t;

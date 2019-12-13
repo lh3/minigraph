@@ -209,6 +209,11 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (score > 0) {
 						if (mlen > blen * opt->ggs_max_iden) continue; // make sure k-mer identity is small enough
 						if (blen - mlen < opt->min_var_len * opt->ggs_max_iden) continue;
+					} else {
+						mg_revcomp_seq(l_pseq, pseq);
+						score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
+										 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+						if (score > 0 && mlen > blen * opt->ggs_min_inv_iden) is_inv = 1;
 					}
 				}
 				if (mg_dbg_flag & MG_DBG_INSERT) {
@@ -222,10 +227,10 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 										 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
 					} else score = -1, mlen = 0, blen = pd > qd? pd : qd;
 					fprintf(stderr, "\nIS\t%d==%d\tfastcmp:%d\tnwcmp:%d\tmlen:%d\tblen:%d\n", pd, l_pseq,
-							mg_fastcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->ggs_fc_kmer, opt->ggs_fc_max_occ),
-							score, mlen, blen);
+							mg_fastcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 9, 100), score, mlen, blen);
 				}
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
+				if (is_inv) fprintf(stderr, "inversion!\n");
 				ins[n_ins++] = I;
 			}
 			kfree(0, ss);
