@@ -230,7 +230,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 							mg_fastcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 9, 100), score, mlen, blen);
 				}
 				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
-				if (is_inv) fprintf(stderr, "inversion!\n");
+				//if (is_inv) fprintf(stderr, "inversion!\n");
 				ins[n_ins++] = I;
 			}
 			kfree(0, ss);
