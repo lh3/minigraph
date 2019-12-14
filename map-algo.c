@@ -198,18 +198,29 @@ static int64_t flt_anchors(int64_t n_a, mg128_t *a, int32_t r)
 {
 	int64_t i, j;
 	for (i = 0; i < n_a; ++i) {
-		int64_t n_in = 0;
 		for (j = i - 1; j >= 0; --j) {
 			int32_t dq;
-			int64_t dr;
-			dr = a[i].x - a[j].x;
+			int64_t dr = a[i].x - a[j].x;
 			if (dr > r) break;
 			dq = (int32_t)a[i].y - (int32_t)a[j].y;
 			if (dq > r || dq < 0) continue;
 			a[j].y |= MG_SEED_KEPT;
-			++n_in;
+			a[i].y |= MG_SEED_KEPT;
+			break;
 		}
-		if (n_in) a[i].y |= MG_SEED_KEPT;
+	}
+	for (i = n_a - 1; i >= 0; --i) {
+		if (a[i].y & MG_SEED_KEPT) continue;
+		for (j = i + 1; j < n_a; ++j) {
+			int32_t dq;
+			int64_t dr = a[j].x - a[i].x;
+			if (dr > r) break;
+			dq = (int32_t)a[j].y - (int32_t)a[i].y;
+			if (dq > r || dq < 0) continue;
+			a[j].y |= MG_SEED_KEPT;
+			a[i].y |= MG_SEED_KEPT;
+			break;
+		}
 	}
 	for (i = j = 0; i < n_a; ++i)
 		if (a[i].y & MG_SEED_KEPT)
