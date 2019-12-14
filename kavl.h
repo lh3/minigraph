@@ -92,6 +92,19 @@ int main(void) {
 		} \
 		if (cnt_) *cnt_ = cnt; \
 		return (__type*)p; \
+	} \
+	__scope __type *kavl_interval_##suf(const __type *root, const __type *x, __type **lower, __type **upper) { \
+		const __type *p = root, *l = 0, *u = 0; \
+		while (p != 0) { \
+			int cmp; \
+			cmp = __cmp(x, p); \
+			if (cmp < 0) p = p->__head.p[0], u = p; \
+			else if (cmp > 0) p = p->__head.p[1], l = p; \
+			else { l = u = p; break; } \
+		} \
+		if (lower) *lower = (__type*)l; \
+		if (upper) *upper = (__type*)u; \
+		return (__type*)p; \
 	}
 
 #define __KAVL_ROTATE(suf, __type, __head) \
@@ -332,6 +345,7 @@ int main(void) {
  * @return node equal to _x_ if present, or NULL if absent
  */
 #define kavl_find(suf, root, x, cnt) kavl_find_##suf(root, x, cnt)
+#define kavl_interval(suf, root, x, lower, upper) kavl_interval_##suf(root, x, lower, upper)
 
 /**
  * Delete a node from the tree
