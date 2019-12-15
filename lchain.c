@@ -217,7 +217,7 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 		int32_t q_span = a[i].y>>32&0xff, max_f = q_span;
 		lc_elem_t t, *q, *lower, *upper;
 		const lc_elem_t *r;
-		kavl_itr_t(lc_elem) itr, itr0;
+		kavl_itr_t(lc_elem) itr;
 		if (max_size < kavl_size(head, root)) max_size = kavl_size(head, root);
 		// get rid of active chains out of range
 		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist)) {
@@ -230,22 +230,20 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 			++st;
 		}
 		// traverse the neighbors
-		t.i = 0, t.y = (int32_t)a[i].y - max_dist;
+		t.i = 0, t.y = (int32_t)a[i].y;
 		if (t.y < 0) t.y = 0;
-		//fprintf(stderr, "Y1\ti=%ld\t(%d,%d)\n", (long)i, (int32_t)a[i].x, (int32_t)a[i].y);
 		kavl_interval(lc_elem, root, &t, &lower, &upper);
-		if (upper == 0) goto skip_tree;
-		kavl_itr_find(lc_elem, root, upper, &itr);
-		itr0 = itr;
-		//fprintf(stderr, "Y2\t%ld\tcut=%d\tsize=%d\tn_iter=%ld\n", (long)i, t.y, kavl_size(head, root), (long)n_iter);
+		if (lower == 0) goto skip_tree;
+		kavl_itr_find(lc_elem, root, lower, &itr);
+		fprintf(stderr, "Y2\t%ld\tcut=%d\tsize=%d\tn_iter=%ld\n", (long)i, t.y, kavl_size(head, root), (long)n_iter);
 		while ((r = kavl_at(&itr)) != 0) {
 			int64_t j = r->i;
 			int32_t sc, dq, dr, dd, dg;
 			float lin_pen, log_pen;
 			dq = (int32_t)a[i].y - (int32_t)a[j].y;
-			if (dq <= 0) break;
+			if (dq > max_dist) break;
 			++n_iter;
-			//fprintf(stderr, "X1\t(%d,%d) -> (%d,%d)\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y);
+			fprintf(stderr, "X1\t(%d,%d) -> (%d,%d)\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y);
 			dr = (int32_t)(a[i].x - a[j].x);
 			dd = dr > dq? dr - dq : dq - dr;
 			dg = dr < dq? dr : dq;
@@ -259,16 +257,20 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 			sc -= (int32_t)(lin_pen + log_pen);
 			sc += f[j];
 			if (sc > max_f) max_f = sc, max_j = j;
-			if (!kavl_itr_next(lc_elem, &itr)) break;
+			if (!kavl_itr_prev(lc_elem, &itr)) break;
+			//if (!kavl_itr_next(lc_elem, &itr)) break;
 		}
 		// update the tree
-		itr = itr0, n_del = 0;
+		if (upper == 0) goto skip_tree;
+		kavl_itr_find(lc_elem, root, upper, &itr);
+		n_del = 0;
+		/*
 		while ((r = kavl_at(&itr)) != 0) {
 			int64_t j = r->i;
 			int32_t dq, dr, dd;
 			float thres;
-			dq = (int32_t)a[i].y - (int32_t)a[j].y;
-			if (dq <= 0) break;
+			dq = (int32_t)a[j].y - (int32_t)a[i].y;
+			if (dq > max_dist) break;
 			++n_iter;
 			dr = (int32_t)(a[i].x - a[j].x);
 			dd = dq > dr? dq - dr : dr - dq;
@@ -281,6 +283,7 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 			//fprintf(stderr, "X2\t(%d,%d) -> (%d,%d)\tmax_f=%d\tf[j]=%d\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y, max_f, f[j]);
 			if (!kavl_itr_next(lc_elem, &itr)) break;
 		}
+		*/
 		for (j = 0; j < n_del; ++j) {
 			q = kavl_erase(lc_elem, &root, del[j], 0);
 			kfree(mem, q);
