@@ -284,13 +284,14 @@ int main(void) {
 
 #define __KAVL_ITR(suf, __scope, __type, __head, __cmp) \
 	struct kavl_itr_##suf { \
-		const __type *stack[KAVL_MAX_DEPTH], **top, *right; /* _right_ points to the right child of *top */ \
+		const __type *stack[KAVL_MAX_DEPTH], **top, *p[2]; /* _p_ points to the children of *top */ \
 	}; \
 	__scope void kavl_itr_first_##suf(const __type *root, struct kavl_itr_##suf *itr) { \
 		const __type *p; \
 		for (itr->top = itr->stack - 1, p = root; p; p = p->__head.p[0]) \
 			*++itr->top = p; \
-		itr->right = (*itr->top)->__head.p[1]; \
+		itr->p[0] = (*itr->top)->__head.p[0]; \
+		itr->p[1] = (*itr->top)->__head.p[1]; \
 	} \
 	__scope int kavl_itr_find_##suf(const __type *root, const __type *x, struct kavl_itr_##suf *itr) { \
 		const __type *p = root; \
@@ -304,20 +305,34 @@ int main(void) {
 		} \
 		if (p) { \
 			*++itr->top = p; \
-			itr->right = p->__head.p[1]; \
+			itr->p[0] = p->__head.p[0]; \
+			itr->p[1] = p->__head.p[1]; \
 			return 1; \
 		} else if (itr->top >= itr->stack) { \
-			itr->right = (*itr->top)->__head.p[1]; \
+			itr->p[0] = (*itr->top)->__head.p[0]; \
+			itr->p[1] = (*itr->top)->__head.p[1]; \
 			return 0; \
 		} else return 0; \
 	} \
 	__scope int kavl_itr_next_##suf(struct kavl_itr_##suf *itr) { \
 		for (;;) { \
 			const __type *p; \
-			for (p = itr->right, --itr->top; p; p = p->__head.p[0]) \
+			for (p = itr->p[1], --itr->top; p; p = p->__head.p[0]) \
 				*++itr->top = p; \
 			if (itr->top < itr->stack) return 0; \
-			itr->right = (*itr->top)->__head.p[1]; \
+			itr->p[0] = (*itr->top)->__head.p[0]; \
+			itr->p[1] = (*itr->top)->__head.p[1]; \
+			return 1; \
+		} \
+	} \
+	__scope int kavl_itr_prev_##suf(struct kavl_itr_##suf *itr) { \
+		for (;;) { \
+			const __type *p; \
+			for (p = itr->p[0], --itr->top; p; p = p->__head.p[1]) \
+				*++itr->top = p; \
+			if (itr->top < itr->stack) return 0; \
+			itr->p[0] = (*itr->top)->__head.p[0]; \
+			itr->p[1] = (*itr->top)->__head.p[1]; \
 			return 1; \
 		} \
 	}
