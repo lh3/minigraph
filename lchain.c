@@ -104,6 +104,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	memset(t, 0, n * 4);
 
 	// fill the score and backtrack arrays
+	int64_t n_iter = 0; int32_t mmax_f = 0;
 	for (i = 0, max_ii = -1; i < n; ++i) {
 		int64_t max_j = -1, end_j;
 		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
@@ -112,6 +113,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		for (j = i - 1; j >= st; --j) {
 			int32_t sc;
 			sc = comput_sc(&a[i], &a[j], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_segs);
+			++n_iter;
 			if (sc == INT32_MIN) continue;
 			sc += f[j];
 			if (sc > max_f) {
@@ -140,7 +142,9 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 		if (max_ii < 0 || (a[i].x - a[max_ii].x <= (int64_t)max_dist_x && f[max_ii] < f[i]))
 			max_ii = i;
+		if (mmax_f < max_f) mmax_f = max_f;
 	}
+	fprintf(stderr, "Z\tn_iter=%ld\tmmax_f=%d\n", (long)n_iter, mmax_f);
 
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
@@ -227,17 +231,21 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 		}
 		// traverse the neighbors
 		t.i = 0, t.y = (int32_t)a[i].y - max_dist;
+		if (t.y < 0) t.y = 0;
+		//fprintf(stderr, "Y1\ti=%ld\t(%d,%d)\n", (long)i, (int32_t)a[i].x, (int32_t)a[i].y);
 		kavl_interval(lc_elem, root, &t, &lower, &upper);
 		if (upper == 0) goto skip_tree;
 		kavl_itr_find(lc_elem, root, upper, &itr);
 		itr0 = itr;
+		//fprintf(stderr, "Y2\t%ld\tcut=%d\tsize=%d\tn_iter=%ld\n", (long)i, t.y, kavl_size(head, root), (long)n_iter);
 		while ((r = kavl_at(&itr)) != 0) {
 			int64_t j = r->i;
 			int32_t sc, dq, dr, dd, dg;
 			float lin_pen, log_pen;
 			dq = (int32_t)a[i].y - (int32_t)a[j].y;
-			++n_iter;
 			if (dq <= 0) break;
+			++n_iter;
+			//fprintf(stderr, "X1\t(%d,%d) -> (%d,%d)\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y);
 			dr = (int32_t)(a[i].x - a[j].x);
 			dd = dr > dq? dr - dq : dq - dr;
 			dg = dr < dq? dr : dq;
@@ -254,22 +262,23 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 			if (!kavl_itr_next(lc_elem, &itr)) break;
 		}
 		// update the tree
-		itr = itr0;
+		itr = itr0, n_del = 0;
 		while ((r = kavl_at(&itr)) != 0) {
 			int64_t j = r->i;
 			int32_t dq, dr, dd;
 			float thres;
 			dq = (int32_t)a[i].y - (int32_t)a[j].y;
-			++n_iter;
 			if (dq <= 0) break;
+			++n_iter;
 			dr = (int32_t)(a[i].x - a[j].x);
 			dd = dq > dr? dq - dr : dr - dq;
 			thres = max_f - chn_pen_gap * dd;
 			if (thres < 0.0f) thres = 0.0f;
-			if (f[j] - chn_pen_skip * dq >= thres) {
+			if (f[j] - chn_pen_skip * dq < thres) {
 				if (n_del == m_del) KEXPAND(km, del, m_del);
 				del[n_del++] = (lc_elem_t*)r;
 			}
+			//fprintf(stderr, "X2\t(%d,%d) -> (%d,%d)\tmax_f=%d\tf[j]=%d\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y, max_f, f[j]);
 			if (!kavl_itr_next(lc_elem, &itr)) break;
 		}
 		for (j = 0; j < n_del; ++j) {
@@ -284,6 +293,7 @@ skip_tree:
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 		if (max_f > mmax_f) mmax_f = max_f;
+		//fprintf(stderr, "Y3\ti=%ld\t%d\n", (long)i, kavl_size(head, root));
 	}
 	fprintf(stderr, "Z\tn=%ld\tn_iter=%ld\tmmax_f=%d\tmax_size=%d\tmax_del=%d\n", (long)n, (long)n_iter, mmax_f, max_size, max_del);
 	kfree(km, del);
