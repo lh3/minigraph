@@ -203,6 +203,7 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 
 	if (_u) *_u = 0, *n_u_ = 0;
 	if (n == 0 || a == 0) return 0;
+	assert(chn_pen_gap >= chn_pen_skip);
 	f = (int32_t*)kmalloc(km, n * 4);
 	p = (int32_t*)kmalloc(km, n * 4);
 	t = (int32_t*)kmalloc(km, n * 4);
@@ -234,8 +235,9 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 		if (t.y < 0) t.y = 0;
 		kavl_interval(lc_elem, root, &t, &lower, &upper);
 		if (lower == 0) goto skip_tree;
+		n_del = 0;
 		kavl_itr_find(lc_elem, root, lower, &itr);
-		fprintf(stderr, "Y2\t%ld\tcut=%d\tsize=%d\tn_iter=%ld\n", (long)i, t.y, kavl_size(head, root), (long)n_iter);
+		//fprintf(stderr, "Y2\t%ld\tcut=%d\tsize=%d\tn_iter=%ld\n", (long)i, t.y, kavl_size(head, root), (long)n_iter);
 		while ((r = kavl_at(&itr)) != 0) {
 			int64_t j = r->i;
 			int32_t sc, dq, dr, dd, dg;
@@ -243,8 +245,13 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 			dq = (int32_t)a[i].y - (int32_t)a[j].y;
 			if (dq > max_dist) break;
 			++n_iter;
-			fprintf(stderr, "X1\t(%d,%d) -> (%d,%d)\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y);
+			//fprintf(stderr, "X1\t(%d,%d) -> (%d,%d)\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y);
 			dr = (int32_t)(a[i].x - a[j].x);
+			if (f[j] < chn_pen_skip * dr) {
+				if (n_del == m_del) KEXPAND(km, del, m_del);
+				del[n_del++] = (lc_elem_t*)r;
+				goto cont_chain;
+			}
 			dd = dr > dq? dr - dq : dq - dr;
 			dg = dr < dq? dr : dq;
 			sc = q_span < dg? q_span : dg;
@@ -257,14 +264,12 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 			sc -= (int32_t)(lin_pen + log_pen);
 			sc += f[j];
 			if (sc > max_f) max_f = sc, max_j = j;
+cont_chain:
 			if (!kavl_itr_prev(lc_elem, &itr)) break;
-			//if (!kavl_itr_next(lc_elem, &itr)) break;
 		}
 		// update the tree
 		if (upper == 0) goto skip_tree;
 		kavl_itr_find(lc_elem, root, upper, &itr);
-		n_del = 0;
-		/*
 		while ((r = kavl_at(&itr)) != 0) {
 			int64_t j = r->i;
 			int32_t dq, dr, dd;
@@ -273,23 +278,22 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 			if (dq > max_dist) break;
 			++n_iter;
 			dr = (int32_t)(a[i].x - a[j].x);
-			dd = dq > dr? dq - dr : dr - dq;
-			thres = max_f - chn_pen_gap * dd;
+			dd = dq + dr;
+			thres = max_f - chn_pen_gap * dd - (dd >= 2? mg_log2(dd) : 0.0f);
 			if (thres < 0.0f) thres = 0.0f;
-			if (f[j] - chn_pen_skip * dq < thres) {
+			if (f[j] - chn_pen_skip * dr < thres) {
 				if (n_del == m_del) KEXPAND(km, del, m_del);
 				del[n_del++] = (lc_elem_t*)r;
 			}
 			//fprintf(stderr, "X2\t(%d,%d) -> (%d,%d)\tmax_f=%d\tf[j]=%d\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y, max_f, f[j]);
 			if (!kavl_itr_next(lc_elem, &itr)) break;
 		}
-		*/
+skip_tree:
 		for (j = 0; j < n_del; ++j) {
 			q = kavl_erase(lc_elem, &root, del[j], 0);
 			kfree(mem, q);
 		}
 		if (max_del < n_del) max_del = n_del;
-skip_tree:
 		KMALLOC(mem, q, 1);
 		q->y = (int32_t)a[i].y, q->i = i;
 		q = kavl_insert(lc_elem, &root, q, 0);
