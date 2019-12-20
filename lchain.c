@@ -201,6 +201,25 @@ typedef struct lc_elem_s {
 #define lc_elem_lt2(a, b) ((a)->pri < (b)->pri)
 KRMQ_INIT(lc_elem, lc_elem_t, head, lc_elem_cmp, lc_elem_lt2)
 
+static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, float chn_pen_gap, float chn_pen_skip)
+{
+	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, q_span, sc;
+	float lin_pen, log_pen;
+	dr = (int32_t)(ai->x - aj->x);
+	dd = dr > dq? dr - dq : dq - dr;
+	dg = dr < dq? dr : dq;
+	q_span = aj->y>>32&0xff;
+	sc = q_span < dg? q_span : dg;
+	if (aj->y>>MG_SEED_WT_SHIFT < 255) {
+		int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
+		sc = tmp > 1? tmp : 1;
+	}
+	lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
+	log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
+	sc -= (int)(lin_pen + log_pen);
+	return sc;
+}
+
 mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
 	int32_t *f, *p, *t, *v, n_u, n_v;
@@ -212,9 +231,9 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 	if (_u) *_u = 0, *n_u_ = 0;
 	if (n == 0 || a == 0) return 0;
 	assert(chn_pen_gap >= chn_pen_skip);
-	f = (int32_t*)kmalloc(km, n * 4);
-	p = (int32_t*)kmalloc(km, n * 4);
-	v = (int32_t*)kmalloc(km, n * 4);
+	KMALLOC(km, f, n);
+	KMALLOC(km, p, n);
+	KMALLOC(km, v, n);
 	mem = km_init2(km, 0x10000);
 
 	// fill the score and backtrack arrays
@@ -237,11 +256,9 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 		if ((q = krmq_rmq(lc_elem, root, &lo, &hi)) != 0) {
 			int32_t sc;
 			int64_t j = q->i;
-			sc = comput_sc(&a[i], &a[j], max_dist, max_dist, max_dist, chn_pen_gap, chn_pen_skip, 0, 1);
-			if (sc != INT32_MIN) {
-				sc += f[j];
-				max_f = sc, max_j = j;
-			}
+			sc = comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip);
+			sc += f[j];
+			max_f = sc, max_j = j;
 		}
 		// add
 		KMALLOC(mem, q, 1);
@@ -252,7 +269,7 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 	}
 	km_destroy(mem);
 
-	t = (int32_t*)kmalloc(km, n * 4);
+	KMALLOC(km, t, n);
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
 	kfree(km, f); kfree(km, p); kfree(km, t);
