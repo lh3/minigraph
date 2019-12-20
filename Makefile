@@ -52,7 +52,7 @@ index.o: mgpriv.h minigraph.h gfa.h khash.h kalloc.h kthread.h kvec.h sys.h
 kalloc.o: kalloc.h
 ksw2_extd2_sse.o: ksw2.h kalloc.h
 kthread.o: kthread.h
-lchain.o: mgpriv.h minigraph.h gfa.h kalloc.h
+lchain.o: mgpriv.h minigraph.h gfa.h kalloc.h krmq.h
 main.o: mgpriv.h minigraph.h gfa.h gfa-priv.h sys.h ketopt.h
 map-algo.o: kalloc.h mgpriv.h minigraph.h gfa.h khash.h ksort.h
 misc.o: mgpriv.h minigraph.h gfa.h ksort.h

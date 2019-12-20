@@ -38,7 +38,8 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, const char *qseq, const mg128_t *an, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
-	int32_t *f, *p, *v, *t;
+	int32_t *f, *v, *t;
+	int64_t *p;
 	uint64_t *u;
 	mg_path_dst_t *dst;
 	gc_frag_t *a;
