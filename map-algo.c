@@ -286,7 +286,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		a = 0, n_lc = 0, u = 0;
 	} else {
 		if (opt->flag & MG_M_RMQ)
-			a = mg_lchain_alt(opt->bw, opt->min_lc_cnt, opt->min_lc_score, chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
+			a = mg_lchain_rmq(opt->bw, opt->min_lc_cnt, opt->min_lc_score, chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
 		else
 			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chn_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
 							 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);

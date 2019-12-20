@@ -89,7 +89,6 @@ static mg128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32
 static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t max_dist_x, int32_t max_dist_y, int32_t bw, float chn_pen_gap, float chn_pen_skip, int is_cdna, int n_segs)
 {
 	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, same_seg, q_span, sc;
-	float lin_pen, log_pen;
 	if (dq <= 0 || dq > max_dist_x) return INT32_MIN;
 	same_seg = ((ai->y & MG_SEED_SEG_MASK) == (aj->y & MG_SEED_SEG_MASK));
 	dr = (int32_t)(ai->x - aj->x);
@@ -100,17 +99,20 @@ static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t ma
 	dg = dr < dq? dr : dq;
 	q_span = aj->y>>32&0xff;
 	sc = q_span < dg? q_span : dg;
-	if (aj->y>>MG_SEED_WT_SHIFT < 255) {
-		int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
-		sc = tmp > 1? tmp : 1;
+	if (dd || dg > q_span) {
+		float lin_pen, log_pen;
+		if (aj->y>>MG_SEED_WT_SHIFT < 255) {
+			int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
+			sc = tmp > 1? tmp : 1;
+		}
+		lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
+		log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
+		if (is_cdna || !same_seg) {
+			if (!same_seg && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
+			else if (dr > dq || !same_seg) sc -= (int)(lin_pen < log_pen? lin_pen : log_pen); // deletion or jump between paired ends
+			else sc -= (int)(lin_pen + log_pen);
+		} else sc -= (int)(lin_pen + log_pen);
 	}
-	lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-	log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
-	if (is_cdna || !same_seg) {
-		if (!same_seg && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
-		else if (dr > dq || !same_seg) sc -= (int)(lin_pen < log_pen? lin_pen : log_pen); // deletion or jump between paired ends
-		else sc -= (int)(lin_pen + log_pen);
-	} else sc -= (int)(lin_pen + log_pen);
 	return sc;
 }
 
@@ -204,24 +206,26 @@ KRMQ_INIT(lc_elem, lc_elem_t, head, lc_elem_cmp, lc_elem_lt2)
 static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, float chn_pen_gap, float chn_pen_skip, int32_t *exact)
 {
 	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, q_span, sc;
-	float lin_pen, log_pen;
 	dr = (int32_t)(ai->x - aj->x);
 	dd = dr > dq? dr - dq : dq - dr;
 	dg = dr < dq? dr : dq;
 	q_span = aj->y>>32&0xff;
 	sc = q_span < dg? q_span : dg;
-	if (exact) *exact = (dr == dq && dq <= q_span);
-	if (aj->y>>MG_SEED_WT_SHIFT < 255) {
-		int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
-		sc = tmp > 1? tmp : 1;
+	if (exact) *exact = (dd == 0 && dg <= q_span);
+	if (dd || dq > q_span) {
+		float lin_pen, log_pen;
+		if (aj->y>>MG_SEED_WT_SHIFT < 255) {
+			int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
+			sc = tmp > 1? tmp : 1;
+		}
+		lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
+		log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
+		sc -= (int)(lin_pen + log_pen);
 	}
-	lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-	log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
-	sc -= (int)(lin_pen + log_pen);
 	return sc;
 }
 
-mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
+mg128_t *mg_lchain_rmq(int max_dist, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
 	int32_t *f, *p, *t, *v, n_u, n_v, max_dist_inner = 1000, mmax_f = 0;
 	int64_t i, st = 0, st_inner = 0, n_iter = 0;
@@ -278,7 +282,6 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 					krmq_itr_find(lc_elem, root_inner, lo, &itr);
 					while ((q = krmq_at(&itr)) != 0) {
 						if (q->y < (int32_t)a[i].y - max_dist_inner) break;
-						if (exact && q->y < (int32_t)a[i].y - q_span) break;
 						++n_iter;
 						j = q->i;
 						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0);
