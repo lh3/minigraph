@@ -125,8 +125,8 @@ static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t ma
 mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
 					  int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
-	int32_t *f, *p, *t, *v, n_u, n_v;
-	int64_t i, j, max_ii, st = 0;
+	int32_t *f, *p, *t, *v, n_u, n_v, mmax_f = 0;
+	int64_t i, j, max_ii, st = 0, n_iter = 0;
 	uint64_t *u;
 
 	if (_u) *_u = 0, *n_u_ = 0;
@@ -138,7 +138,6 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	memset(t, 0, n * 4);
 
 	// fill the score and backtrack arrays
-	int64_t n_iter = 0; int32_t mmax_f = 0;
 	for (i = 0, max_ii = -1; i < n; ++i) {
 		int64_t max_j = -1, end_j;
 		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
@@ -178,7 +177,8 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			max_ii = i;
 		if (mmax_f < max_f) mmax_f = max_f;
 	}
-//	fprintf(stderr, "Z\tn_iter=%ld\tmmax_f=%d\n", (long)n_iter, mmax_f);
+	if (mg_dbg_flag & MG_DBG_LC_PROF)
+		fprintf(stderr, "LD\tn_iter=%ld\tmmax_f=%d\n", (long)n_iter, mmax_f);
 
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
@@ -201,7 +201,7 @@ typedef struct lc_elem_s {
 #define lc_elem_lt2(a, b) ((a)->pri < (b)->pri)
 KRMQ_INIT(lc_elem, lc_elem_t, head, lc_elem_cmp, lc_elem_lt2)
 
-static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, float chn_pen_gap, float chn_pen_skip)
+static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, float chn_pen_gap, float chn_pen_skip, int32_t *exact)
 {
 	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, q_span, sc;
 	float lin_pen, log_pen;
@@ -210,6 +210,7 @@ static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, flo
 	dg = dr < dq? dr : dq;
 	q_span = aj->y>>32&0xff;
 	sc = q_span < dg? q_span : dg;
+	if (exact) *exact = (dr == dq && dq <= q_span);
 	if (aj->y>>MG_SEED_WT_SHIFT < 255) {
 		int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
 		sc = tmp > 1? tmp : 1;
@@ -222,25 +223,25 @@ static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, flo
 
 mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
-	int32_t *f, *p, *t, *v, n_u, n_v;
-	int64_t i, st = 0;
+	int32_t *f, *p, *t, *v, n_u, n_v, max_dist_inner = 1000, mmax_f = 0;
+	int64_t i, st = 0, st_inner = 0, n_iter = 0;
 	uint64_t *u;
-	lc_elem_t *root = 0;
-	void *mem = 0;
+	lc_elem_t *root = 0, *root_inner = 0;
+	void *mem = 0, *mem_inner = 0;
 
 	if (_u) *_u = 0, *n_u_ = 0;
 	if (n == 0 || a == 0) return 0;
-	assert(chn_pen_gap >= chn_pen_skip);
 	KMALLOC(km, f, n);
 	KMALLOC(km, p, n);
 	KMALLOC(km, v, n);
 	mem = km_init2(km, 0x10000);
+	mem_inner = km_init2(km, 0x10000);
 
 	// fill the score and backtrack arrays
 	for (i = 0; i < n; ++i) {
 		int64_t max_j = -1;
 		int32_t q_span = a[i].y>>32&0xff, max_f = q_span;
-		lc_elem_t t, *q, lo, hi;
+		lc_elem_t t, *q, *r, lo, hi;
 		// get rid of active chains out of range
 		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist)) {
 			t.y = (int32_t)a[st].y, t.i = st;
@@ -250,24 +251,59 @@ mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap,
 			}
 			++st;
 		}
+		while (st_inner < i && (a[i].x>>32 != a[st_inner].x>>32 || a[i].x > a[st_inner].x + max_dist_inner)) {
+			t.y = (int32_t)a[st_inner].y, t.i = st_inner;
+			if ((q = krmq_find(lc_elem, root_inner, &t, 0)) != 0) {
+				q = krmq_erase(lc_elem, &root_inner, q, 0);
+				kfree(mem_inner, q);
+			}
+			++st_inner;
+		}
 		// RMQ
 		lo.i = INT32_MAX, lo.y = (int32_t)a[i].y - max_dist;
 		hi.i = 0, hi.y = (int32_t)a[i].y;
 		if ((q = krmq_rmq(lc_elem, root, &lo, &hi)) != 0) {
-			int32_t sc;
+			int32_t sc, exact;
 			int64_t j = q->i;
-			sc = comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip);
-			sc += f[j];
-			max_f = sc, max_j = j;
+			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact);
+			if (sc > max_f) max_f = sc, max_j = j;
+			if (!exact) {
+				int64_t max_j0 = max_j;
+				lc_elem_t *lo, *hi;
+				t.y = (int32_t)a[i].y, t.i = 0;
+				krmq_interval(lc_elem, root_inner, &t, &lo, &hi);
+				if (lo) {
+					const lc_elem_t *q;
+					krmq_itr_t(lc_elem) itr;
+					krmq_itr_find(lc_elem, root_inner, lo, &itr);
+					while ((q = krmq_at(&itr)) != 0) {
+						if (q->y < (int32_t)a[i].y - max_dist_inner) break;
+						if (exact && q->y < (int32_t)a[i].y - q_span) break;
+						++n_iter;
+						j = q->i;
+						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0);
+						if (sc > max_f)
+							max_f = sc, max_j = j; max_j0 = max_j;
+						if (!krmq_itr_prev(lc_elem, &itr)) break;
+					}
+				}
+			}
 		}
 		// add
 		KMALLOC(mem, q, 1);
 		q->y = (int32_t)a[i].y, q->i = i, q->pri = -(max_f + (double)chn_pen_gap * ((int32_t)a[i].x + (int32_t)a[i].y));
-		q = krmq_insert(lc_elem, &root, q, 0);
+		krmq_insert(lc_elem, &root, q, 0);
+		KMALLOC(mem_inner, r, 1);
+		*r = *q;
+		krmq_insert(lc_elem, &root_inner, r, 0);
+		// set max
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
+		if (mmax_f < max_f) mmax_f = max_f;
 	}
+	if (mg_dbg_flag & MG_DBG_LC_PROF) fprintf(stderr, "LD\tn_iter=%ld\tmmax_f=%d\n", (long)n_iter, mmax_f);
 	km_destroy(mem);
+	km_destroy(mem_inner);
 
 	KMALLOC(km, t, n);
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);

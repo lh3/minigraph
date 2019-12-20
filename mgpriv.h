@@ -11,6 +11,7 @@
 #define MG_DBG_INSERT      0x10
 #define MG_DBG_SHORTK      0x20
 #define MG_DBG_GC1         0x40
+#define MG_DBG_LC_PROF     0x80
 
 #define MG_SEED_IGNORE     (1ULL<<41)
 #define MG_SEED_TANDEM     (1ULL<<42)

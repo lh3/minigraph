@@ -47,6 +47,7 @@ static ko_longopt_t long_options[] = {
 	{ "dbg-insert",   ko_no_argument,       404 },
 	{ "dbg-shortk",   ko_no_argument,       405 },
 	{ "dbg-gc1",      ko_no_argument,       406 },
+	{ "dbg-lc-prof",  ko_no_argument,       407 },
 	{ 0, 0, 0 }
 };
 
@@ -148,6 +149,7 @@ int main(int argc, char *argv[])
 		else if (c == 404) mg_dbg_flag |= MG_DBG_INSERT;      // --dbg-insert
 		else if (c == 405) mg_dbg_flag |= MG_DBG_SHORTK;      // --dbg-shortk
 		else if (c == 406) mg_dbg_flag |= MG_DBG_GC1;         // --dbg-gc1
+		else if (c == 407) mg_dbg_flag |= MG_DBG_LC_PROF;     // --dbg-lc-prof
 		else if (c == 'n') {
 			opt.min_gc_cnt = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
