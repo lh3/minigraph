@@ -4,7 +4,7 @@
 #include <assert.h>
 #include "mgpriv.h"
 #include "kalloc.h"
-#include "kavl.h"
+#include "krmq.h"
 
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t extra_u, int32_t *n_u_, int32_t *n_v_)
 {
@@ -51,6 +51,41 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int32_
 	return u;
 }
 
+static mg128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32_t *v, mg128_t *a)
+{
+	mg128_t *b, *w;
+	uint64_t *u2;
+	int64_t i, j, k;
+
+	// write the result to b[]
+	KMALLOC(km, b, n_v);
+	for (i = 0, k = 0; i < n_u; ++i) {
+		int32_t k0 = k, ni = (int32_t)u[i];
+		for (j = 0; j < ni; ++j)
+			b[k++] = a[v[k0 + (ni - j - 1)]];
+	}
+	kfree(km, v);
+
+	// sort u[] and a[] by the target position, such that adjacent chains may be joined
+	KMALLOC(km, w, n_u);
+	for (i = k = 0; i < n_u; ++i) {
+		w[i].x = b[k].x, w[i].y = (uint64_t)k<<32|i;
+		k += (int32_t)u[i];
+	}
+	radix_sort_128x(w, w + n_u);
+	KMALLOC(km, u2, n_u);
+	for (i = k = 0; i < n_u; ++i) {
+		int32_t j = (int32_t)w[i].y, n = (int32_t)u[j];
+		u2[i] = u[j];
+		memcpy(&a[k], &b[w[i].y>>32], n * sizeof(mg128_t));
+		k += n;
+	}
+	memcpy(u, u2, n_u * 8);
+	memcpy(b, a, k * sizeof(mg128_t)); // write _a_ to _b_ and deallocate _a_ because _a_ is oversized, sometimes a lot
+	kfree(km, a); kfree(km, w); kfree(km, u2);
+	return b;
+}
+
 static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t max_dist_x, int32_t max_dist_y, int32_t bw, float chn_pen_gap, float chn_pen_skip, int is_cdna, int n_segs)
 {
 	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, same_seg, q_span, sc;
@@ -90,10 +125,9 @@ static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t ma
 mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
 					  int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
-	int32_t k, *f, *p, *t, *v, n_u, n_v;
+	int32_t *f, *p, *t, *v, n_u, n_v;
 	int64_t i, j, max_ii, st = 0;
-	uint64_t *u, *u2;
-	mg128_t *b, *w;
+	uint64_t *u;
 
 	if (_u) *_u = 0, *n_u_ = 0;
 	if (n == 0 || a == 0) return 0;
@@ -144,7 +178,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			max_ii = i;
 		if (mmax_f < max_f) mmax_f = max_f;
 	}
-	fprintf(stderr, "Z\tn_iter=%ld\tmmax_f=%d\n", (long)n_iter, mmax_f);
+//	fprintf(stderr, "Z\tn_iter=%ld\tmmax_f=%d\n", (long)n_iter, mmax_f);
 
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
@@ -153,159 +187,72 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		kfree(km, a); kfree(km, v);
 		return 0;
 	}
-
-	// write the result to b[]
-	KMALLOC(km, b, n_v);
-	for (i = 0, k = 0; i < n_u; ++i) {
-		int32_t k0 = k, ni = (int32_t)u[i];
-		for (j = 0; j < ni; ++j)
-			b[k++] = a[v[k0 + (ni - j - 1)]];
-	}
-	kfree(km, v);
-
-	// sort u[] and a[] by the target position, such that adjacent chains may be joined
-	KMALLOC(km, w, n_u);
-	for (i = k = 0; i < n_u; ++i) {
-		w[i].x = b[k].x, w[i].y = (uint64_t)k<<32|i;
-		k += (int32_t)u[i];
-	}
-	radix_sort_128x(w, w + n_u);
-	KMALLOC(km, u2, n_u);
-	for (i = k = 0; i < n_u; ++i) {
-		int32_t j = (int32_t)w[i].y, n = (int32_t)u[j];
-		u2[i] = u[j];
-		memcpy(&a[k], &b[w[i].y>>32], n * sizeof(mg128_t));
-		k += n;
-	}
-	memcpy(u, u2, n_u * 8);
-	memcpy(b, a, k * sizeof(mg128_t)); // write _a_ to _b_ and deallocate _a_ because _a_ is oversized, sometimes a lot
-	kfree(km, a); kfree(km, w); kfree(km, u2);
-	return b;
+	return compact_a(km, n_u, u, n_v, v, a);
 }
 
 typedef struct lc_elem_s {
 	int32_t y;
 	int64_t i;
-	KAVL_HEAD(struct lc_elem_s) head;
+	double pri;
+	KRMQ_HEAD(struct lc_elem_s) head;
 } lc_elem_t;
 
 #define lc_elem_cmp(a, b) ((a)->y < (b)->y? -1 : (a)->y > (b)->y? 1 : ((a)->i > (b)->i) - ((a)->i < (b)->i))
-KAVL_INIT(lc_elem, lc_elem_t, head, lc_elem_cmp)
+#define lc_elem_lt2(a, b) ((a)->pri < (b)->pri)
+KRMQ_INIT(lc_elem, lc_elem_t, head, lc_elem_cmp, lc_elem_lt2)
 
 mg128_t *mg_lchain_alt(int max_dist, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
-	int32_t k, *f, *p, *t, *v, n_u, n_v, n_del = 0, m_del = 0;
-	int64_t i, j, st = 0;
-	uint64_t *u, *u2;
-	mg128_t *b, *w;
-	lc_elem_t *root = 0, **del = 0;
-	void *mem;
+	int32_t *f, *p, *t, *v, n_u, n_v;
+	int64_t i, st = 0;
+	uint64_t *u;
+	lc_elem_t *root = 0;
+	void *mem = 0;
 
 	if (_u) *_u = 0, *n_u_ = 0;
 	if (n == 0 || a == 0) return 0;
 	assert(chn_pen_gap >= chn_pen_skip);
 	f = (int32_t*)kmalloc(km, n * 4);
 	p = (int32_t*)kmalloc(km, n * 4);
-	t = (int32_t*)kmalloc(km, n * 4);
 	v = (int32_t*)kmalloc(km, n * 4);
 	mem = km_init2(km, 0x10000);
-	memset(t, 0, n * 4);
 
 	// fill the score and backtrack arrays
-	int64_t n_iter = 0; int32_t mmax_f = 0, max_size = 0, max_del = 0;
 	for (i = 0; i < n; ++i) {
 		int64_t max_j = -1;
 		int32_t q_span = a[i].y>>32&0xff, max_f = q_span;
-		lc_elem_t t, *q, *lower, *upper;
-		const lc_elem_t *r;
-		kavl_itr_t(lc_elem) itr;
-		if (max_size < kavl_size(head, root)) max_size = kavl_size(head, root);
+		lc_elem_t t, *q, lo, hi;
 		// get rid of active chains out of range
 		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist)) {
 			t.y = (int32_t)a[st].y, t.i = st;
-			q = kavl_find(lc_elem, root, &t, 0);
-			if (q) {
-				q = kavl_erase(lc_elem, &root, q, 0);
+			if ((q = krmq_find(lc_elem, root, &t, 0)) != 0) {
+				q = krmq_erase(lc_elem, &root, q, 0);
 				kfree(mem, q);
 			}
 			++st;
 		}
-		// traverse the neighbors
-		t.i = 0, t.y = (int32_t)a[i].y;
-		if (t.y < 0) t.y = 0;
-		kavl_interval(lc_elem, root, &t, &lower, &upper);
-		if (lower == 0) goto skip_tree;
-		n_del = 0;
-		kavl_itr_find(lc_elem, root, lower, &itr);
-		//fprintf(stderr, "Y2\t%ld\tcut=%d\tsize=%d\tn_iter=%ld\n", (long)i, t.y, kavl_size(head, root), (long)n_iter);
-		while ((r = kavl_at(&itr)) != 0) {
-			int64_t j = r->i;
-			int32_t sc, dq, dr, dd, dg;
-			float lin_pen, log_pen;
-			dq = (int32_t)a[i].y - (int32_t)a[j].y;
-			if (dq > max_dist) break;
-			++n_iter;
-			//fprintf(stderr, "X1\t(%d,%d) -> (%d,%d)\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y);
-			dr = (int32_t)(a[i].x - a[j].x);
-			if (f[j] < chn_pen_skip * dr) {
-				if (n_del == m_del) KEXPAND(km, del, m_del);
-				del[n_del++] = (lc_elem_t*)r;
-				goto cont_chain;
+		// RMQ
+		lo.i = INT32_MAX, lo.y = (int32_t)a[i].y - max_dist;
+		hi.i = 0, hi.y = (int32_t)a[i].y;
+		if ((q = krmq_rmq(lc_elem, root, &lo, &hi)) != 0) {
+			int32_t sc;
+			int64_t j = q->i;
+			sc = comput_sc(&a[i], &a[j], max_dist, max_dist, max_dist, chn_pen_gap, chn_pen_skip, 0, 1);
+			if (sc != INT32_MIN) {
+				sc += f[j];
+				max_f = sc, max_j = j;
 			}
-			dd = dr > dq? dr - dq : dq - dr;
-			dg = dr < dq? dr : dq;
-			sc = q_span < dg? q_span : dg;
-			if (a[j].y>>MG_SEED_WT_SHIFT < 255) {
-				int tmp = (int)(0.00392156862745098 * (a[j].y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
-				sc = tmp > 1? tmp : 1;
-			}
-			lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-			log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
-			sc -= (int32_t)(lin_pen + log_pen);
-			sc += f[j];
-			if (sc > max_f) max_f = sc, max_j = j;
-cont_chain:
-			if (!kavl_itr_prev(lc_elem, &itr)) break;
 		}
-		// update the tree
-		if (upper == 0) goto skip_tree;
-		kavl_itr_find(lc_elem, root, upper, &itr);
-		while ((r = kavl_at(&itr)) != 0) {
-			int64_t j = r->i;
-			int32_t dq, dr, dd;
-			float thres;
-			dq = (int32_t)a[j].y - (int32_t)a[i].y;
-			if (dq > max_dist) break;
-			++n_iter;
-			dr = (int32_t)(a[i].x - a[j].x);
-			dd = dq + dr;
-			thres = max_f - chn_pen_gap * dd - (dd >= 2? mg_log2(dd) : 0.0f);
-			if (thres < 0.0f) thres = 0.0f;
-			if (f[j] - chn_pen_skip * dr < thres) {
-				if (n_del == m_del) KEXPAND(km, del, m_del);
-				del[n_del++] = (lc_elem_t*)r;
-			}
-			//fprintf(stderr, "X2\t(%d,%d) -> (%d,%d)\tmax_f=%d\tf[j]=%d\n", (int32_t)a[j].x, (int32_t)a[j].y, (int32_t)a[i].x, (int32_t)a[i].y, max_f, f[j]);
-			if (!kavl_itr_next(lc_elem, &itr)) break;
-		}
-skip_tree:
-		for (j = 0; j < n_del; ++j) {
-			q = kavl_erase(lc_elem, &root, del[j], 0);
-			kfree(mem, q);
-		}
-		if (max_del < n_del) max_del = n_del;
+		// add
 		KMALLOC(mem, q, 1);
-		q->y = (int32_t)a[i].y, q->i = i;
-		q = kavl_insert(lc_elem, &root, q, 0);
+		q->y = (int32_t)a[i].y, q->i = i, q->pri = -(max_f + (double)chn_pen_gap * ((int32_t)a[i].x + (int32_t)a[i].y));
+		q = krmq_insert(lc_elem, &root, q, 0);
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
-		if (max_f > mmax_f) mmax_f = max_f;
-		//fprintf(stderr, "Y3\ti=%ld\t%d\n", (long)i, kavl_size(head, root));
 	}
-	fprintf(stderr, "Z\tn=%ld\tn_iter=%ld\tmmax_f=%d\tmax_size=%d\tmax_del=%d\n", (long)n, (long)n_iter, mmax_f, max_size, max_del);
-	kfree(km, del);
 	km_destroy(mem);
 
+	t = (int32_t*)kmalloc(km, n * 4);
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
 	kfree(km, f); kfree(km, p); kfree(km, t);
@@ -313,34 +260,7 @@ skip_tree:
 		kfree(km, a); kfree(km, v);
 		return 0;
 	}
-
-	// write the result to b[]
-	KMALLOC(km, b, n_v);
-	for (i = 0, k = 0; i < n_u; ++i) {
-		int32_t k0 = k, ni = (int32_t)u[i];
-		for (j = 0; j < ni; ++j)
-			b[k++] = a[v[k0 + (ni - j - 1)]];
-	}
-	kfree(km, v);
-
-	// sort u[] and a[] by the target position, such that adjacent chains may be joined
-	KMALLOC(km, w, n_u);
-	for (i = k = 0; i < n_u; ++i) {
-		w[i].x = b[k].x, w[i].y = (uint64_t)k<<32|i;
-		k += (int32_t)u[i];
-	}
-	radix_sort_128x(w, w + n_u);
-	KMALLOC(km, u2, n_u);
-	for (i = k = 0; i < n_u; ++i) {
-		int32_t j = (int32_t)w[i].y, n = (int32_t)u[j];
-		u2[i] = u[j];
-		memcpy(&a[k], &b[w[i].y>>32], n * sizeof(mg128_t));
-		k += n;
-	}
-	memcpy(u, u2, n_u * 8);
-	memcpy(b, a, k * sizeof(mg128_t)); // write _a_ to _b_ and deallocate _a_ because _a_ is oversized, sometimes a lot
-	kfree(km, a); kfree(km, w); kfree(km, u2);
-	return b;
+	return compact_a(km, n_u, u, n_v, v, a);
 }
 
 mg_lchain_t *mg_lchain_gen(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mg128_t *a)

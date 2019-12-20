@@ -28,6 +28,7 @@ static ko_longopt_t long_options[] = {
 	{ "heap-sort",    ko_required_argument, 304 },
 	{ "show-unmap",   ko_required_argument, 305 },
 	{ "ggen",         ko_optional_argument, 306 },
+	{ "rmq",          ko_optional_argument, 307 },
 	{ "gg-min-end-cnt",  ko_required_argument, 309 },
 	{ "gg-min-end-frac", ko_required_argument, 310 },
 	{ "no-comp-path", ko_no_argument,       312 },
@@ -177,6 +178,8 @@ int main(int argc, char *argv[])
 			yes_or_no(&opt.flag, MG_M_HEAP_SORT, o.longidx, o.arg, 1);
 		} else if (c == 305) { // --show-unmap
 			yes_or_no(&opt.flag, MG_M_SHOW_UNMAP, o.longidx, o.arg, 1);
+		} else if (c == 307) { // --rmq
+			yes_or_no(&opt.flag, MG_M_RMQ, o.longidx, o.arg, 1);
 		} else if (c == 300) { // --version
 			puts(MG_VERSION);
 			return 0;

@@ -17,6 +17,7 @@
 #define MG_M_ALL_CHAINS   0x1000
 #define MG_M_PRINT_2ND    0x2000
 #define MG_M_CAL_COV      0x4000
+#define MG_M_RMQ          0x8000
 #define MG_M_COPY_COMMENT 0x10000
 #define MG_M_INDEPEND_SEG 0x20000
 #define MG_M_NO_QUAL      0x40000
