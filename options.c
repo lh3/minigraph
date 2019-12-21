@@ -86,7 +86,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		io->k = 19, io->w = 10;
 		mo->flag |= MG_M_RMQ;
 		mo->max_gap = mo->bw = 100000;
-		mo->max_gap_pre = 1000;
+		mo->max_gap_pre = 10000;
 		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 		mo->min_cov_mapq = 5;

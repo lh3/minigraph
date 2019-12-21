@@ -301,7 +301,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int m
 		}
 		// add
 		KMALLOC(mem, q, 1);
-		q->y = (int32_t)a[i].y, q->i = i, q->pri = -(max_f + (double)chn_pen_gap * ((int32_t)a[i].x + (int32_t)a[i].y));
+		q->y = (int32_t)a[i].y, q->i = i, q->pri = -(max_f + 0.5 * chn_pen_gap * ((int32_t)a[i].x + (int32_t)a[i].y));
 		krmq_insert(lc_elem, &root, q, 0);
 		if (max_dist_inner > 0) {
 			KMALLOC(mem_inner, r, 1);
