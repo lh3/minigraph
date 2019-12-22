@@ -232,13 +232,19 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				if (is_inv) { // turn one inversion to two events
 					gfa_ins_t I_inv[2];
 					I_inv[0].ctg = I_inv[1].ctg = I.ctg;
+					// the first event
 					I_inv[0].coff[0] = I_inv[0].coff[1] = I.coff[0];
+					I_inv[0].v[0] = I.v[0];
+					I_inv[0].voff[0] = I.voff[0];
+					I_inv[0].v[1] = I.v[1]^1;
+					I_inv[0].voff[1] = g->seg[I.v[1]>>1].len - I.voff[1];
+					// the second event
 					I_inv[1].coff[0] = I_inv[1].coff[1] = I.coff[1];
-					assert(I.v[0] == I.v[1]);
-					I_inv[0].v[0] = I.v[0], I_inv[0].v[1] = I.v[1]^1;
-					I_inv[0].voff[0] = I.voff[0], I_inv[0].voff[1] = g->seg[I.v[0]>>1].len - I.voff[1];
-					I_inv[1].v[0] = I.v[0]^1, I_inv[1].v[1] = I.v[1];
-					I_inv[1].voff[0] = g->seg[I.v[0]>>1].len - I.voff[0], I_inv[1].voff[1] = I.voff[1];
+					I_inv[1].v[0] = I.v[0]^1;
+					I_inv[1].voff[0] = g->seg[I.v[0]>>1].len - I.voff[0];
+					I_inv[1].v[1] = I.v[1];
+					I_inv[1].voff[1] = I.voff[1];
+					// insert
 					if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 					ins[n_ins++] = I_inv[0];
 					if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
