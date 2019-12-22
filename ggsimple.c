@@ -219,7 +219,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				if (mg_dbg_flag & MG_DBG_INSERT) {
 					int32_t mlen, blen, score, qd = I.coff[1] - I.coff[0];
 					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
-					fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
+					fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d] inv:%d\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0], is_inv);
 					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
 					fwrite(&seq[t].seq[I.coff[0]], 1, qd, stderr);
 					if (pd - qd < opt->min_var_len && qd - pd < opt->min_var_len) {
@@ -229,9 +229,24 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					fprintf(stderr, "\nIS\t%d==%d\tfastcmp:%d\tnwcmp:%d\tmlen:%d\tblen:%d\n", pd, l_pseq,
 							mg_fastcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 9, 100), score, mlen, blen);
 				}
-				if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
-				//if (is_inv) fprintf(stderr, "inversion!\n");
-				ins[n_ins++] = I;
+				if (is_inv) { // turn one inversion to two events
+					gfa_ins_t I_inv[2];
+					I_inv[0].ctg = I_inv[1].ctg = I.ctg;
+					I_inv[0].coff[0] = I_inv[0].coff[1] = I.coff[0];
+					I_inv[1].coff[0] = I_inv[1].coff[1] = I.coff[1];
+					assert(I.v[0] == I.v[1]);
+					I_inv[0].v[0] = I.v[0], I_inv[0].v[1] = I.v[1]^1;
+					I_inv[0].voff[0] = I.voff[0], I_inv[0].voff[1] = g->seg[I.v[0]>>1].len - I.voff[1];
+					I_inv[1].v[0] = I.v[0]^1, I_inv[1].v[1] = I.v[1];
+					I_inv[1].voff[0] = g->seg[I.v[0]>>1].len - I.voff[0], I_inv[1].voff[1] = I.voff[1];
+					if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
+					ins[n_ins++] = I_inv[0];
+					if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
+					ins[n_ins++] = I_inv[1];
+				} else {
+					if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
+					ins[n_ins++] = I;
+				}
 			}
 			kfree(0, ss);
 		}
