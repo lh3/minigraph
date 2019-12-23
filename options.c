@@ -21,7 +21,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->max_gap_ref = -1;
 	mo->max_gap_pre = 1000;
 	mo->max_frag_len = 800;
-	mo->max_chn_skip = 25, mo->max_lc_iter = 10000;
+	mo->max_lc_skip = mo->max_gc_skip = 25, mo->max_lc_iter = 10000;
 	mo->bw = 2000;
 	mo->mini_batch_size = 500000000;
 	mo->div = 0.1f;
@@ -91,7 +91,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 		mo->min_cov_mapq = 5;
 		mo->min_cov_blen = 100000;
-		mo->max_chn_skip = 50;
+		mo->max_lc_skip = 50;
 		mo->div = 0.01f;
 		if (strcmp(preset, "ggs") == 0)
 			go->algo = MG_G_GGSIMPLE, mo->best_n = 0;

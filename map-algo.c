@@ -286,9 +286,9 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		a = 0, n_lc = 0, u = 0;
 	} else {
 		if (opt->flag & MG_M_RMQ)
-			a = mg_lchain_rmq(opt->bw, opt->max_gap_pre, opt->max_chn_skip, opt->min_lc_cnt, opt->min_lc_score, chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
+			a = mg_lchain_rmq(opt->bw, opt->max_gap_pre, opt->max_lc_skip, opt->min_lc_cnt, opt->min_lc_score, chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
 		else
-			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chn_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
+			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_lc_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
 							 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
 	}
 
@@ -311,7 +311,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		strncpy(&seq_cat[l], seqs[i], qlens[i]);
 		l += qlens[i];
 	}
-	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chn_skip, opt->ref_bonus,
+	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_gc_skip, opt->ref_bonus,
 						 chn_pen_gap, chn_pen_skip, seq_cat, a, &u);
 	gcs[0] = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score);
 	gcs[0]->rep_len = rep_len;
