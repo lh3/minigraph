@@ -32,7 +32,7 @@ typedef struct {
 typedef struct {
 	int32_t snid, ss, se;
 	uint32_t vs, ve;
-	int32_t n_seg, len_max, len_min;
+	int32_t is_bidir, n_seg, len_max, len_min;
 	float cf_max, cf_min;
 	uint32_t *v;
 	char *seq_max, *seq_min; // seq_max and seq_min point to v[]
