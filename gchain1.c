@@ -138,7 +138,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				// test reach-ability considering sequences
 				mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, li->qs - min_qs, qs, 1, 0);
 			}
-			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
+			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", ai->i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
 		}
 		{ // DP
 			int32_t max_f = li->score, max_j = -1, max_d = -1;
@@ -162,18 +162,23 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				log_pen = gap >= 2? mg_log2(gap) : 0.0f;
 				sc -= (int32_t)(lin_pen + log_pen);
 				sc += f[dj->meta];
-				if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d)\n", j, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist - g->seg[li->v>>1].len, dj->dist - g->seg[li->v>>1].len, sc, lc[dj->meta].qs, lc[dj->meta].qe);
+				if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d), g_intv=[%d,%d)\n", dj->meta, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist - g->seg[li->v>>1].len, dj->dist - g->seg[li->v>>1].len, sc, lj->qs, lj->qe, lj->rs, lj->re);
 				if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash;
 			}
 			f[i] = max_f, p[i] = max_j;
 			li->dist_pre = max_d;
 			li->hash_pre = max_hash;
 			v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
-			//fprintf(stderr, "[%d] %d\t%d\tv=%d\ti=%d\tscore=%d\tf[i]=%d\tmax_j=%d\tv[i]=%d\tp[i]=%d\n", i, li->qs, li->qe, li->v, a[i].i, li->score, max_f, max_j, v[i], p[i]);
+			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, " [opt:%d] opt=%d, max_f=%d\n", ai->i, max_j, max_f);
 		}
 	}
 	kfree(km, dst);
 	kfree(km, qs);
+	if (mg_dbg_flag & MG_DBG_GC1) {
+		int32_t mmax_f = 0, mmax_i = -1;
+		for (i = 0; i < n_ext; ++i) if (f[i] > mmax_f) mmax_f = f[i], mmax_i = i;
+		i = mmax_i; while (i >= 0) { fprintf(stderr, "[best] i=%d, seg=%s, max_f=%d, chn_pen_gap=%f\n", a[i].i, g->seg[lc[a[i].i].v>>1].name, f[i], chn_pen_gap); i = p[i]; }
+	}
 
 	u = mg_chain_backtrack(km, n_ext, f, p, v, t, 0, 0, n_lc - n_ext, &n_u, &n_v);
 	kfree(km, f); kfree(km, p); kfree(km, t);

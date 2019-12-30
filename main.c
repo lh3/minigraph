@@ -143,8 +143,8 @@ int main(int argc, char *argv[])
 		else if (c == 318) opt.chn_pen_gap = atof(o.arg);     // --gap-pen
 		else if (c == 319) opt.ref_bonus = atoi(o.arg);       // --ref-bonus
 		else if (c == 320) opt.max_gap_pre = mg_parse_num(o.arg); // --max-gap-pre
-		else if (c == 321) opt.max_lc_skip = atoi(o.arg);     // --max-gc-skip
-		else if (c == 322) opt.max_gc_skip = atoi(o.arg);     // --max-lc-skip
+		else if (c == 321) opt.max_lc_skip = atoi(o.arg);     // --max-lc-skip
+		else if (c == 322) opt.max_gc_skip = atoi(o.arg);     // --max-gc-skip
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
