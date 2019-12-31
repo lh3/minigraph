@@ -1,3 +1,19 @@
+Release 0.9-r343 (31 December 2019)
+-----------------------------------
+
+Notable changes:
+
+ * RMQ based linear chaining. The chaining accuracy should be higher for large
+   events. The speed remains similar.
+
+ * Use ksw2 to check the sequence divergence of events to be inserted.
+
+ * Treat inversions as special events. Don't insert them as long substitutions.
+
+(31 December 2019, r343)
+
+
+
 Release 0.8-r316 (11 December 2019)
 -----------------------------------
 
