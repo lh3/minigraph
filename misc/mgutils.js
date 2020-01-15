@@ -132,6 +132,40 @@ function mg_cmd_renamefa(args)
 	buf.destroy();
 }
 
+function mg_cmd_paf2bl(args)
+{
+	var c, min_de = 0.01, max_de = 0.1, sub_de = 0.002, min_mapq = 5, min_len = 500, is_sub = false;
+	while ((c = getopt(args, "d:s")) != null) {
+		if (c == 'd') min_de = parseFloat(getopt.arg);
+		else if (c == 's') is_sub = true;
+	}
+	if (args.length - getopt.ind < 1) {
+		print("Usage: mgutils.js paf2bl <ins.paf>");
+		print("Note: bedtk sub <(mgutils.js paf2bl ins.paf; cat bl100.bed) <(../mgutils.js paf2bl -s ins.paf) | bedtk merge");
+		return;
+	}
+	var file = new File(args[getopt.ind]);
+	var buf = new Bytes();
+	while (file.readline(buf) >= 0) {
+		var line = buf.toString();
+		var m, t = line.split("\t");
+		if (/\ttp:A:[SI]/.test(line)) continue;
+		if (parseInt(t[11]) < min_mapq) continue;
+		if (parseInt(t[10]) < min_len) continue;
+		if ((m = /\tde:f:(\S+)/.exec(line)) == null) continue;
+		var de = parseFloat(m[1]);
+		if (is_sub) {
+			if (de > sub_de) continue;
+		} else {
+			if (de < min_de || de > max_de) continue;
+		}
+		print(t[5], t[7], t[8]);
+		//print(line);
+	}
+	buf.destroy();
+	file.close();
+}
+
 function mg_cmd_subgaf(args)
 {
 	if (args.length < 2) {
@@ -342,13 +376,15 @@ function main(args)
 		print("Usage: mgutils.js <command> [arguments]");
 		print("Commands:");
 		print("  renamefa     add a prefix to sequence names in FASTA");
-		print("  subgaf       extract GAF overlapping with a region");
-		print("  sveval       evaluate SV accuracy");
+		print("  paf2bl       blacklist regions from insert-to-ref alignment");
+		//print("  subgaf       extract GAF overlapping with a region (BUGGY)");
+		//print("  sveval       evaluate SV accuracy");
 		exit(1);
 	}
 
 	var cmd = args.shift();
 	if (cmd == 'renamefa') mg_cmd_renamefa(args);
+	else if (cmd == 'paf2bl') mg_cmd_paf2bl(args);
 	else if (cmd == 'subgaf') mg_cmd_subgaf(args);
 	else if (cmd == 'sveval') mg_cmd_sveval(args);
 	else throw Error("unrecognized command: " + cmd);
