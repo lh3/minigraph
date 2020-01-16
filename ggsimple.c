@@ -13,7 +13,7 @@
 
 void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
-	int32_t t, i, j, *scnt, *soff, *qcnt, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins;
+	int32_t t, i, j, *scnt, *soff, *qcnt, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins, n_inv;
 	int32_t l_pseq, m_pseq;
 	int64_t sum_acnt, sum_alen;
 	uint64_t *meta;
@@ -103,6 +103,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 	// extract poorly regions
 	m_pseq = l_pseq = 0, pseq = 0;
 	m_ins = n_ins = 0, ins = 0;
+	n_inv = 0;
 	KMALLOC(km, sc, max_acnt);
 	KMALLOC(km, meta, max_acnt);
 	for (t = 0; t < n_seq; ++t) {
@@ -249,6 +250,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					ins[n_ins++] = I_inv[0];
 					if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 					ins[n_ins++] = I_inv[1];
+					++n_inv;
 				} else {
 					if (n_ins == m_ins) KEXPAND(km, ins, m_ins);
 					ins[n_ins++] = I;
@@ -277,6 +279,6 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 		kfree(km, seqs);
 	}
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] inserted %d events\n", __func__,
-				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), n_ins);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] inserted %d events, including %d inversions\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), n_ins, n_inv);
 }
