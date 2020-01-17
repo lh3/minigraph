@@ -132,6 +132,210 @@ function mg_cmd_renamefa(args)
 	buf.destroy();
 }
 
+function mg_cmd_anno(args)
+{
+	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30;
+	var fn_rmout = null, fn_etrf = null, fn_dust = null, fn_gap = null, fn_paf = null, fn_centro = null;
+	while ((c = getopt(args, "e:p:g:d:r:c:l:")) != null) {
+		if (c == 'l') min_feat_len = parseInt(getopt.arg);
+		else if (c == 'e') fn_etrf = getopt.arg;
+		else if (c == 'p') fn_paf = getopt.arg;
+		else if (c == 'g') fn_gap = getopt.arg;
+		else if (c == 'd') fn_dust = getopt.arg;
+		else if (c == 'r') fn_rmout = getopt.arg;
+		else if (c == 'c') fn_centro = getopt.arg;
+	}
+
+	if (args.length - getopt.ind < 1) {
+		print("Usage: anno.js [options] <in.bed>");
+		print("Options:");
+		print("  -l INT      min feature length [" + min_feat_len + "]");
+		print("  -r FILE     RepeatMasker .out [null]");
+		print("  -g FILE     seqtk gap output for stretches of Ns [null]");
+		print("  -d FILE     minimap2/sdust output for LCRs [null]");
+		print("  -e FILE     etrf output [null]");
+		print("  -p FILE     PAF alignment against reference [null]");
+		print("  -c FILE     dna-brnn centromere results [null]");
+		exit(1);
+	}
+
+	var file, buf = new Bytes();
+
+	var bb = {}, bba = [];
+
+	file = new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		if (t.length < 4) continue;
+		var key = t[0] + "_" + t[1] + "_" + t[2];
+		var len = parseInt(t[3]);
+		if (len < parseInt(t[2]) - parseInt(t[1]))
+			throw Error("ERROR: event length smaller than interval length");
+		bb[key] = [len, {}];
+		bba.push(key);
+	}
+	file.close();
+
+	if (fn_rmout) {
+		function process_rm_line(bb, lines) {
+			var h = {};
+			if (lines.length == 0) return;
+			var key = lines[0][4];
+			if (bb[key] == null) throw Error("ERROR: missing key: " + key);
+			var h = bb[key][1];
+			for (var i = 0; i < lines.length; ++i) {
+				var t = lines[i];
+				var st = parseInt(t[5]) - 1, en = parseInt(t[6]);
+				if (h[t[10]] == null) h[t[10]] = [];
+				h[t[10]].push([st, en]);
+			}
+		}
+
+		file = new File(fn_rmout);
+		var lines = [];
+		while (file.readline(buf) >= 0) {
+			var line = buf.toString();
+			var l2 = line.replace(/^\s+/, "");
+			var t = l2.split(/\s+/);
+			if (t.length < 15) continue;
+			if (t[10] == 'Simple_repeat' || t[10] == 'Low_complexity') t[10] = 'LCR';
+			if (t[10] != 'LCR') {
+				//	if (parseInt(t[0]) < min_rm_sc) continue;
+				//	if (parseInt(t[1])/100 > min_rm_div) continue;
+			}
+			if (lines.length > 0 && lines[0][4] != t[4]) {
+				process_rm_line(bb, lines);
+				lines = [];
+			}
+			lines.push(t);
+		}
+		if (lines.length > 0) process_rm_line(bb, lines);
+		file.close();
+	}
+
+	if (fn_etrf) {
+		file = new File(fn_etrf);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var l = parseInt(t[4]);
+			if (l == 1) continue;
+			var anno = l <= micro_cap? 'micro' : 'mini';
+			if (bb[t[0]][1][anno] == null)
+				bb[t[0]][1][anno] = [];
+			var st = parseInt(t[1]), en = parseInt(t[2]);
+			bb[t[0]][1][anno].push([st, en]);
+			if (bb[t[0]][1]['LCR'] == null)
+				bb[t[0]][1]['LCR'] = [];
+			bb[t[0]][1]['LCR'].push([st, en]);
+		}
+		file.close();
+	}
+
+	if (fn_dust) {
+		file = new File(fn_dust);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var anno = 'LCR';
+			if (bb[t[0]][1][anno] == null)
+				bb[t[0]][1][anno] = [];
+			bb[t[0]][1][anno].push([parseInt(t[1]), parseInt(t[2])]);
+		}
+		file.close();
+	}
+
+	if (fn_paf) {
+		file = new File(fn_paf);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var anno = 'self';
+			if (bb[t[0]][1][anno] == null)
+				bb[t[0]][1][anno] = [];
+			bb[t[0]][1][anno].push([parseInt(t[2]), parseInt(t[3])]);
+		}
+		file.close();
+	}
+
+	if (fn_gap) {
+		warn(fn_gap);
+		file = new File(fn_gap);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var anno = 'gap';
+			if (bb[t[0]][1][anno] == null)
+				bb[t[0]][1][anno] = [];
+			bb[t[0]][1][anno].push([parseInt(t[1]), parseInt(t[2])]);
+		}
+		file.close();
+	}
+
+	if (fn_centro) {
+		file = new File(fn_centro);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var anno = t[3] == '1'? 'hsat2/3' : 'alpha';
+			if (bb[t[0]][1][anno] == null)
+				bb[t[0]][1][anno] = [];
+			bb[t[0]][1][anno].push([parseInt(t[1]), parseInt(t[2])]);
+		}
+		file.close();
+	}
+
+	for (var i = 0; i < bba.length; ++i) {
+		var m, key = bba[i], h = bb[key][1], len = bb[key][0];
+		if ((m = /^(\S+)_(\d+)_(\d+)/.exec(key)) == null)
+			throw("Bug!");
+		var x = {}, t = [m[1], m[2], m[3], len];
+		for (var c in h) {
+			var s, st = 0, en = 0, cov = 0;
+			s = h[c].sort(function(a, b) { return a[0] - b[0]; });
+			for (var j = 0; j < s.length; ++j) {
+				if (s[j][0] > en) {
+					cov += en - st;
+					st = s[j][0], en = s[j][1];
+				} else en = en > s[j][1]? en : s[j][1];
+			}
+			cov += en - st;
+			if (cov >= min_feat_len)
+				x[c] = cov;
+		}
+		var type = "none";
+		var max = 0, max2 = 0, max_c2 = null, max_c = null, sum = 0, sum_misc = 0;
+		var lcr = x['LCR'] == null? 0 : x['LCR'];
+		var self_len = x['self'] == null? 0 : x['self'];
+		for (var c in x) {
+			if (c == 'LCR' || c == 'self') continue;
+			sum += x[c];
+			if (c != 'mini' && c != 'micro') sum_misc += x[c];
+			if (max < x[c]) max2 = max, max_c2 = max_c, max = x[c], max_c = c;
+			else if (max2 < x[c]) max2 = x[c], max_c2 = c;
+		}
+		if (max >= len * 0.7) {
+			type = max_c;
+		} else if (lcr >= len * 0.7) {
+			type = 'lcr';
+			if (max_c == 'mini' || max_c == 'micro') {
+				var y = x['mini'] == null? 0 : x['mini'];
+				y += x['micro'] == null? 0 : x['micro'];
+				if (max >= y * 0.7) type = max_c;
+			}
+		} else if ((max_c == 'mini' || max_c == 'micro') && max2 < max * 0.1) {
+			type = max_c;
+		} else if (sum_misc + lcr >= len * 0.7) {
+			type = 'mixed';
+		} else if (sum + lcr > len * 0.05) {
+			type = 'partial';
+		} else if (self_len >= len * 0.5) {
+			type = 'self';
+		}
+		t.push(type);
+		for (var c in x)
+			t.push(c + ':' + x[c]);
+		print(t.join("\t"));
+	}
+
+	buf.destroy();
+}
+
 function mg_cmd_paf2bl(args)
 {
 	var c, min_de = 0.01, max_de = 0.1, sub_de = 0.002, min_mapq = 5, min_len = 500, is_sub = false;
@@ -166,7 +370,7 @@ function mg_cmd_paf2bl(args)
 	file.close();
 }
 
-function mg_cmd_subgaf(args)
+function mg_cmd_subgaf(args) // FIXME: this is BUGGY!!!
 {
 	if (args.length < 2) {
 		print("Usage: mgutils.js subgaf <in.gaf> <reg>");
@@ -377,6 +581,7 @@ function main(args)
 		print("Commands:");
 		print("  renamefa     add a prefix to sequence names in FASTA");
 		print("  paf2bl       blacklist regions from insert-to-ref alignment");
+		print("  anno         annotate short sequences");
 		//print("  subgaf       extract GAF overlapping with a region (BUGGY)");
 		//print("  sveval       evaluate SV accuracy");
 		exit(1);
@@ -385,6 +590,7 @@ function main(args)
 	var cmd = args.shift();
 	if (cmd == 'renamefa') mg_cmd_renamefa(args);
 	else if (cmd == 'paf2bl') mg_cmd_paf2bl(args);
+	else if (cmd == 'anno') mg_cmd_anno(args);
 	else if (cmd == 'subgaf') mg_cmd_subgaf(args);
 	else if (cmd == 'sveval') mg_cmd_sveval(args);
 	else throw Error("unrecognized command: " + cmd);
