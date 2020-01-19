@@ -134,9 +134,9 @@ function mg_cmd_renamefa(args)
 
 function mg_cmd_anno(args)
 {
-	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30;
-	var fn_rmout = null, fn_etrf = null, fn_dust = null, fn_gap = null, fn_paf = null, fn_centro = null;
-	while ((c = getopt(args, "e:p:g:d:r:c:l:")) != null) {
+	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30, min_centro_len = 200;
+	var fn_rmout = null, fn_etrf = null, fn_dust = null, fn_gap = null, fn_paf = null, fn_centro = null, fn_bb = null;
+	while ((c = getopt(args, "e:p:g:d:r:c:l:b:")) != null) {
 		if (c == 'l') min_feat_len = parseInt(getopt.arg);
 		else if (c == 'e') fn_etrf = getopt.arg;
 		else if (c == 'p') fn_paf = getopt.arg;
@@ -144,6 +144,7 @@ function mg_cmd_anno(args)
 		else if (c == 'd') fn_dust = getopt.arg;
 		else if (c == 'r') fn_rmout = getopt.arg;
 		else if (c == 'c') fn_centro = getopt.arg;
+		else if (c == 'b') fn_bb = getopt.arg;
 	}
 
 	if (args.length - getopt.ind < 1) {
@@ -156,6 +157,7 @@ function mg_cmd_anno(args)
 		print("  -e FILE     etrf output [null]");
 		print("  -p FILE     PAF alignment against reference [null]");
 		print("  -c FILE     dna-brnn centromere results [null]");
+		print("  -b FILE     bubble file [null]");
 		exit(1);
 	}
 
@@ -175,6 +177,16 @@ function mg_cmd_anno(args)
 		bba.push(key);
 	}
 	file.close();
+
+	if (fn_bb) {
+		file = new File(fn_bb);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var key = t[0] + "_" + t[1] + "_" + t[2];
+			if (key in bb) bb[key].push(t[3], t[4], t[5], t[9]);
+		}
+		file.close();
+	}
 
 	if (fn_rmout) {
 		function process_rm_line(bb, lines) {
@@ -199,6 +211,10 @@ function mg_cmd_anno(args)
 			var t = l2.split(/\s+/);
 			if (t.length < 15) continue;
 			if (t[10] == 'Simple_repeat' || t[10] == 'Low_complexity') t[10] = 'LCR';
+			if (/^LTR\/ERV/.test(t[10])) t[10] = 'LTR/ERV';
+			if (/^DNA/.test(t[10])) t[10] = 'DNA/misc';
+			if (/rRNA|scRNA|snRNA/.test(t[10])) t[10] = 'RNAmisc';
+			if (/^LINE/.test(t[10]) && t[10] != "LINE/L1") t[10] = 'LINE/misc';
 			if (t[10] != 'LCR') {
 				//	if (parseInt(t[0]) < min_rm_sc) continue;
 				//	if (parseInt(t[1])/100 > min_rm_div) continue;
@@ -211,6 +227,15 @@ function mg_cmd_anno(args)
 		}
 		if (lines.length > 0) process_rm_line(bb, lines);
 		file.close();
+
+		for (var i = 0; i < bba.length; ++i) {
+			var h = bb[bba[i]][1], a = [];
+			for (var key in h)
+				if (/^(DNA|SINE|LINE|Retroposon|LTR)/.test(key))
+					for (var j = 0; j < h[key].length; ++j)
+						a.push(h[key][j]);
+			if (a.length) h['_inter'] = a;
+		}
 	}
 
 	if (fn_etrf) {
@@ -256,7 +281,6 @@ function mg_cmd_anno(args)
 	}
 
 	if (fn_gap) {
-		warn(fn_gap);
 		file = new File(fn_gap);
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
@@ -268,14 +292,16 @@ function mg_cmd_anno(args)
 		file.close();
 	}
 
-	if (fn_centro) {
+	if (fn_centro) { // this not used, as RepeatMasker can usually do a good job
 		file = new File(fn_centro);
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
 			var anno = t[3] == '1'? 'hsat2/3' : 'alpha';
 			if (bb[t[0]][1][anno] == null)
 				bb[t[0]][1][anno] = [];
-			bb[t[0]][1][anno].push([parseInt(t[1]), parseInt(t[2])]);
+			var st = parseInt(t[1]), en = parseInt(t[2]);
+			if (en - st >= min_centro_len)
+				bb[t[0]][1][anno].push([st, en]);
 		}
 		file.close();
 	}
@@ -285,6 +311,7 @@ function mg_cmd_anno(args)
 		if ((m = /^(\S+)_(\d+)_(\d+)/.exec(key)) == null)
 			throw("Bug!");
 		var x = {}, t = [m[1], m[2], m[3], len];
+		if (fn_bb) t.push(bb[key][2], bb[key][3], bb[key][4], bb[key][5]);
 		for (var c in h) {
 			var s, st = 0, en = 0, cov = 0;
 			s = h[c].sort(function(a, b) { return a[0] - b[0]; });
@@ -304,6 +331,8 @@ function mg_cmd_anno(args)
 		var self_len = x['self'] == null? 0 : x['self'];
 		for (var c in x) {
 			if (c == 'LCR' || c == 'self') continue;
+			if (c == '_inter' || c == 'alpha' || c == 'hsat2/3') continue;
+			//if (c == '_inter') continue;
 			sum += x[c];
 			if (c != 'mini' && c != 'micro') sum_misc += x[c];
 			if (max < x[c]) max2 = max, max_c2 = max_c, max = x[c], max_c = c;
@@ -320,6 +349,8 @@ function mg_cmd_anno(args)
 			}
 		} else if ((max_c == 'mini' || max_c == 'micro') && max2 < max * 0.1) {
 			type = max_c;
+		} else if (x['_inter'] != null && x['_inter'] >= len * 0.7) {
+			type = 'inter';
 		} else if (sum_misc + lcr >= len * 0.7) {
 			type = 'mixed';
 		} else if (sum + lcr > len * 0.05) {
