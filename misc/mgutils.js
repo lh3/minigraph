@@ -189,6 +189,49 @@ function mg_cmd_anno(args)
 	}
 
 	if (fn_rmout) {
+		var motif0 = "GGAAT", motif_hash = {}, motif_mut_hash = {};
+		{
+			var comp_tbl = { 'A':'T', 'T':'A', 'C':'G', 'G':'C' };
+			var motif = [motif0], motif_alt = [];
+
+			// reverse complement
+			for (var i = 0; i < motif.length; ++i) {
+				var x = motif[i], y = "";
+				for (var j = x.length - 1; j >= 0; --j) {
+					y += comp_tbl[x[j]];
+				}
+				motif_alt.push(y);
+			}
+			for (var i = 0; i < motif_alt.length; ++i)
+				motif.push(motif_alt[i]);
+
+			// rotate
+			motif_alt = [];
+			for (var i = 0; i < motif.length; ++i) {
+				var x = motif[i];
+				for (var j = 1; j < x.length; ++j)
+					motif_alt.push(x.substr(j) + x.substr(0, j));
+			}
+			for (var i = 0; i < motif_alt.length; ++i)
+				motif.push(motif_alt[i]);
+
+			for (var i = 0; i < motif.length; ++i) motif_hash[motif[i]] = i;
+
+			// mutate
+			var bases = [ 'A', 'C', 'G', 'T' ];
+			for (var x in motif_hash) {
+				var y = x;
+				for (var i = 0; i < x.length; ++i) {
+					for (var j = 0; j < bases.length; ++j) {
+						var a = x.split("");
+						if (a[i] == bases[j]) continue;
+						a[i] = bases[j];
+						motif_mut_hash[a.join("")] = 1;
+					}
+				}
+			}
+		}
+
 		function process_rm_line(bb, lines) {
 			var h = {};
 			if (lines.length == 0) return;
@@ -208,13 +251,32 @@ function mg_cmd_anno(args)
 		while (file.readline(buf) >= 0) {
 			var line = buf.toString();
 			var l2 = line.replace(/^\s+/, "");
-			var t = l2.split(/\s+/);
+			var m4, t = l2.split(/\s+/);
 			if (t.length < 15) continue;
+			if (t[9] == "ALR/Alpha") t[10] = "alpha";
+			else if (t[9] == "HSATII") t[10] = "hsat2/3";
+			else if (/^LTR\/ERV/.test(t[10])) t[10] = 'LTR/ERV';
+			else if (/^DNA/.test(t[10])) t[10] = 'DNA/misc';
+			else if (/rRNA|scRNA|snRNA/.test(t[10])) t[10] = 'RNAmisc';
+			else if (/^LINE/.test(t[10]) && t[10] != "LINE/L1") t[10] = 'LINE/misc';
+			else if ((t[10] == "Simple_repeat" || t[10] == "Satellite") && ((m4 = /^\(([ACGT]+)\)n/.exec(t[9])) != null)) {
+				if (motif_hash[m4[1]] != null) {
+					t[10] = "hsat2/3";
+				} else if (m4[1].length % motif0.length == 0) {
+					var c = 0, c_mut = 0;
+					for (var j = 0; j < m4[1].length; j += motif0.length) {
+						var s = m4[1].substr(j, j + motif0.length);
+						if (motif_hash[s] != null)
+							++c;
+						else if (motif_mut_hash[s] != null)
+							++c_mut;
+					}
+					if (c > 0 && (c + c_mut) * motif0.length == m4[1].length)
+						t[10] = "hsat2/3";
+				}
+			}
+
 			if (t[10] == 'Simple_repeat' || t[10] == 'Low_complexity') t[10] = 'LCR';
-			if (/^LTR\/ERV/.test(t[10])) t[10] = 'LTR/ERV';
-			if (/^DNA/.test(t[10])) t[10] = 'DNA/misc';
-			if (/rRNA|scRNA|snRNA/.test(t[10])) t[10] = 'RNAmisc';
-			if (/^LINE/.test(t[10]) && t[10] != "LINE/L1") t[10] = 'LINE/misc';
 			if (t[10] != 'LCR') {
 				//	if (parseInt(t[0]) < min_rm_sc) continue;
 				//	if (parseInt(t[1])/100 > min_rm_div) continue;
@@ -331,7 +393,7 @@ function mg_cmd_anno(args)
 		var self_len = x['self'] == null? 0 : x['self'];
 		for (var c in x) {
 			if (c == 'LCR' || c == 'self') continue;
-			if (c == '_inter' || c == 'alpha' || c == 'hsat2/3') continue;
+			if (c == '_inter') continue;
 			//if (c == '_inter') continue;
 			sum += x[c];
 			if (c != 'mini' && c != 'micro') sum_misc += x[c];
