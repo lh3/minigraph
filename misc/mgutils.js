@@ -132,6 +132,44 @@ function mg_cmd_renamefa(args)
 	buf.destroy();
 }
 
+function mg_cmd_joinfa(args)
+{
+	var c, len_n = 20, min_len = 150, name = "decoy-cat";
+	while ((c = getopt(args, "n:l:s:")) != null) {
+		if (c == 'l') min_len = parseInt(getopt.arg);
+		else if (c == 'n') len_n = parseInt(getopt.arg);
+		else if (c == 's') name = getopt.arg;
+	}
+	if (args.length - getopt.ind < 1) {
+		print("Usage: mgutils.js joinfa [options] <in.fa>");
+		return;
+	}
+	var seq = new Bytes(), seq1 = new Bytes(), lineno = 0, nn = new Bytes();
+	for (var i = 0; i < len_n; ++i) nn.set(78);
+	var buf = new Bytes();
+	var file = new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		++lineno;
+		if (buf[0] == 62) {
+			if (seq1.length >= min_len) {
+				if (seq.length > 0) seq.set(nn);
+				seq.set(seq1);
+			}
+			seq1.length = 0;
+		} else seq1.set(buf);
+	}
+	if (seq1.length >= min_len) {
+		if (seq.length > 0) seq.set(nn);
+		seq.set(seq1);
+	}
+	print(">" + name);
+	print(seq);
+	file.close();
+	buf.destroy();
+	seq.destroy();
+	seq1.destroy();
+}
+
 function mg_cmd_anno(args)
 {
 	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30, min_centro_len = 200;
@@ -686,6 +724,7 @@ function main(args)
 	else if (cmd == 'anno') mg_cmd_anno(args);
 	else if (cmd == 'subgaf') mg_cmd_subgaf(args);
 	else if (cmd == 'sveval') mg_cmd_sveval(args);
+	else if (cmd == 'joinfa') mg_cmd_joinfa(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
