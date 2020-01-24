@@ -502,6 +502,90 @@ function mg_cmd_paf2bl(args)
 	file.close();
 }
 
+function mg_cmd_stableGaf(args)
+{
+	var c;
+	while ((c = getopt(args, "")) != null) {
+	}
+	if (args.length - getopt.ind < 1) {
+		print("Usage: mgutils.js stableGaf <graph.gfa> <aln.gaf>");
+		return;
+	}
+
+	var re = /\t(LN|SN|SO|SR):[Zi]:(\S+)/g;
+	var file, buf = new Bytes();
+
+	var pri_len = {}, segh = {};
+	file = new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var m, line = buf.toString();
+		if ((m = /^S\t(\S+)\t(\S+)(\t.*)/.exec(line)) == null) continue;
+		var seg = m[1], len = m[2] == '*'? 0 : m[2].length, tags = m[3];
+		var sn = null, so = -1, sr = -1;
+		while ((m = re.exec(tags)) != null) {
+			if (m[1] == "LN") len = parseInt(m[2]);
+			else if (m[1] == "SN") sn = m[2];
+			else if (m[1] == "SO") so = parseInt(m[2]);
+			else if (m[1] == "SR") sr = parseInt(m[2]);
+		}
+		if (sn == null || so < 0 || sr < 0 || len <= 0)
+			throw Error("failed to parse tags '" + tags + "'");
+		segh[seg] = [sn, so, so + len, sr];
+		if (sr == 0) {
+			if (pri_len[sn] == null) pri_len[sn] = 0;
+			pri_len[sn] = pri_len[sn] > so + len? pri_len[sn] : so + len;
+		}
+	}
+	file.close();
+
+	re = /([><])([^\s><]+)/g;
+	file = args.length - getopt.ind < 2? new File() : new File(args[getopt.ind+1]);
+	while (file.readline(buf) >= 0) {
+		var m, line = buf.toString();
+		if ((m = /^(\S+)\t(\d+\t\d+\t\d+)\t([+-])\t(\S+)\t(\d+)\t(\d+)\t(\d+)\t(.*)/.exec(line)) == null)
+			continue;
+		var s, a = [];
+		while ((s = re.exec(m[4])) != null) {
+			if (segh[s[2]] == null)
+				throw Error("failed to find segment '" + s[2] + "'");
+			var h = segh[s[2]], add_new = true;
+			if (a.length) {
+				var b = a[a.length - 1];
+				if (b[0] == s[1] && h[3] == b[4] && h[0] == b[1] && h[1] == b[3])
+					b[3] = h[2], add_new = false;
+			}
+			if (add_new) a.push([s[1], h[0], h[1], h[2], h[3]]);
+		}
+		var path_len = 0, path = "";
+		for (var i = 0; i < a.length; ++i)
+			path_len += a[i][3] - a[i][2];
+		if (path_len != parseInt(m[5]))
+			throw Error("inconsistent path length for '" + m[1] + "': " + path_len + "!=" + m[5]);
+		if (a.length == 1 && pri_len[a[0][1]] != null) {
+			m[6] = parseInt(m[6]);
+			m[7] = parseInt(m[7]);
+			if (a[0][0] == '>') {
+				m[6] += a[0][2], m[7] += a[0][2];
+			} else {
+				m[3] = m[3] == '+'? '-' : '+';
+				var st = a[0][2] + (path_len - 1 - m[7]);
+				var en = a[0][2] + (path_len - 1 - m[6]);
+				m[6] = st, m[7] = en;
+			}
+			path_len = pri_len[a[0][1]];
+			path = a[0][1];
+		} else {
+			var b = [];
+			for (var i = 0; i < a.length; ++i)
+				b.push(a[i][0] + a[i][1] + ':' + a[i][2] + '-' + a[i][3]);
+			path = b.join("");
+		}
+		print(m[1], m[2], m[3], path, path_len, m[6], m[7], m[8]);
+	}
+	file.close();
+	buf.destroy();
+}
+
 function mg_cmd_subgaf(args) // FIXME: this is BUGGY!!!
 {
 	if (args.length < 2) {
@@ -711,6 +795,7 @@ function main(args)
 	if (args.length == 0) {
 		print("Usage: mgutils.js <command> [arguments]");
 		print("Commands:");
+		print("  stableGaf    convert unstable GAF to stable GAF");
 		print("  renamefa     add a prefix to sequence names in FASTA");
 		print("  paf2bl       blacklist regions from insert-to-ref alignment");
 		print("  anno         annotate short sequences");
@@ -726,6 +811,7 @@ function main(args)
 	else if (cmd == 'subgaf') mg_cmd_subgaf(args);
 	else if (cmd == 'sveval') mg_cmd_sveval(args);
 	else if (cmd == 'joinfa') mg_cmd_joinfa(args);
+	else if (cmd == 'stableGaf') mg_cmd_stableGaf(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
