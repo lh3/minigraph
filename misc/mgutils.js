@@ -551,8 +551,13 @@ function mg_cmd_stableGaf(args)
 			var h = segh[s[2]], add_new = true;
 			if (a.length) {
 				var b = a[a.length - 1];
-				if (b[0] == s[1] && h[3] == b[4] && h[0] == b[1] && h[1] == b[3])
-					b[3] = h[2], add_new = false;
+				if (b[0] == s[1] && h[3] == b[4] && h[0] == b[1]) {
+					if (b[0] == '>') {
+						if (h[1] == b[3]) b[3] = h[2], add_new = false;
+					} else {
+						if (h[2] == b[2]) b[2] = h[1], add_new = false;
+					}
+				}
 			}
 			if (add_new) a.push([s[1], h[0], h[1], h[2], h[3]]);
 		}
