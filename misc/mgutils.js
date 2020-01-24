@@ -294,8 +294,9 @@ function mg_cmd_anno(args)
 			if (t[9] == "ALR/Alpha") t[10] = "alpha";
 			else if (t[9] == "HSATII") t[10] = "hsat2/3";
 			else if (/^LTR\/ERV/.test(t[10])) t[10] = 'LTR/ERV';
+			else if (/^LTR/.test(t[10])) t[10] = 'LTR/misc';
 			else if (/^DNA/.test(t[10])) t[10] = 'DNA/misc';
-			else if (/rRNA|scRNA|snRNA/.test(t[10])) t[10] = 'RNAmisc';
+			else if (/rRNA|scRNA|snRNA|srpRNA/.test(t[10])) t[10] = 'RNAmisc';
 			else if (/^LINE/.test(t[10]) && t[10] != "LINE/L1") t[10] = 'LINE/misc';
 			else if ((t[10] == "Simple_repeat" || t[10] == "Satellite") && ((m4 = /^\(([ACGT]+)\)n/.exec(t[9])) != null)) {
 				if (motif_hash[m4[1]] != null) {
