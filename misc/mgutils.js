@@ -221,7 +221,7 @@ function mg_cmd_anno(args)
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
 			var key = t[0] + "_" + t[1] + "_" + t[2];
-			if (key in bb) bb[key].push(t[3], t[4], t[5], t[9]);
+			if (key in bb) bb[key].push(t[3], t[4], t[5], t[10]);
 		}
 		file.close();
 	}
