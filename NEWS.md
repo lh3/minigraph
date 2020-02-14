@@ -1,3 +1,18 @@
+Release 0.10-r356 (14 February 2020)
+------------------------------------
+
+Notable changes:
+
+ * Older releases miss a small fraction of INDELs involving repeats. This
+   release fixes this issue.
+
+ * Added the "stableGaf" command to mgutils.js to convert unstable GAF (e.g. by
+   GraphAligner) to stable GAF.
+
+(14 February 2020, r356)
+
+
+
 Release 0.9-r343 (31 December 2019)
 -----------------------------------
 
