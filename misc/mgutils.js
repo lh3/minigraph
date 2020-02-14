@@ -221,7 +221,7 @@ function mg_cmd_anno(args)
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
 			var key = t[0] + "_" + t[1] + "_" + t[2];
-			if (key in bb) bb[key].push(t[3], t[4], t[5], t[10]);
+			if (key in bb) bb[key].push(t[3], t[4], t[5], t[6], t[7], t[8], t[9], t[10]);
 		}
 		file.close();
 	}
@@ -411,8 +411,9 @@ function mg_cmd_anno(args)
 		var m, key = bba[i], h = bb[key][1], len = bb[key][0];
 		if ((m = /^(\S+)_(\d+)_(\d+)/.exec(key)) == null)
 			throw("Bug!");
-		var x = {}, t = [m[1], m[2], m[3], len];
-		if (fn_bb) t.push(bb[key][2], bb[key][3], bb[key][4], bb[key][5]);
+		var x = {}, t = [m[1], m[2], m[3]];
+		if (fn_bb) t.push(bb[key][2], bb[key][3], bb[key][4], bb[key][5], bb[key][6], bb[key][7], bb[key][8], bb[key][9]);
+		else t.push(len);
 		for (var c in h) {
 			var s, st = 0, en = 0, cov = 0;
 			s = h[c].sort(function(a, b) { return a[0] - b[0]; });
