@@ -81,19 +81,19 @@ from the current reference genome.
 
 The human reference genome is a fundamental resource for human genetics and
 biomedical research. The primary sequences of the reference genome
-GRCh38~\cite{Schneider:2017aa} are a mosaic of haplotypes with each derived
+GRCh38~\cite{Schneider:2017aa} are a mosaic of haplotypes with each haplotype segment derived
 from a single human individual. They cannot represent the genetic diversity in
 human populations and as a result, each individual may carry thousands of large
 germline variants absent from the reference genome~\cite{Huddleston:2017aa}.
 Some of these variants are likely associated with phenotype~\cite{Eichler_2010}
 but are often missed or misinterpreted when we map sequence data to GRCh38, in
-particular with short reads~\cite{Li:2018aa}. This underrepresentation of
+particular with short reads~\cite{Li:2018aa}. This under-representation of
 genetic diversity may become a limiting factor in our understanding of genetic
 variations.
 
 Meanwhile, the advances in long-read sequencing technologies make it possible
 to assemble a human individual to a quality comparable to
-GRCh38~\cite{Schneider:2017aa,Wenger_2019}. There are already more than ten
+GRCh38~\cite{Schneider:2017aa,Wenger_2019}. There are already a dozen of
 high-quality human assemblies available in GenBank~\cite{Audano:2019aa}.
 Properly integrating these genomes into a reference \emph{pangenome}, which
 refers to a collection of genomes~\cite{cpgc:2016aa}, would potentially address
@@ -109,33 +109,33 @@ the collection, but in practice, the redundant hits to multiple genomes will
 confuse downstream mapping-based analyses~\cite{NA2016159}. It is not clear how
 to resolve these multiple mappings.
 
-The other class of methods encode multiple genomes into a sequence graph,
+The other class of methods encodes multiple genomes into a sequence graph,
 usually by collapsing identical or similar sequences between genomes onto a
 single representative sequence. The results in a \emph{pangenome graph}. A
 pangenome graph is a powerful tool to identify core genome, the part of a
-genome or gene set that is shared across the majority of the strains or species
+genome or gene set that is shared across the majority of the strains or related species
 in a clade~\cite{Vernikos:2015aa}. A common way to construct a basic pangenome
 graph is to generate a compacted de Bruijn graph
 (cDBG)~\cite{Marcus:2014xy,Baier_2015,Beller:2016ab,Minkin_2016,Chikhi_2016}
 from a set of genomes. However, a basic cDBG does not keep the chromosomal
-coordinate and doesn't allow the mapping of genomic features. It cannot serve
+coordinate and does not allow the mapping of genomic features. It cannot serve
 as a \emph{reference} pangenome graph. deBGA~\cite{Liu:2016ac} addresses the
 issue by labeling each unitig with its possibly multiple locations in the input
 genome(s). This strategy, however, is not scalable to hundreds of genomes.
 deBGA already uses 50GB RAM to index GRCh38. Given hundreds of human genomes,
 there will be more vertices in the graph and most of vertices are associated
 with hundreds of labels. It will become impractical to stage all the
-information in memory.
+information in memory with simple labeling.
 
-In addition to the deBGA solution, we can also derive a reference pangenome
-graph from a single linear multi-sequence alignment (MSA)~\cite{Dilthey_2015}.
+In addition to the deBGA solution, we can derive a reference pangenome
+graph from a single linear multi-sequence alignment (MSA)~\cite{Dilthey_2015,Dilthey_2019}.
 It has been used for HLA typing but is not applicable to whole chromosomes when
 they cannot be included in a single linear MSA. The third and possibly the most
 popular approach to reference graph generation is to call variants from other
-sources and then incorporate these variants, often in the VCF format, into
+sources and then incorporate these variants, often in the VCF format~\cite{Danecek:2011qy}, into
 the reference genome as alternative
-paths~\cite{Eggertsson:2017aa,Rakocevic_2019,Garrison:2018aa,Sibbesen:2018aa,Biederstedt:2018aa}.
-However, because VCF doesn't define coordinates on insertions, this approach
+paths~\cite{Eggertsson:2017aa,Rakocevic_2019,Garrison:2018aa,Sibbesen:2018aa,Biederstedt:2018aa,Eggertsson_2019}.
+However, because VCF does not define coordinates on insertions, this approach
 cannot properly encode variations on long insertions and is therefore limited
 to simple variations. There are no satisfactory solutions to the construction
 of reference pangenome graphs.
@@ -143,7 +143,7 @@ of reference pangenome graphs.
 In this article, we introduce the reference Graphical Fragment Assembly (rGFA)
 format to model reference pangenome graphs. We propose and demonstrate an
 incremental procedure to construct graphs under this model. The resulting
-graphs encode structural variations of length 100bp or longer without haplotype
+graphs encode structural variations (SVs) of length 100bp or longer without haplotype
 information.  Our implementation, minigraph
 (\href{https://github.com/lh3/minigraph}{https://github.com/lh3/minigraph}),
 can construct a pangenome graph from twenty human assemblies in three hours.
@@ -177,28 +177,42 @@ can all be formulated as sequence graphs.
   the vertex is derived; SO, offset on the stable sequence; SR, rank: 0 if the
   vertex or edge is on the linear reference; $>$0 for non-reference.  {\bf (b)}
   Corresponding sequence graph. Each thick arrow represents an oriented DNA
-  sequence. {\bf (c)} Example GAF format, using the vertex coordinate, for
+  sequence. {\bf (c)} Example GAF format, using the segment coordinate, for
   reads ``${\tt GTGGCT}$'' and ``${\tt CGTTTCC}$'' mapped to the graph. {\bf
   (d)} Equivalent GAF format using the stable coordinate.}\label{fig:rgfa}
 \end{figure}
 
 The Graphical Fragment Assembly (GFA) format~\cite{Li:2016aa} describes
-sequence graphs. Fig.~\ref{fig:rgfa}a shows an example GFA format that encodes
-Fig.~\ref{fig:rgfa}b. Each line starting with letter ``${\tt S}$'' corresponds
-to a vertex and each line starting with ``${\tt L}$'' corresponds to a
-bidirectional edge.
+sequence graphs. The core of GFA is defined by the following grammar:
+{\footnotesize
+\begin{verbatim}
 
-A sequence graph in the GFA format naturally defines a \emph{vertex coordinate}
-system in the sense that each base in the graph is uniquely indexed by a
-2-tuple $({\rm vertexID},{\rm vertexOffset})$. For example, in
+  <GFA>     <- (<segment> | <link>)+
+  <segment> <- `S' <segId> <segSeq>
+  <link>    <- `L' <segId> [+-] <segId> [+-] <cigar>
+
+\end{verbatim}}
+
+{\flushleft
+Fig.~\ref{fig:rgfa}a shows an example GFA format that encodes
+Fig.~\ref{fig:rgfa}b. In GFA, each line starting with letter ``${\tt S}$''
+corresponds to a vertex and each line starting with ``${\tt L}$'' corresponds
+to a bidirected edge. In sequence assembly, we often attachsequences to edges
+instead of vertices. To avoid confusion, in this article, we also call a vertex
+as a \emph{segment} and call an edge as a \emph{link}, following the GFA
+terminology.
+}
+
+A sequence graph in the GFA format natively defines a \emph{segment coordinate}
+system where each base in the graph is uniquely indexed by a
+2-tuple $({\rm segId},{\rm segOffset})$. For example, in
 Fig~\ref{fig:rgfa}a, the base at position $({\rm s2},2)$ is ``{\tt G}''.
-However, this vertex coordinate is decoupled from linear annotations and is
-sensitive to many graph operations. A basic sequence graph is inadequate for a
+A major problem with this coordinate is that it is decoupled from linear
+annotations and is sensitive to graph transformations. For example, if we split
+a segment into two connected segments, the set of sequences spelled the graph
+remains the same, but the segment coordinates will be changed. Due to the
+instability of segment coordinate, a basic sequence graph is inadequate for a
 reference graph.
-
-For a de Bruijn graph, we often attach sequences to edges instead of vertices.
-To avoid confusion, in this article, we also call a vertex as a \emph{segment}
-and call an edge as a \emph{link}, following the GFA terminology.
 
 \subsubsection*{Reference pangenome graphs}
 
@@ -216,19 +230,15 @@ corresponds to ``{\sf chr1:0-8$\to$foo:8-16}''. We will formally describe the
 path format when introducing the GAF format in the next section.
 
 In rGFA, each segment is associated with one origin. This apparently trivial
-requirement in fact improses a strong restriction on the types of graphs rGFA
+requirement in fact imposes a strong restriction on the types of graphs rGFA
 can encode: it forbids the collapse of different regions from one sequence,
-which would often happen in a cDBG. We consider this restriction as an
+which would often happen in a cDBG. We consider this restriction an
 advantage of rGFA because it requires the graph to have a ``linear'' flavor
-intuitively and simplifies the data structure to store the graph. In
-comparison, the vg graph~\cite{Garrison:2018aa} encodes linear sequences with
-paths and allows the collapse of regions from one sequence (see Discussion). It
-is more flexible and can work with cDBGs, but it is more complex and permits
-collapsed graphs that are not suitable as reference graphs.
+intuitively and simplifies the data structure to store the graph.
 
-For simplicity, rGFA also disallows overlaps between edges and forbids multiple
+For simplicity, rGFA disallows overlaps between edges and forbids multiple
 edges (more than one edges between the same pair of vertices). These two
-restrictions help to avoid ambituity and reduce the complexity in
+restrictions help to avoid ambiguity and reduce the complexity in
 implementation. They are not strictly necessary in theory.
 
 \subsubsection*{The Graphical mApping Format (GAF)}
@@ -248,7 +258,7 @@ Col & Type  & Description \\ \hline
 8  & int    & Path start coordinate \\
 9  & int    & Path end coordinate \\
 10 & int    & Number of matching bases in the mapping \\
-11 & int    & Number bases, including gaps, in the mapping \\
+11 & int    & Number of bases, including gaps, in the mapping \\
 12 & int    & Mapping quality (0--255 with 255 for missing) \\ \hline
 \end{tabular}
 \end{table}
@@ -268,6 +278,7 @@ formal grammar below:
 
 \end{verbatim}}
 
+{\flushleft
 In this grammar, {\tt <segId>} is a segment identifier on an S-line in rGFA;
 {\tt <stableId>} is a stable sequence name at the {\tt SN} tag on the
 corresponding S-line. Column 6 can be either a path in the segment coordinate
@@ -281,7 +292,7 @@ recommend to replace it with the entire reference path on the forward
 orientation (e.g. see ``read1'' in Fig.~\ref{fig:rgfa}d). With this convention,
 a GAF line is reduced to PAF for a sequence mapped to a reference sequence.
 Similar to PAF, GAF also allows optional tags in the SAM-like format. Base
-alignment is kept at the {\tt cg} tag. 
+alignment is kept at the {\tt cg} tag.}
 
 Minigraph produces GAF in both the segment and the stable coordinate.
 GraphAligner~\cite{Rautiainen810812} produces GAF in the segment coordinate
@@ -307,13 +318,13 @@ chromosome-long query sequences, we adapted minimap2~\cite{Li:2018ab} for our
 purpose and implemented minigraph (Fig.~\ref{fig:mg}a). Briefly, minigraph uses
 a minimap2-like algorithm to find local hits to segments in the graph, ignoring
 the graph topology. It then chains these local hits if they are connected on
-the graph. This gives the approximate mapping locations. Minigraph does not
+the graph, possibly through cycles. This gives the approximate mapping locations. Minigraph does not
 perform base-level alignment. This is because the graph we construct encodes
-structural variations and rarely contains paths similar at the base level. The
-best mapping is often clear without base alignment.
+SVs and rarely contains paths similar at the base level. The best mapping is
+often clear without base alignment.
 
 \begin{table}[b]
-\caption{Performace of sequence-to-graph mapping}\label{tab:mgvga}
+\caption{Performance of sequence-to-graph mapping}\label{tab:mgvga}
 \begin{tabular}{lrr}
 \hline
 & minigraph & GraphAligner \\
@@ -331,37 +342,37 @@ To evaluate the accuracy of minigraph mapping, we simulated PacBio reads from
 GRCh38 with PBSIM~\cite{Ono:2013aa} and mapped them to the graph we constructed
 in the next section. Table~\ref{tab:mgvga} compares the performance of
 minigraph and GraphAligner~\cite{Rautiainen810812} v1.0.10 on 68,857 simulated
-reads over 8 CPU threads. Partly because minigraph does not perform base
-alignment, it is faster than GraphAligner and uses less memory at the peak.
+reads mapped over 8 CPU threads. Minigraph is faster than GraphAligner and uses
+less memory, partly because minigraph does not perform base alignment.
 
 As is shown in Table~\ref{tab:mgvga}, minigraph is more accurate than
-GraphAligner. This is counterintuitive given that GraphAligner does base
+GraphAligner. This is counter-intuitive given that GraphAligner does base
 alignment. Close inspection reveals that most mismapped reads by minigraph are
 mapped to the correct genomic loci but wrong graph paths. On the contrary, most
 mismapped reads by GraphAligner are mapped to wrong genomic loci. This suggests
 minigraph is better at finding approximate mapping locations but GraphAligner
-is better at disambiguiating similar graph paths.  Combining the strength of
+is better at disambiguating similar graph paths.  Combining the strength of
 both could lead to a better graph mapper. We do plan to implement base-level
 alignment in minigraph in future.
 
-We have also tried vg v1.21.0. It indexd the same graph in 14.7 wall-clock
+We have also tried vg v1.21.0. It indexed the same graph in 14.7 wall-clock
 hours and mapped the simulated reads in 1.8 hours over 8 threads, tens of times
-slower than minigraph and GraphAligner. However, it seems that with the default
-setting vg is unable to map any noisy long reads. Vg is primarily designed for
-short reads after all.
+slower than minigraph and GraphAligner. However, no reads are mapped in the
+output. We have not been able to make vg work with our data.
 
 \subsection*{Generating pangenome graphs}
 
 Fig.~\ref{fig:mg}b shows how minigraph constructs a pangenome graph (see
-Methods for details). In the graph construction mode, minigraph only considers
-structural variations (SVs) of 100bp--100kb in length. It ignores smaller
-variants partly because the minigraph mapping algorithm does not work well with
-short segments in rGFA and because smaller variants are easier to analyze with
-standard methods. Minigraph ignores SVs in alignments shorter than 100kb.
-For each input assembly, it filters out regions covered two or more primary
+Methods for details). This procedure is similar to multiple sequence alignment
+via partial order graph~\cite{Lee_2002} except that minigraph works with cyclic
+graphs and ignores small variants. Minigraph only considers SVs of
+100bp--100kb in length and ignores SVs in alignments shorter than 100kb.
+For each input assembly, it filters out regions covered by two or more primary
 alignments longer than 20kb in the assembly. This filter avoids paralogous
 regions in a sample and guarantees that graphs generated by minigraph can be
 modeled by rGFA.
+
+
 
 As a sanity check, we compared minigraph to dipcall
 (\href{https://github.com/lh3/dipcall}{https://github.com/lh3/dipcall}) on
@@ -371,12 +382,13 @@ $A$ is \emph{missed} in callset $B$ if there are no calls in $B$ within 1000bp
 from the call in $A$. With this criterion, 2.7\% of 14,792 SVs called by
 dipcall are missed by minigraph; 6.0\% of 14,932 minigraph SVs are missed by
 dipcall. We manually inspected tens of differences in
-IGV~\cite{Robinson:2011aa} and identified a few causes. First, an INDEL longer
+IGV~\cite{Robinson:2011aa} and identified two causes. First, an INDEL longer
 than 100bp called by one caller may be split into two shorter INDELs by the
-other caller. Second, dipcall skips regions involving high desity of SNPs or
-involving both long insertions and long deletions, but minigraph calls SVs in
-such regions. Overall, we believe minigraph and dipcall call similar sets of
-SVs.
+other caller. There are often more than one smaller SVs around a missed SV
+call. Second, dipcall skips regions involving high density of SNPs or involving
+both long insertions and long deletions, but minigraph connects these events
+and calls SVs in such regions. It tends to call more SVs. Overall, we believe
+minigraph and dipcall found similar sets of SVs.
 
 \begin{table}[tb]
 \caption{Assemblies used for graph construction}\label{tab:asm}
@@ -425,7 +437,7 @@ and the sink represents an \emph{allele}.
   (a)} Human variations stratified by repeat class and by the number of
   alleles of each variation. The repeat annotation was obtained from the
   longest allele of each variation. VNTR: variable-number tandem repeat, a
-  tandem repeat with the unit motif length $\ge$7bp. STR: short randem repeat,
+  tandem repeat with the unit motif length $\ge$7bp. STR: short random repeat,
   a tandem repeat with the unit motif length $\le$6bp. LCR: low-complexity
   regions. Mixed-inter.: a variation involving $\ge$2 types of interspersed
   repeats. {\bf (b)} Great ape variations stratified by repeat class and by the
@@ -439,7 +451,7 @@ and the sink represents an \emph{allele}.
   clarity of the figure.}\label{fig:anno}
 \end{figure*}
 
-Variations in the human graph are enriched with Alus or VNTRs
+Variations in the human graph are enriched with Alus and VNTRs
 (Fig.~\ref{fig:anno}a). While interspersed repeats are about evenly distributed
 along chromosomes except in the pseudoautosomal regions (Fig.~\ref{fig:anno}e),
 VNTRs are enriched towards telomeres~\cite{Audano:2019aa}. It is worth noting
@@ -448,7 +460,7 @@ the density of VNTRs in the pangenome graph by the density of minisatellites in
 GRCh38, the enrichment of VNTRs towards telomeres is still visible but becomes
 less prominent. At the same time, repeat-less variations are also enriched
 towards the ends of chromosomes (green areas in Fig.~\ref{fig:anno}e),
-suggesting subtelomeres tend to harbor strucutural variations anyway. We also
+suggesting subtelomeres tend to harbor SVs anyway. We also
 identified 85 processed pseudogenes among these variations.
 
 \begin{figure}
@@ -474,9 +486,10 @@ Multiallelic VNTRs are also hard to align and to call. In Fig.~\ref{fig:igv},
 the insertion positions are often different, which could be caused by a few
 mutations or sequencing errors. A naive alignment-based SV caller would call a
 dozen of low-frequency insertions in this region, which does not reflect these
-are probably correlated events. Without base-level alignment, minigraph may
+correlated events. Without base-level alignment, minigraph may
 have more troubles with obtaining the optimal alignment in these complex VNTR
-regions.
+regions. Improved data quality, assembly algorithms and graph mapping
+algorithms are required to investigate VNTR regions in detail.
 
 \subsection*{A great ape pangenome graph}
 
@@ -494,7 +507,7 @@ the human lineage, the overwhelming majority are insertions
 only.  Most human-specific Alu deletions are incomplete and involve ancient Alu
 subfamilies. They are likely genomic deletions that happen to hit Alus. In
 contrast, the majority of ``partial-repeats'' are deletions from the human
-lineage. Two thirds of autosomal insertions in this categority are segmental
+lineage. Two thirds of autosomal insertions in this category are segmental
 duplications in GRCh38. In all, minigraph is an efficient tool to study closely
 related species.
 
@@ -510,14 +523,14 @@ We constructed a human pangenome graph excluding CHM1 and CHM13, the two
 samples used in the SynDip benchmark~\cite{Li:2018aa}, and generated regions
 around variations (see Methods), which we call as \emph{blacklist regions},
 following the rationale in~\cite{Amemiya:2019aa}.  Blacklist regions is totaled
-29.2Mb in length, intersecting 0.7\% of confident regions in the SynDip
-benchmark dataset~\cite{Li:2018aa}; 0.7\% of truth SNPs are contained in
-blacklist regions -- true SNPs are not enriched in blacklist regions.
+29.2Mb in length, intersecting 0.7\% of confident regions in
+SynDip~\cite{Li:2018aa}; 0.7\% of truth SNPs are contained in blacklist regions
+-- true SNPs are not enriched in blacklist regions.
 
 We mapped short reads used in~\cite{Li:2018aa} with minimap2 and called
-variants with GATK v4.1.2~\cite{Depristo:2011vn}. Compared to the This callset
+variants with GATK v4.1.2~\cite{Depristo:2011vn}. This callset
 contains 32,879 false positive SNPs, 21\% of which fall in blacklist regions --
-false SNP calls are highly enriched in this $<$1\% of human genome. This
+false SNP calls are highly enriched in this $<$1\% region of human genome. This
 confirms a noticeable fraction of false SNP calls using short reads are
 resulted from misalignment involving SVs.
 
@@ -529,11 +542,11 @@ rGFA takes a linear reference genome as the backbone and maintains the
 conceptual ``linearity'' of input genomes.
 
 rGFA is not the only pangenome graph model. Vg~\cite{Garrison:2018aa}
-represents a stable sequence with a path through the sequence graph. A segment
+represents a stable sequence with a path through the sequence graph~\cite{10.12688/f1000research.19630.1}. A segment
 in the graph may occur on multiple paths, or occur multiple times on one path
 if there are cycles in the graph. This way, vg allows different regions in one
 chromosome collapsed to one segment, which we call a collapsed graph. rGFA
-cannot encode a collapsed graph.  The vg model is thus more general.
+cannot encode a collapsed graph. The vg model is thus more general.
 
 In our view, however, the reference pangenome graph should not be a collapsed
 graph. In a collapsed graph, the definition of orthology is not clear because
@@ -544,7 +557,7 @@ reference genome, it is intricate to derive the stable coordinate of a path in
 a collapsed graph. For example, suppose segment {\sf s1} corresponds to two
 regions {\sf chr1:100-200} and {\sf chr1:500-600}. To convert a path {\sf
 s2$\to$s1$\to$s3} to the stable coordinate, we have to inspect adjacent
-segments to tell which {\sf s1} corresponds to; this can be more complicated
+segments to tell which {\sf s1} corresponds to; this becomes more challenging
 when {\sf s2} and {\sf s3} represent multiple regions in the reference genome.
 In contrast, rGFA inherently forbids a collapsed graph and avoids the potential
 issues above. This simplifies rGFA and makes it easier to work with.
@@ -559,7 +572,12 @@ alignment, minigraph is unable to align sequences to a graph encoding all small
 variants. Such a graph will be composed of millions of short segments. Without
 indexing minimizers across segments, minigraph will fail to seed the initial
 linear chains. This limitation can only be resolved by completely changing the
-minigraph mapping algorithm.
+minigraph mapping algorithm. Nonetheless, small variants are easier to
+analyze with the standard methods. Incorporating these variants unnecessarily
+enlarges the graph, complicates implementations, increases the rate of false
+mappings~\cite{Pritt_2018} and reduces the performance of common tasks. There
+is also no known algorithm that can construct such a complex graph for hundreds
+of human genomes.
 
 Minigraph does not keep track of the sample information as of now. To address
 this issue, we are considering to implement colored rGFA, similar to colored de
@@ -585,17 +603,17 @@ The extended graph coordinate system further helps to consistently represent
 complex SVs. Given multiple samples, the current practice is to call SVs from
 individual samples and then merge them. Two subtly different SVs, especially
 long insertions, may be called at two distinct locations and treated as
-separate events. With the minigraph procedure, the two SVs are more likely to
-be aligned together as long as they are similar and are sufficiently different
-from the reference allele. To some extent, minigraph is similar to partial
-order alignment~\cite{Lee_2002} for multiple sequence alignment. It is
-reasonably robust to different representations of the same SV.
-
-When we refer to a SNP, we often use its chromosomal coordiante such as
-``chr1:12345''. We rarely do so for SVs because their positions are sensitive
-to alignment and SV callers. The more consistent SV representation impiled by a
-pangenome graph will help to alleviate the issue and subsequently facilitate
-the genotyping of SVs~\cite{Hickey_2020,Eggertsson_2019,Chen_2019}.
+separate events. With the minigraph procedure, the two SVs are likely to
+be aligned together as long as they are similar to each other and are
+sufficiently different from the reference allele. To some extent, minigraph is
+performing multiple sequence alignment with partial order
+alignment~\cite{Lee_2002}. Multiple sequence alignment is robust to different
+representations of the same SV. When we refer to a SNP, we often use its
+chromosomal coordinate such as ``chr1:12345''. We rarely do so for SVs because
+their positions are sensitive to alignment and SV callers. The more consistent
+SV representation implied by a pangenome graph will help to alleviate the issue
+and subsequently facilitate the genotyping of
+SVs~\cite{Hickey_2020,Eggertsson_2019,Chen_2019}.
 
 While we believe a reference pangenome graph will make complex variations more
 accessible by geneticists and biologists, we suspect a great majority of
@@ -604,18 +622,18 @@ conceptual simplicity of linear genomes and the mature tool chains developed in
 decades. Many analyses such as SNP calling in well behaved regions do not
 benefit much from a pangenome representation, either. Nonetheless, a pangenome
 reference still helps applications based on linear references. With a graph
-referece, we may blacklist regions enriched with SVs that lead to small variant
+reference, we may blacklist regions enriched with SVs that lead to small variant
 calling errors.  We may potentially generate ``decoy'' sequences that are
 missing from the primary assembly to attract falsely mapped reads away. We may
-perform read alignment against a graph but analyze the results in the linear
-coordinate.  In our view, a pangenome reference is not to replace the linear
-reference but to supplement it.
+perform read alignment against a graph, project the alignment to the linear
+coordinate and finish the rest of analyses in the linear space. We anticipate a
+pangenome reference to supplement the linear reference, not to replace it.
 
 \section*{Conclusions}
 
 Complex human sequence variations are like genomic dark matter: they are
 pervasive in our genomes but are often opaque to the assay with the existing
-tools. We envision that a pangenome graph reference will become an effective
+tools. We envision a pangenome graph reference will become an effective
 means to the study of these complex variations. We proposed a data model (rGFA),
 designed formats (rGFA and GAF) and developed companion tools (minigraph and
 gfatools) to demonstrate the feasibility of our vision. Our work is still
@@ -628,13 +646,12 @@ our genomes better.
 \subsection*{The minigraph mapping algorithm}
 
 \subsubsection*{Seeding and linear chaining}
-
-\paragraph*{A minimap2-like algorithm}
 Similar to minimap2, minigraph uses minimizers on segments as seeds. It also
-uses a similar chaining algorithm but with different scoring and with a new
+applies a similar chaining algorithm but with different scoring and with a new
 heuristic to speed up chaining over long distances. For the completeness of
-this article, we will describe linear chaining in full.
+this article, we will describe part of the minimap2 chaining algorithm here.
 
+\paragraph*{Minimap2-like chaining}
 Formally, an \emph{anchor} is a 3-tuple $(x,y,w)$, representing a closed
 interval $[x-w+1,x]$ on a segment in the reference graph matching an interval
 $[y-w+1,y]$ on the query. Given a list of anchors sorted by $x$, let $f(i)$ be
@@ -684,7 +701,7 @@ new heuristic to speed up chaining.
 Before we move onto the minigraph solution, we will first introduce
 Range-Min-Query (RMQ). Given a set of 2-tuples $\{(y_i,s_i)\}$, ${\rm
 RMQ}(a,b)$ returns the minimum $s_j$ among $\{s_j:a\le y_j\le b\}$.
-We implement 1-dimension RMQ with a modified AVL tree, a type of balanced
+We implemented 1-dimension RMQ with a modified AVL tree, a type of balanced
 binary search tree (Fig.~\ref{fig:rmq}). When performing ${\rm RMQ}(a,b)$, 
 we first find the smallest and the largest nodes within interval $[a,b]$ using
 the standard algorithm. In this example, the two nodes are (21,32) and (45,21),
@@ -733,10 +750,10 @@ using a faster but less sophisticated gap cost function.
 \subsubsection*{Graph chaining}
 
 Minigraph generates a set of linear chains $\{L_i\}$ with the procedure above
-that completely ignores the graph tolopology. It then applies another round of
-chaining while considering the topology.
+that completely ignores the graph topology. It then applies another round of
+chaining taking the account of the topology.
 
-We say linear chain $L_i$ \emph{preceeds} $L_j$, written as $L_i\prec L_j$, if
+We say linear chain $L_i$ \emph{precedes} $L_j$, written as $L_i\prec L_j$, if
 (1) the ending coordinate of $L_i$ on the query sequence is smaller than the
 ending coordinate of $L_j$, and (2) there is a walk from $L_i$ to $L_j$ in the
 graph. If there are multiple walks from $L_i$ to $L_j$, minigraph enumerates
@@ -755,10 +772,12 @@ function used for linear chaining. $\omega(L_i)$ is the optimal score of $L_i$
 computed during linear chaining.
 
 The procedure above has two limitations. First, when computing the weight
-between $L_i$ and $L_j$, minigraph ignores base sequences and only considers
+between $L_i$ and $L_j$, minigraph largely ignores base sequences and only considers
 the distance between them on both the query and the graph. When there are
 multiple walks of similar lengths between $L_i$ and $L_j$, minigraph miss the
-graph chain that leads to the best base alignment. Second, minigraph only
+graph chain that leads to the best base alignment. Although we added a
+heuristic by considering 17-mer matches between the query and the graph paths,
+we found this heursitc is not reliable in complex regions. Second, minigraph only
 enumerates the shortest 16 walks. In complex subgraphs, the optimal walk from
 $L_i$ to $L_j$ may not be among them. In the graphs produced by minigraph,
 these two limitations only have minor effects, but anyway in future, we
@@ -771,7 +790,7 @@ The graph chaining algorithm results in one or multiple graph chains.  A
 $[x_i-w_i+1,x_i]$ on segment $s_i$ in the graph matches $[y_i-w_i+1,y_i]$ on
 the query sequence. A graph chain satisfies the following conditions: if $i<j$,
 $y_i<y_j$; if $i<j$ and $s_i=s_j$, we have $x_i<x_j$; if $s_i\not=s_{i+1}$, the
-two segments are adjacent on the graph.  It is an extension to linear chains.
+two segments are adjacent on the graph. It is an extension to linear chains.
 
 \subsection*{The minigraph graph generation algorithm}
 
@@ -781,19 +800,19 @@ sequence. A region on the query is considered to be \emph{orthogonal} to the
 reference if the region is contained in a primary chain longer than 100kb and
 it is not intersecting other primary chains longer than 20kb.
 
-Minigraph scans primary chains in ortholognal regions and identifies subregions
+Minigraph scans primary chains in orthogonal regions and identifies subregions
 where the query subsequences significantly differs from the corresponding
 reference subsequences. To achieve that, minigraph computes a score $h_i$ for
 each adjacent pair of anchors $(s_i,x_i,y_i,w_i)$ and
 $(s_{i+1},x_{i+1},y_{i+1},w_{i+1})$. Let $d^x_i$ be the distance between the
 two anchors on the graph and $d^y_i=y_{i+1}-y_i$ be the distance on the query
 sequence. $h_i$ is computed as
-$$
+\begin{equation}\label{eq:hi}
 h_i=\left\{\begin{array}{ll}
 -10 & \mbox{if $d^x_i=d^y_i\le w_{i+1}$} \\
 \eta\cdot\max\{d^x_i,d^y_i\} & \mbox{otherwise}\\
 \end{array}\right.
-$$
+\end{equation}
 where $\eta$ is the density of anchors averaged across all primary graph
 chains. Define $H(i,j)=\sum_{k=i}^j h_k$. A highly divergent region between the
 query and the graph will be associated with a large $H(i,j)$. Minigraph uses
@@ -802,8 +821,10 @@ maximal scoring intervals on list $(h_i)$, which correspond to divergent
 regions. In each identified divergent region, minigraph performs base
 alignment~\cite{Suzuki:2018aa,Li:2018ab} between the query and the graph
 sequences and retains a region if it involves an INDEL $\ge$100bp in length or
-a $\ge$100bp region with base-level identity below 80\%. In the end, minigraph
-augments the existing graph with identified variations (Fig.~\ref{fig:mg}b).
+a $\ge$100bp region with base-level identity below 80\%. In Eq.~\ref{eq:hi},
+-10 is an insensitive parameter due to the downstream filtering. In the end,
+minigraph augments the existing graph with identified variations
+(Fig.~\ref{fig:mg}b).
 
 \subsection*{Annotating variations}
 
@@ -828,7 +849,9 @@ For each variation in the graph, we extend its genomic interval on GRCh38 by
 inserted to GRCh38 against GRCh38 with ``minimap2 -cxasm20 -r2k'' and filter
 out alignments with mapping quality below 5. Let $I(a,b)$ be the set of GRCh38
 intervals that are contained in alignments with identity between $a$ and $b$.
-The blacklist regions are computed by $I_0\cup I(0,0.99)\setminus I(0.998,1)$.
+The blacklist regions are computed by $I_0\cup I(0,0.99)\setminus I(0.998,1)$,
+where ``$\cup$'' denotes the interval union operation and ``$\setminus$''
+denotes interval subtraction.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                                          %%
@@ -854,6 +877,20 @@ helped to fix various issues.
 \section*{Funding}
 This work is supported by National Institutes of Health (NIH) grant
 U01HG010961 and R01HG010040.
+
+\section*{Availability of data and materials}
+Minigraph is openly available at
+\href{https://github.com/lh3/minigraph}{https://github.com/lh3/minigraph}.
+This repository also includes the script to convert from the segment coordinate
+to the stable coordinate, to annotate variations and to generate blacklist
+regions from the graph. The companion gfatools is available at
+\href{https://github.com/lh3/gfatols}{https://github.com/lh3/gfatools}. The
+human and the great ape graphs are hosted at
+\href{ftp://ftp.dfci.harvard.edu/pub/hli/minigraph/}{ftp://ftp.dfci.harvard.edu/pub/hli/minigraph/}.
+The NA12878, NA24385 and PGP1 phased assemblies were downloaded from
+\href{ftp://ftp.dfci.harvard.edu/pub/hli/whdenovo/}{ftp://ftp.dfci.harvard.edu/pub/hli/whdenovo/}.
+Other assemblies are all available from GenBank.
+
 
 \bibliographystyle{bmc-mathphys}
 \bibliography{minigraph}
