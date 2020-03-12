@@ -1,6 +1,6 @@
 %% BioMed_Central_Tex_Template_v1.06
 
-\documentclass[twocolumn]{bmcart}% uncomment this for twocolumn layout and comment line below
+\documentclass[twocolumn]{bmcart}
 
 %%% Load packages
 \usepackage{amsthm,amsmath}
@@ -116,18 +116,26 @@ pangenome graph is a powerful tool to identify core genome, the part of a
 genome or gene set that is shared across the majority of the strains or related species
 in a clade~\cite{Vernikos:2015aa}. A common way to construct a basic pangenome
 graph is to generate a compacted de Bruijn graph
-(cDBG)~\cite{Marcus:2014xy,Baier_2015,Beller:2016ab,Minkin_2016,Chikhi_2016}
-from a set of genomes. However, a basic cDBG does not keep the chromosomal
-coordinate and does not allow the mapping of genomic features. It cannot serve
-as a \emph{reference} pangenome graph. deBGA~\cite{Liu:2016ac} addresses the
-issue by labeling each unitig with its possibly multiple locations in the input
-genome(s). This strategy, however, is not scalable to hundreds of genomes.
+(cDBG)~\cite{Marcus:2014xy,Baier_2015,Beller:2016ab,Chikhi:2015aa,Minkin_2016,Chikhi_2016}
+from a set of genomes. Basic cDBG does not keep sample information.
+\cite{Iqbal:2012aa} proposed colored cDBG with each color represents a sample
+or a population. Colored cDBG can be constructed
+efficiently~\cite{Muggli_2019,Holley695338}. However, a colored cDBG discards
+the chromosomal coordinate and thus disallows the mapping of genomic features.
+It often includes connections absent from the input genomes and thus encodes
+sequences more than the input. A colored cDBG cannot serve as a
+\emph{reference} pangenome graph, either.  deBGA~\cite{Liu:2016ac} addresses
+the issue by labeling each unitig with its possibly multiple locations in the
+input genome(s). This strategy, however, is not scalable to hundreds of
+genomes.
 deBGA already uses 50GB RAM to index GRCh38. Given hundreds of human genomes,
 there will be more vertices in the graph and most of vertices are associated
 with hundreds of labels. It will become impractical to stage all the
-information in memory with simple labeling.
+information in memory with simple labeling. While GBWT~\cite{Sir_n_2019}
+provides a practical solution to storage and indexing, no existing tools can
+practically construct a cDBG for many human genomes in the GBWT representation.
 
-In addition to the deBGA solution, we can derive a reference pangenome
+In addition to cDBG, we can derive a reference pangenome
 graph from a single linear multi-sequence alignment (MSA)~\cite{Dilthey_2015,Dilthey_2019}.
 It has been used for HLA typing but is not applicable to whole chromosomes when
 they cannot be included in a single linear MSA. The third and possibly the most
@@ -184,6 +192,7 @@ can all be formulated as sequence graphs.
 
 The Graphical Fragment Assembly (GFA) format~\cite{Li:2016aa} describes
 sequence graphs. The core of GFA is defined by the following grammar:
+
 {\footnotesize
 \begin{verbatim}
 
@@ -194,13 +203,13 @@ sequence graphs. The core of GFA is defined by the following grammar:
 \end{verbatim}}
 
 {\flushleft
-Fig.~\ref{fig:rgfa}a shows an example GFA format that encodes
-Fig.~\ref{fig:rgfa}b. In GFA, each line starting with letter ``${\tt S}$''
-corresponds to a vertex and each line starting with ``${\tt L}$'' corresponds
-to a bidirected edge. In sequence assembly, we often attachsequences to edges
-instead of vertices. To avoid confusion, in this article, we also call a vertex
-as a \emph{segment} and call an edge as a \emph{link}, following the GFA
-terminology.
+A line starting with letter ``${\tt S}$'' corresponds to a vertex and a line
+starting with ``${\tt L}$'' corresponds
+to a bidirected edge. In a de Bruijn graph, we often attach sequences to edges
+instead of vertices~\cite{Pevzner:2001vn,Gnerre:2011ys}. To avoid the confusion, in this
+article, we also call a vertex as a \emph{segment} and call an edge as a
+\emph{link}, following the GFA terminology.  Fig.~\ref{fig:rgfa}a shows an
+example GFA that encodes Fig.~\ref{fig:rgfa}b.
 }
 
 A sequence graph in the GFA format natively defines a \emph{segment coordinate}
@@ -209,7 +218,7 @@ system where each base in the graph is uniquely indexed by a
 Fig~\ref{fig:rgfa}a, the base at position $({\rm s2},2)$ is ``{\tt G}''.
 A major problem with this coordinate is that it is decoupled from linear
 annotations and is sensitive to graph transformations. For example, if we split
-a segment into two connected segments, the set of sequences spelled the graph
+a segment into two connected segments, the set of sequences spelled from the graph
 remains the same, but the segment coordinates will be changed. Due to the
 instability of segment coordinate, a basic sequence graph is inadequate for a
 reference graph.
@@ -224,7 +233,7 @@ reference coordinate (e.g. GRCh38). We can pinpoint a position such as
 ``{\sf chr1:9}'' in the graph and map existing annotations onto the graph. We can
 also report a path or walk in the stable coordinate. For example, path
 ``{\sf s1$\to$s2$\to$s3}'' unambiguously corresponds to ``{\sf
-chr1:0-5$\to$chr1:5-8$\to$chr1:8:12}'' or simply ``{\sf chr1:0-12}'' if we
+chr1:0-5$\to$chr1:5-8$\to$chr1:8-12}'' or simply ``{\sf chr1:0-12}'' if we
 merge adjacent coordinate; similarly, ``{\sf s1$\to$s2$\to$s5$\to$s6}''
 corresponds to ``{\sf chr1:0-8$\to$foo:8-16}''. We will formally describe the
 path format when introducing the GAF format in the next section.
@@ -372,8 +381,6 @@ alignments longer than 20kb in the assembly. This filter avoids paralogous
 regions in a sample and guarantees that graphs generated by minigraph can be
 modeled by rGFA.
 
-
-
 As a sanity check, we compared minigraph to dipcall
 (\href{https://github.com/lh3/dipcall}{https://github.com/lh3/dipcall}) on
 calling SVs 100bp or longer from a synthetic diploid sample composed of CHM1
@@ -420,17 +427,6 @@ Susie   & Orangutan &        & GCA\_002880775.3 \\
 \end{tabular}
 \end{table}
 
-\subsection*{A human pangenome graph}
-
-Starting with GRCh38, we constructed a human pangenome graph from 20 human
-haplotypes or haplotype-collapsed assemblies (Table~\ref{tab:asm}). It took
-minigraph 2.7 wall-clock hours over 24 CPU threads to generate this graph. The
-peak memory is 98.1GB. The resulting graph consists of 148,618 segments and
-214,995 links. It contains 37,332 variations, where a \emph{variation}
-denotes a minimal subgraph that has a single source and a single sink with both
-segments coming from GRCh38. A path through the bubble between the source and
-and the sink represents an \emph{allele}.
-
 \begin{figure*}[htbp]
 \includegraphics[width=.95\textwidth]{Fig3}
 \caption{\csentence{Characteristics of the human and the great ape graphs.} {\bf
@@ -450,6 +446,17 @@ and the sink represents an \emph{allele}.
   the longest allele length in each repeat class. Outliers are omitted for the
   clarity of the figure.}\label{fig:anno}
 \end{figure*}
+
+\subsection*{A human pangenome graph}
+
+Starting with GRCh38, we constructed a human pangenome graph from 20 human
+haplotypes or haplotype-collapsed assemblies (Table~\ref{tab:asm}). It took
+minigraph 2.7 wall-clock hours over 24 CPU threads to generate this graph. The
+peak memory is 98.1GB. The resulting graph consists of 148,618 segments and
+214,995 links. It contains 37,332 variations, where a \emph{variation}
+denotes a minimal subgraph that has a single source and a single sink with both
+segments coming from GRCh38. A path through the bubble between the source and
+and the sink represents an \emph{allele}.
 
 Variations in the human graph are enriched with Alus and VNTRs
 (Fig.~\ref{fig:anno}a). While interspersed repeats are about evenly distributed
@@ -542,10 +549,10 @@ rGFA takes a linear reference genome as the backbone and maintains the
 conceptual ``linearity'' of input genomes.
 
 rGFA is not the only pangenome graph model. Vg~\cite{Garrison:2018aa}
-represents a stable sequence with a path through the sequence graph~\cite{10.12688/f1000research.19630.1}. A segment
+encodes a stable sequence with a path through the sequence graph~\cite{10.12688/f1000research.19630.1}. A segment
 in the graph may occur on multiple paths, or occur multiple times on one path
 if there are cycles in the graph. This way, vg allows different regions in one
-chromosome collapsed to one segment, which we call a collapsed graph. rGFA
+chromosome collapsed to one segment. We call such a graph as a collapsed graph. rGFA
 cannot encode a collapsed graph. The vg model is thus more general.
 
 In our view, however, the reference pangenome graph should not be a collapsed
@@ -560,16 +567,17 @@ s2$\to$s1$\to$s3} to the stable coordinate, we have to inspect adjacent
 segments to tell which {\sf s1} corresponds to; this becomes more challenging
 when {\sf s2} and {\sf s3} represent multiple regions in the reference genome.
 In contrast, rGFA inherently forbids a collapsed graph and avoids the potential
-issues above. This simplifies rGFA and makes it easier to work with.
+issues above. This makes rGFA simpler than vg's path model and easier to work
+with.
 
-To demonstrate the practical applications of rGFA, we developed minigraph to
+To demonstrate practical applications of rGFA, we developed minigraph to
 incrementally generate pangenome graphs. It can generate a graph from 20
 genomes in three hours and can scale to hundreds of genomes in future. A
 limitation of minigraph is that it does not perform base alignment and may be
 confused by similar paths in the graph. We will implement base alignment to
-improve the mapping accuracy in such cases. Nonetheless, even with base
-alignment, minigraph is unable to align sequences to a graph encoding all small
-variants. Such a graph will be composed of millions of short segments. Without
+improve the mapping accuracy in such cases. Another limitation of minigraph is
+that it is unable to align sequences against a graph encoding all small variants.
+Such a graph will be composed of millions of short segments. Not
 indexing minimizers across segments, minigraph will fail to seed the initial
 linear chains. This limitation can only be resolved by completely changing the
 minigraph mapping algorithm. Nonetheless, small variants are easier to
@@ -607,8 +615,8 @@ separate events. With the minigraph procedure, the two SVs are likely to
 be aligned together as long as they are similar to each other and are
 sufficiently different from the reference allele. To some extent, minigraph is
 performing multiple sequence alignment with partial order
-alignment~\cite{Lee_2002}. Multiple sequence alignment is robust to different
-representations of the same SV. When we refer to a SNP, we often use its
+alignment~\cite{Lee_2002}. This procedure is more robust to different
+representations of the same SV than naive merging. When we refer to a SNP, we often use its
 chromosomal coordinate such as ``chr1:12345''. We rarely do so for SVs because
 their positions are sensitive to alignment and SV callers. The more consistent
 SV representation implied by a pangenome graph will help to alleviate the issue
