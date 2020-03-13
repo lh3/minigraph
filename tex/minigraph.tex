@@ -116,7 +116,7 @@ pangenome graph is a powerful tool to identify core genome, the part of a
 genome or gene set that is shared across the majority of the strains or related species
 in a clade~\cite{Vernikos:2015aa}. A common way to construct a basic pangenome
 graph is to generate a compacted de Bruijn graph
-(cDBG)~\cite{Marcus:2014xy,Baier_2015,Beller:2016ab,Chikhi:2015aa,Minkin_2016,Chikhi_2016}
+(cDBG)~\cite{Marcus:2014xy,Baier_2015,Beller:2016ab,Chikhi:2015aa,Minkin_2016,Chikhi_2016,almodaresi_et_al:LIPIcs:2017:7657}
 from a set of genomes. Basic cDBG does not keep sample information.
 \cite{Iqbal:2012aa} proposed colored cDBG with each color represents a sample
 or a population. Colored cDBG can be constructed
@@ -126,14 +126,13 @@ It often includes connections absent from the input genomes and thus encodes
 sequences more than the input. A colored cDBG cannot serve as a
 \emph{reference} pangenome graph, either.  deBGA~\cite{Liu:2016ac} addresses
 the issue by labeling each unitig with its possibly multiple locations in the
-input genome(s). This strategy, however, is not scalable to hundreds of
-genomes.
-deBGA already uses 50GB RAM to index GRCh38. Given hundreds of human genomes,
-there will be more vertices in the graph and most of vertices are associated
-with hundreds of labels. It will become impractical to stage all the
-information in memory with simple labeling. While GBWT~\cite{Sir_n_2019}
-provides a practical solution to storage and indexing, no existing tools can
-practically construct a cDBG for many human genomes in the GBWT representation.
+input genome(s). Pufferfish~\cite{Almodaresi:2018aa} further reduces its space
+requirement. Nonetheless, given hundreds of human genomes, there will be many
+more vertices in the graph and most vertices are associated with hundreds of
+labels. Whether deBGA and pufferfish can scale to such datasets remains an open
+question. GBWT~\cite{Sir_n_2019} provides another practical solution to storage
+and indexing, but no existing tools can practically construct a cDBG for many
+human genomes in the GBWT representation.
 
 In addition to cDBG, we can derive a reference pangenome
 graph from a single linear multi-sequence alignment (MSA)~\cite{Dilthey_2015,Dilthey_2019}.
