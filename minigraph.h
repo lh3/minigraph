@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.10-r356"
+#define MG_VERSION "0.10-dirty-r361"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -24,6 +24,7 @@
 #define MG_M_2_IO_THREADS 0x80000
 #define MG_M_SHOW_UNMAP   0x100000
 #define MG_M_NO_COMP_PATH 0x200000
+#define MG_M_NO_DIAG      0x400000
 
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1

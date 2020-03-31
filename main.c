@@ -80,7 +80,7 @@ static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *a
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:W:";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:W:D";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -125,6 +125,7 @@ int main(int argc, char *argv[])
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'N') opt.best_n = mg_parse_num(o.arg);
 		else if (c == 'P') opt.flag |= MG_M_ALL_CHAINS;
+		else if (c == 'D') opt.flag |= MG_M_NO_DIAG;
 		else if (c == 'M') opt.mask_level = atof(o.arg);
 		else if (c == 'j') opt.div = atof(o.arg);
 		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
@@ -209,6 +210,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -m INT[,INT] minimal graph/linear chaining score [%d,%d]\n", opt.min_gc_score, opt.min_lc_score);
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(fp_help, "    -N INT       retain at most INT secondary mappings [%d]\n", opt.best_n);
+		fprintf(fp_help, "    -D           skip self diagonal matches\n");
 		fprintf(fp_help, "    --cov        remap and generate segment and link use frequencies; output GFA\n");
 		fprintf(fp_help, "  Graph generation:\n");
 		fprintf(fp_help, "    --ggen       perform incremental graph generation\n");

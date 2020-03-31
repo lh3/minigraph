@@ -131,6 +131,7 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 		mg128_t *p;
 		uint64_t r = heap->x;
 		int32_t rpos = (uint32_t)r >> 1;
+		// TODO: skip anchor if MG_F_NO_DIAL
 		if ((r&1) == (q->q_pos&1)) { // forward strand
 			p = &a[n_for++];
 			p->x = r>>32<<33 | rpos;
@@ -178,7 +179,19 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 		uint32_t k;
 		for (k = 0; k < q->n; ++k) {
 			int32_t rpos = (uint32_t)r[k] >> 1;
-			mg128_t *p = &a[(*n_a)++];
+			mg128_t *p;
+			if (qname && (opt->flag & MG_M_NO_DIAG)) {
+				const gfa_seg_t *s = &gi->g->seg[r[k]>>32];
+				const char *gname = s->snid >= 0 && gi->g->sseq? gi->g->sseq[s->snid].name : s->name;
+				int32_t g_pos;
+				if (s->snid >= 0 && gi->g->sseq)
+					gname = gi->g->sseq[s->snid].name, g_pos = s->soff + (uint32_t)r[k];
+				else
+					gname = s->name, g_pos = (uint32_t)r[k];
+				if (g_pos == q->q_pos && strcmp(qname, gname) == 0)
+					continue;
+			}
+			p = &a[(*n_a)++];
 			if ((r[k]&1) == (q->q_pos&1)) // forward strand
 				p->x = r[k]>>32<<33 | rpos;
 			else // reverse strand
