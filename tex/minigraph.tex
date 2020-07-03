@@ -350,9 +350,17 @@ To evaluate the accuracy of minigraph mapping, we simulated PacBio reads from
 GRCh38 with PBSIM~\cite{Ono:2013aa} and mapped them to the graph we constructed
 in the next section. Table~\ref{tab:mgvga} compares the performance of
 minigraph and GraphAligner~\cite{Rautiainen810812} v1.0.10 on 68,857 simulated
-reads mapped over 8 CPU threads. Minigraph is faster than GraphAligner and uses
-less memory, partly because minigraph does not perform base alignment.
+reads mapped over 8 CPU threads. {\color{blue} The N50 read length is 15kb.
+9,862 reads are mapped across two or more segments by GraphAligner. Note that
+both minigraph and GraphAligner ignore the stable coordinates during mapping.
+All segments, originated either from GRCh38 or from individual genomes, are
+treated equally. To this end, while we simulated reads from GRCh38, we are also
+evaluating how well mappers work with complex SVs present in any input
+samples.}
 
+On this dataset, minigraph
+is faster than GraphAligner and uses less memory, partly because minigraph does
+not perform base alignment.
 As is shown in Table~\ref{tab:mgvga}, minigraph is more accurate than
 GraphAligner. This is counter-intuitive given that GraphAligner does base
 alignment. Close inspection reveals that most mismapped reads by minigraph are
@@ -573,8 +581,24 @@ To demonstrate practical applications of rGFA, we developed minigraph to
 incrementally generate pangenome graphs. It can generate a graph from 20
 genomes in three hours and can scale to hundreds of genomes in future. A
 limitation of minigraph is that it does not perform base alignment and may be
-confused by similar paths in the graph. We will implement base alignment to
-improve the mapping accuracy in such cases. Another limitation of minigraph is
+confused by similar paths in the graph. {\color{blue} Unfortunately, base-level
+sequence-to-graph alignment is not a fully solved problem. Partial-order graph
+alignment~\cite{Lee_2002} and PaSGAL~\cite{DBLP:conf/ipps/JainMZDA19} only work
+with directed acyclic graphs (DAGs). Vg~\cite{Garrison:2018aa} uses a heuristic
+to unroll cycles but it is expotential in time in the worst case and for DAGs,
+its exact mode is tens of times slower than PaSGAL. Antipov et
+al~\cite{Antipov:2016aa} proved that alignment against cyclic graphs can be
+done in polynomial time. GraphAligner~\cite{Rautiainen810812} implements a
+fast quadratic algorithm for computing edit distance~\cite{Rautiainen_2019}.
+However, edit distance based alignment disallows long INDELs and is often
+inadequate for accurate variant calling. Jain et al~\cite{Jain_2020} recently
+proposed a quadratic algorithm for alignment with affine gap penalty but the
+authors focused on the theoretical analysis only. To the best of our knowledge,
+no tools can efficiently perform sequence-to-graph alignment under affine gap
+cost. We plan to learn from the existing algorithms and implement fast base
+alignment in minigraph in future. This may take significant effort.}
+
+Another limitation of minigraph is
 that it is unable to align sequences against a graph encoding all small variants.
 Such a graph will be composed of millions of short segments. Not
 indexing minimizers across segments, minigraph will fail to seed the initial
