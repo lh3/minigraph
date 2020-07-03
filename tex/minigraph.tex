@@ -141,7 +141,7 @@ they cannot be included in a single linear MSA. The third and possibly the most
 popular approach to reference graph generation is to call variants from other
 sources and then incorporate these variants, often in the VCF format~\cite{Danecek:2011qy}, into
 the reference genome as alternative
-paths~\cite{Eggertsson:2017aa,Rakocevic_2019,Garrison:2018aa,Sibbesen:2018aa,Biederstedt:2018aa,Eggertsson_2019}.
+paths~\cite{Eggertsson:2017aa,Rakocevic_2019,Sibbesen:2018aa,Biederstedt:2018aa,Eggertsson_2019}.
 However, because VCF does not define coordinates on insertions, this approach
 cannot properly encode variations on long insertions and is therefore limited
 to simple variations. There are no satisfactory solutions to the construction
@@ -321,7 +321,7 @@ only, which can be converted to the stable coordinate.
 
 Our incremental graph construction algorithm relies on genome-to-graph
 alignment (Fig.~\ref{fig:mg}b). As existing sequence-to-graph
-aligners~\cite{Garrison:2018aa,Rautiainen810812} do not work with
+aligners~\cite{Rautiainen810812,Garrison:2018aa} do not work with
 chromosome-long query sequences, we adapted minimap2~\cite{Li:2018ab} for our
 purpose and implemented minigraph (Fig.~\ref{fig:mg}a). Briefly, minigraph uses
 a minimap2-like algorithm to find local hits to segments in the graph, ignoring
@@ -350,7 +350,7 @@ To evaluate the accuracy of minigraph mapping, we simulated PacBio reads from
 GRCh38 with PBSIM~\cite{Ono:2013aa} and mapped them to the graph we constructed
 in the next section. Table~\ref{tab:mgvga} compares the performance of
 minigraph and GraphAligner~\cite{Rautiainen810812} v1.0.10 on 68,857 simulated
-reads mapped over 8 CPU threads. {\color{blue} The N50 read length is 15kb.
+reads mapped over 8 CPU threads. {\color{black} The N50 read length is 15kb.
 9,862 reads are mapped across two or more segments by GraphAligner. Note that
 both minigraph and GraphAligner ignore the stable coordinates during mapping.
 All segments, originated either from GRCh38 or from individual genomes, are
@@ -371,7 +371,7 @@ is better at disambiguating similar graph paths.  Combining the strength of
 both could lead to a better graph mapper. We do plan to implement base-level
 alignment in minigraph in future.
 
-We have also tried vg v1.21.0. It indexed the same graph in 14.7 wall-clock
+We have also tried vg v1.21.0~\cite{Garrison:2018aa}. It indexed the same graph in 14.7 wall-clock
 hours and mapped the simulated reads in 1.8 hours over 8 threads, tens of times
 slower than minigraph and GraphAligner. However, no reads are mapped in the
 output. We have not been able to make vg work with our data.
@@ -581,7 +581,7 @@ To demonstrate practical applications of rGFA, we developed minigraph to
 incrementally generate pangenome graphs. It can generate a graph from 20
 genomes in three hours and can scale to hundreds of genomes in future. A
 limitation of minigraph is that it does not perform base alignment and may be
-confused by similar paths in the graph. {\color{blue} Unfortunately, base-level
+confused by similar paths in the graph. {\color{black} Unfortunately, base-level
 sequence-to-graph alignment is not a fully solved problem. Partial-order graph
 alignment~\cite{Lee_2002} and PaSGAL~\cite{DBLP:conf/ipps/JainMZDA19} only work
 with directed acyclic graphs (DAGs). Vg~\cite{Garrison:2018aa} uses a heuristic
