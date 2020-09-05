@@ -1,4 +1,4 @@
-.TH minigraph 1 "14 February 2020" "minigraph-0.10 (r356)" "Bioinformatics tools"
+.TH minigraph 1 "14 February 2020" "minigraph-0.10-dirty (r365)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -117,6 +117,12 @@ or more of the shorter chain [0.5]
 Similar to
 .B -g
 but used for prefiltering [1000]
+.TP
+.BI --max-lc-iter \ NUM
+max number of iterations for linear chaining [10000]
+.TP
+.BI --max-rmq-iter \ NUM
+max number of iterations for linear chaining using the RMQ algorithm [1000]
 .TP
 .BI --max-lc-skip \ INT
 A heuristics that stops linear chaining early [25]

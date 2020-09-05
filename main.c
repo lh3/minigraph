@@ -42,6 +42,8 @@ static ko_longopt_t long_options[] = {
 	{ "max-gap-pre",  ko_required_argument, 320 },
 	{ "max-lc-skip",  ko_required_argument, 321 },
 	{ "max-gc-skip",  ko_required_argument, 322 },
+	{ "max-lc-iter",  ko_required_argument, 323 },
+	{ "max-rmq-iter", ko_required_argument, 324 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -146,6 +148,8 @@ int main(int argc, char *argv[])
 		else if (c == 320) opt.max_gap_pre = mg_parse_num(o.arg); // --max-gap-pre
 		else if (c == 321) opt.max_lc_skip = atoi(o.arg);     // --max-lc-skip
 		else if (c == 322) opt.max_gc_skip = atoi(o.arg);     // --max-gc-skip
+		else if (c == 323) opt.max_lc_iter = mg_parse_num(o.arg);  // --max-lc-iter
+		else if (c == 324) opt.max_rmq_iter = mg_parse_num(o.arg); // --max-rmq-iter
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain

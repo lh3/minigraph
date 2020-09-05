@@ -223,7 +223,7 @@ static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, flo
 	return sc;
 }
 
-mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
+mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int max_rmq_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
 	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0;
 	int64_t *p, i, st = 0, st_inner = 0, n_iter = 0;
@@ -279,11 +279,13 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int m
 				krmq_interval(lc_elem, root_inner, &s, &lo, &hi);
 				if (lo) {
 					const lc_elem_t *q;
+					int32_t n_rmq_iter = 0;
 					krmq_itr_t(lc_elem) itr;
 					krmq_itr_find(lc_elem, root_inner, lo, &itr);
 					while ((q = krmq_at(&itr)) != 0) {
 						if (q->y < (int32_t)a[i].y - max_dist_inner) break;
-						++n_iter;
+						++n_rmq_iter;
+						if (n_rmq_iter >= max_rmq_iter) break;
 						j = q->i;
 						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0);
 						if (sc > max_f) {
@@ -296,6 +298,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int m
 						if (p[j] >= 0) t[p[j]] = i;
 						if (!krmq_itr_prev(lc_elem, &itr)) break;
 					}
+					n_iter += n_rmq_iter;
 				}
 			}
 		}
@@ -313,6 +316,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int m
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 		if (mmax_f < max_f) mmax_f = max_f;
 		if (max_rmq_size < krmq_size(head, root)) max_rmq_size = krmq_size(head, root);
+		//fprintf(stderr, "XX\t%d\t%d\n", krmq_size(head, root), krmq_size(head, root_inner));
 	}
 	if (mg_dbg_flag & MG_DBG_LC_PROF) fprintf(stderr, "LP\tn_iter=%ld\tmmax_f=%d\trmq_size=%d\n", (long)n_iter, mmax_f, max_rmq_size);
 	km_destroy(mem);
