@@ -223,7 +223,7 @@ static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, flo
 	return sc;
 }
 
-mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int max_rmq_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
+mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
 	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0;
 	int64_t *p, i, st = 0, st_inner = 0, n_iter = 0;
@@ -247,7 +247,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int m
 		int32_t q_span = a[i].y>>32&0xff, max_f = q_span;
 		lc_elem_t s, *q, *r, lo, hi;
 		// get rid of active chains out of range
-		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist)) {
+		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist || krmq_size(head, root) > cap_rmq_size)) {
 			s.y = (int32_t)a[st].y, s.i = st;
 			if ((q = krmq_find(lc_elem, root, &s, 0)) != 0) {
 				q = krmq_erase(lc_elem, &root, q, 0);
@@ -255,8 +255,8 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int m
 			}
 			++st;
 		}
-		if (max_dist_inner > 0)  {
-			while (st_inner < i && (a[i].x>>32 != a[st_inner].x>>32 || a[i].x > a[st_inner].x + max_dist_inner)) {
+		if (max_dist_inner > 0)  { // similar to the block above, but applied to the inner tree
+			while (st_inner < i && (a[i].x>>32 != a[st_inner].x>>32 || a[i].x > a[st_inner].x + max_dist_inner || krmq_size(head, root_inner) > cap_rmq_size)) {
 				s.y = (int32_t)a[st_inner].y, s.i = st_inner;
 				if ((q = krmq_find(lc_elem, root_inner, &s, 0)) != 0) {
 					q = krmq_erase(lc_elem, &root_inner, q, 0);
@@ -285,7 +285,6 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int m
 					while ((q = krmq_at(&itr)) != 0) {
 						if (q->y < (int32_t)a[i].y - max_dist_inner) break;
 						++n_rmq_iter;
-						if (n_rmq_iter >= max_rmq_iter) break;
 						j = q->i;
 						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0);
 						if (sc > max_f) {
