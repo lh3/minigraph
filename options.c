@@ -14,7 +14,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 {
 	memset(mo, 0, sizeof(mg_mapopt_t));
 	mo->seed = 11;
-	mo->occ_max1 = 100;
+	mo->occ_max1 = 50, mo->occ_max1_cap = 250;
 	mo->occ_max1_frac = 2e-4f;
 	mo->occ_weight = 20;
 	mo->max_gap = 10000;
@@ -100,6 +100,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		io->k = 21, io->w = 10;
 		mo->flag |= MG_M_SR | MG_M_HEAP_SORT | MG_M_2_IO_THREADS;
 		mo->occ_max1 = 1000;
+		mo->occ_max1_cap = 2500;
 		mo->max_gap = 100, mo->bw = 100;
 		mo->pri_ratio = 0.5f;
 		mo->min_lc_cnt = 2, mo->min_lc_score = 25;
@@ -134,6 +135,7 @@ void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go)
 	mg_idx_cal_quantile(gi, 2, f, q);
 	if (q[0] + 1 > mo->occ_weight) mo->occ_weight = q[0] + 1;
 	if (q[1] + 1 > mo->occ_max1)   mo->occ_max1   = q[1] + 1;
+	if (mo->occ_max1 > mo->occ_max1_cap) mo->occ_max1 = mo->occ_max1_cap;
 	if (mg_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_weight=%d, occ_max1=%d; 95 percentile: %d\n", __func__,
 				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_weight, mo->occ_max1, q[0]);

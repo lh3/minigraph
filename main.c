@@ -118,7 +118,6 @@ int main(int argc, char *argv[])
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'f') opt.occ_max1_frac = atof(o.arg);
-		else if (c == 'U') opt.occ_max1 = atoi(o.arg);
 		else if (c == 'W') opt.occ_weight = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
 		else if (c == 'g') opt.max_gap = mg_parse_num(o.arg);
@@ -157,7 +156,10 @@ int main(int argc, char *argv[])
 		else if (c == 405) mg_dbg_flag |= MG_DBG_SHORTK;      // --dbg-shortk
 		else if (c == 406) mg_dbg_flag |= MG_DBG_GC1;         // --dbg-gc1
 		else if (c == 407) mg_dbg_flag |= MG_DBG_LC_PROF;     // --dbg-lc-prof
-		else if (c == 'n') {
+		else if (c == 'U') {
+			opt.occ_max1 = strtol(o.arg, &s, 10);
+			if (*s == ',') opt.occ_max1_cap = strtol(s + 1, &s, 10);
+		} else if (c == 'n') {
 			opt.min_gc_cnt = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
 		} else if (c == 'm') {
@@ -205,7 +207,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -w INT       minizer window size [%d]\n", ipt.w);
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.occ_max1_frac);
-		fprintf(fp_help, "    -U INT       ignore minimizers with occurrences above INT [%d]\n", opt.occ_max1);
+		fprintf(fp_help, "    -U INT[,INT] choose the minimizer occurrence threshold within this interval [%d,%d]\n", opt.occ_max1, opt.occ_max1_cap);
 		fprintf(fp_help, "    -j FLOAT     expected sequence divergence [%g]\n", opt.div);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(fp_help, "    -F NUM       max fragment length (effective with -xsr or in the fragment mode) [%d]\n", opt.max_frag_len);

@@ -1,4 +1,4 @@
-.TH minigraph 1 "14 February 2020" "minigraph-0.10-dirty (r365)" "Bioinformatics tools"
+.TH minigraph 1 "14 February 2020" "minigraph-0.10-dirty (r368)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -50,15 +50,18 @@ Minimizer window size [10]. A minimizer is the smallest k-mer in a window of w
 consecutive k-mers.
 .SS Mapping options
 .TP 10
-.BI -U \ INT
-Ignore minimizers with occurrences above
-.I INT
-[100]
+.BI -U \ INT1 [, INT2 ]
+Choose the minimizer occurrence threshold within this interval [50,250]
 .TP
 .BI -f \ FLOAT
 Ignore top
 .I FLOAT
-fraction of repetitive minimizers [0.0002]
+fraction of repetitive minimizers [0.0002]. If this threshold falls within the
+interval set by
+.BR -U ,
+it will be the final threshold; otherwise the lower or the upper bound of
+.B -U
+will be applied.
 .TP
 .BI -j \ FLOAT
 Expected query-graph sequence divergence [0.1]
@@ -234,7 +237,7 @@ This is the same as the default setting.
 .B sr
 Mapping short single-end or paired-end reads
 .RB ( -k21
-.B -w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes -K50m --frag --ref-bonus=1
+.B -w10 -U1000,2500 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes -K50m --frag --ref-bonus=1
 .BR --min-cov-blen=50 ).
 Paired-end mapping is not supported.
 .TP
