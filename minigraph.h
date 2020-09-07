@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.10-dirty-r368"
+#define MG_VERSION "0.10-dirty-r369"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -25,6 +25,7 @@
 #define MG_M_SHOW_UNMAP   0x100000
 #define MG_M_NO_COMP_PATH 0x200000
 #define MG_M_NO_DIAG      0x400000
+#define MG_M_SHOW_LCHAIN  0x800000
 
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1
@@ -117,7 +118,7 @@ typedef struct {
 	int32_t n_gc, n_lc, n_a, rep_len;
 	mg_gchain_t *gc;
 	mg_llchain_t *lc;
-	mg128_t *a;
+	mg128_t *a; // minimizer positions; see comments above mg_update_anchors() for details
 } mg_gchains_t;
 
 typedef struct mg_tbuf_s mg_tbuf_t;

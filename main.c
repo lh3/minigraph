@@ -82,7 +82,7 @@ static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *a
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:W:D";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:W:DS";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -133,6 +133,7 @@ int main(int argc, char *argv[])
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 'L') gpt.min_var_len = atoi(o.arg);
+		else if (c == 'S') opt.flag |= MG_M_SHOW_LCHAIN;
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
 		else if (c == 309) gpt.ggs_min_end_cnt = atoi(o.arg);  // --gg-min-end-cnt
 		else if (c == 310) gpt.ggs_min_end_frac = atof(o.arg); // --gg-min-end-frac
@@ -228,6 +229,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -o FILE      output mappings to FILE [stdout]\n");
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
+		fprintf(fp_help, "    -S           output linear chains\n");
+		fprintf(fp_help, "    --vc         output in the vertex coordinate\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset []\n");
 		fprintf(fp_help, "                 - lr: noisy long read mapping (the default)\n");

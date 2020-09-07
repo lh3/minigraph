@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdio.h>
+#include <math.h>
 #include "kalloc.h"
 #include "mgpriv.h"
 
@@ -181,12 +182,21 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			for (j = 0; j < n_seg; ++j) mg_sprintf_lite(s, ",%d", qlens[j]);
 		}
 		mg_sprintf_lite(s, "\n");
-		if (mg_dbg_flag & MG_DBG_LCHAIN) {
+		if ((mg_dbg_flag & MG_DBG_LCHAIN) || (flag & MG_M_SHOW_LCHAIN)) {
+			char buf[16];
 			for (j = 0; j < p->cnt; ++j) {
 				const mg_llchain_t *lc = &gs->lc[p->off + j];
-				mg_sprintf_lite(s, "- %s\t%d", g->seg[lc->v>>1].name, lc->cnt);
+				mg_sprintf_lite(s, "*\t%c%s\t%d\t%d", "><"[lc->v&1], g->seg[lc->v>>1].name, g->seg[lc->v>>1].len, lc->cnt);
 				if (lc->cnt > 0) {
-					mg_sprintf_lite(s, "\t%d\t%d", (int32_t)gs->a[lc->off].y + 1 - (int32_t)(gs->a[lc->off].y>>32&0xff), (int32_t)gs->a[lc->off + lc->cnt - 1].y + 1);
+					double div;
+					int32_t q_span = (int32_t)(gs->a[lc->off].y>>32&0xff);
+					int32_t n = (int32_t)(gs->a[lc->off + lc->cnt - 1].x>>32) - (int32_t)(gs->a[lc->off].x>>32) + 1;
+					div = n == lc->cnt? 0.0 : (n > lc->cnt? log((double)n / lc->cnt) : log((double)lc->cnt / n)) / q_span;
+					if (div == 0.0) buf[0] = '0', buf[1] = 0;
+					else snprintf(buf, 16, "%.4f", div);
+					mg_sprintf_lite(s, "\t%s", buf);
+					mg_sprintf_lite(s, "\t%d\t%d", (int32_t)gs->a[lc->off].x + 1 - q_span, (int32_t)gs->a[lc->off + lc->cnt - 1].x + 1);
+					mg_sprintf_lite(s, "\t%d\t%d", (int32_t)gs->a[lc->off].y + 1 - q_span, (int32_t)gs->a[lc->off + lc->cnt - 1].y + 1);
 				}
 				mg_sprintf_lite(s, "\n");
 			}
