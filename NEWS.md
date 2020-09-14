@@ -1,3 +1,25 @@
+Release 0.11-r371 (13 September 2020)
+-------------------------------------
+
+Notable changes:
+
+ * Added option --max-rmq-size to limit the max RMQ size, which is set 100k by
+   default. This heuristic reduces the long running time for aligning long
+   centromeric sequences. The accuracy might be affected in rare cases.
+
+ * Cap the max k-mer occurrence to 250 by default. For maize genomes, the
+   current heuristic may choose an occurrence cutoff larger than 1000. This
+   makes minigraph too slow to be practical.
+
+ * Added option -S to output more detailed information about linear chains.
+
+ * Added option -D to ignore diagonal minimizer anchors. This is useful to
+   mapping a sequence against itself.
+
+(13 September 2020, r371)
+
+
+
 Release 0.10-r356 (14 February 2020)
 ------------------------------------
 
