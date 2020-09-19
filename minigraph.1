@@ -1,4 +1,4 @@
-.TH minigraph 1 "13 September 2020" "minigraph-0.11 (r371)" "Bioinformatics tools"
+.TH minigraph 1 "13 September 2020" "minigraph-0.11-dirty (r372)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -181,7 +181,10 @@ Minimum insertion length [250]
 Penalty for a pair of matching anchors [5]. Larger value for more fragmented inserts.
 .TP
 .BR --ins-qovlp = yes | no
-Forcefully resolve query overlaps [yes]
+Forcefully resolve query overlaps [no]
+.TP
+.BR --inv = yes | no
+Generate graphs with inversions or not [yes]
 .SS Input/output options
 .TP 10
 .BI -o \ FILE

@@ -44,6 +44,7 @@ static ko_longopt_t long_options[] = {
 	{ "max-gc-skip",  ko_required_argument, 322 },
 	{ "max-lc-iter",  ko_required_argument, 323 },
 	{ "max-rmq-size", ko_required_argument, 324 },
+	{ "inv",          ko_required_argument, 325 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -65,7 +66,7 @@ static inline int64_t mg_parse_num(const char *str)
 	return (int64_t)(x + .499);
 }
 
-static inline void yes_or_no(uint64_t *flag_, int f, int long_idx, const char *arg, int yes_to_set)
+static inline void yes_or_no(uint64_t *flag_, uint64_t f, int long_idx, const char *arg, int yes_to_set)
 {
 	uint64_t flag = *flag_;
 	if (yes_to_set) {
@@ -192,6 +193,8 @@ int main(int argc, char *argv[])
 			yes_or_no(&opt.flag, MG_M_SHOW_UNMAP, o.longidx, o.arg, 1);
 		} else if (c == 307) { // --rmq
 			yes_or_no(&opt.flag, MG_M_RMQ, o.longidx, o.arg, 1);
+		} else if (c == 325) { // --inv
+			yes_or_no(&gpt.flag, MG_G_NO_INV, o.longidx, o.arg, 0);
 		} else if (c == 300) { // --version
 			puts(MG_VERSION);
 			return 0;

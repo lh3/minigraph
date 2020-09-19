@@ -217,7 +217,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (score > 0) {
 						if (mlen > blen * opt->ggs_max_iden) continue; // make sure k-mer identity is small enough
 						if (blen - mlen < opt->min_var_len * opt->ggs_max_iden) continue;
-					} else {
+					} else if (!(opt->flag & MG_G_NO_INV)) {
 						mg_revcomp_seq(l_pseq, pseq);
 						score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
 										 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
