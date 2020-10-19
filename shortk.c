@@ -179,31 +179,35 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			int32_t j, dist = r->di>>32, off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
 			for (j = 0; j < cnt; ++j) {
 				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
-				int32_t done = 0, copy = 0, mlen;
-				if (t->inner) continue;
-				mlen = h_seeds? path_mlen(out, n_out - 1, h, t->qlen) : 0;
-				//if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,mlen=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, dist - g->seg[src>>1].len, mlen, r->hash);
-				if (t->n_path == 0) { // keep the shortest path
-					copy = 1;
-				} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
-					if (dist == t->target_dist && t->check_hash && r->hash == t->target_hash) { // we found the target path
-						copy = 1, done = 1;
-					} else {
-						int32_t d0 = t->dist, d1 = dist;
-						d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
-						d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-						if (d1 - mlen/2 < d0 - t->mlen/2) copy = 1;
+				int32_t done = 0;
+				if (t->inner) {
+					done = 1;
+				} else {
+					int32_t mlen, copy = 0;
+					mlen = h_seeds? path_mlen(out, n_out - 1, h, t->qlen) : 0;
+					//if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,mlen=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, dist - g->seg[src>>1].len, mlen, r->hash);
+					if (t->n_path == 0) { // keep the shortest path
+						copy = 1;
+					} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
+						if (dist == t->target_dist && t->check_hash && r->hash == t->target_hash) { // we found the target path
+							copy = 1, done = 1;
+						} else {
+							int32_t d0 = t->dist, d1 = dist;
+							d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
+							d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
+							if (d1 - mlen/2 < d0 - t->mlen/2) copy = 1;
+						}
 					}
-				}
-				if (copy) {
-					t->path_end = n_out - 1, t->dist = dist, t->hash = r->hash, t->mlen = mlen, t->is_0 = r->is_0;
-					if (t->target_dist >= 0) {
-						if (dist == t->target_dist && t->check_hash && r->hash == t->target_hash) done = 1;
-						else if (dist > t->target_dist + MG_SHORT_K_EXT) done = 1;
+					if (copy) {
+						t->path_end = n_out - 1, t->dist = dist, t->hash = r->hash, t->mlen = mlen, t->is_0 = r->is_0;
+						if (t->target_dist >= 0) {
+							if (dist == t->target_dist && t->check_hash && r->hash == t->target_hash) done = 1;
+							else if (dist > t->target_dist + MG_SHORT_K_EXT) done = 1;
+						}
 					}
+					++t->n_path;
+					if (t->n_path >= max_k) done = 1;
 				}
-				++t->n_path;
-				if (t->n_path >= max_k) done = 1;
 				if (dst_done[off + j] == 0 && done)
 					dst_done[off + j] = 1, ++n_done;
 			}
