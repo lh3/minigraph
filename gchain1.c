@@ -94,6 +94,11 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				mg_path_dst_t *q;
 				int32_t target_dist, segj, dq;
 				if (lj->qs >= li->qs) continue; // lj is contained in li on the query coordinate
+				if (lj->qe > li->qs) { // test overlap on the query
+					int o = lj->qe - li->qs;
+					if (o > (lj->qe - lj->qs) * mask_level || o > (li->qe - li->qs) * mask_level)
+						continue;
+				}
 				dq = li->qs - lj->qe;
 				segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
 				if (segi == segj) {
@@ -116,11 +121,6 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 					if (lj->re > li->rs) { // test overlap on the graph segment
 						int o = lj->re - li->rs;
 						if (o > (lj->re - lj->rs) * mask_level || o > (li->re - li->rs) * mask_level)
-							continue;
-					}
-					if (lj->qe > li->qs) { // test overlap on the query
-						int o = lj->qe - li->qs;
-						if (o > (lj->qe - lj->qs) * mask_level || o > (li->qe - li->qs) * mask_level)
 							continue;
 					}
 					target_dist = mg_target_dist(g, lj, li);
