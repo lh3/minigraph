@@ -32,10 +32,11 @@ static int32_t mg_target_dist(const gfa_t *g, const mg_lchain_t *l0, const mg_lc
 {
 	// below equals (l1->qs - l0->qe) - min_dist + g->seg[l1->v>>1].len; see mg_gchain1_dp() for the calculation of min_dist
 	return (l1->qs - l0->qe) - (g->seg[l0->v>>1].len - l0->re) + (g->seg[l1->v>>1].len - l1->rs);
+	// when l0->v == l1->v, the above becomes (l1->qs - l0->qe) - (l1->rs - l0->re), which is what we want
 }
 
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, int32_t max_skip,
-					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, const char *qseq, const mg128_t *an, uint64_t **u_)
+					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, const char *qseq, const mg128_t *an, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *v, *t;
@@ -91,7 +92,8 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				gc_frag_t *aj = &a[j];
 				mg_lchain_t *lj = &lc[aj->i];
 				mg_path_dst_t *q;
-				int32_t min_dist, target_dist, segj, dq;
+				int32_t target_dist, segj, dq;
+				if (lj->qs >= li->qs) continue; // lj is contained in li on the query coordinate
 				dq = li->qs - lj->qe;
 				segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
 				if (segi == segj) {
@@ -99,15 +101,33 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				} else {
 					if (dq > max_dist_g && dq > max_dist_q) break;
 				}
-				if (lj->qs >= li->qs) continue; // lj is contained in li
-				if (li->v == lj->v) continue; // we don't deal with lchains on the same segment
-				min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re); // minimal graph gap
-				if (min_dist > max_dist_g) continue; // graph gap too large
-				if (segi == segj && min_dist - bw > li->qs - lj->qe) continue; // when li->qs < lj->qe, the condition turns to min_dist + (lj->qe - li->qs) > bw, which is desired
-				target_dist = mg_target_dist(g, lj, li);
-				if (target_dist < 0) continue; // this may happen if the query overlap is far too large
+				if (li->v != lj->v) { // the two linear chains are on two different segments
+					int32_t min_dist = li->rs + (g->seg[lj->v>>1].len - lj->re); // minimal graph gap
+					if (min_dist > max_dist_g) continue; // graph gap too large
+					if (segi == segj && min_dist - bw > li->qs - lj->qe) continue; // when li->qs < lj->qe, the condition turns to min_dist + (lj->qe - li->qs) > bw, which is desired
+					target_dist = mg_target_dist(g, lj, li);
+					if (target_dist < 0) continue; // this may happen if the query overlap is far too large
+				} else if (lj->rs >= li->rs || lj->re >= li->re) { // not colinear
+					continue;
+				} else {
+					int32_t dr = li->rs - lj->re, w = dr > dq? dr - dq : dq - dr;
+					if (segi == segj && w > bw) continue; // test bandwidth
+					if (dr > max_dist_g || dr < -max_dist_g) continue;
+					if (lj->re > li->rs) { // test overlap on the graph segment
+						int o = lj->re - li->rs;
+						if (o > (lj->re - lj->rs) * mask_level || o > (li->re - li->rs) * mask_level)
+							continue;
+					}
+					if (lj->qe > li->qs) { // test overlap on the query
+						int o = lj->qe - li->qs;
+						if (o > (lj->qe - lj->qs) * mask_level || o > (li->qe - li->qs) * mask_level)
+							continue;
+					}
+					target_dist = mg_target_dist(g, lj, li);
+				}
 				if (n_dst == m_dst) KEXPAND(km, dst, m_dst); // TODO: watch out the quadratic behavior!
 				q = &dst[n_dst++];
+				q->inner = (li->v == lj->v);
 				q->v = lj->v^1;
 				q->meta = j;
 				q->qlen = li->qs - lj->qe;
@@ -320,28 +340,31 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
-				mg_path_dst_t dst;
-				int32_t s, n_pathv;
-				mg_pathv_t *p;
-				dst.v = l0->v ^ 1;
-				assert(l1->dist_pre >= 0);
-				dst.target_dist = l1->dist_pre;
-				dst.target_hash = l1->hash_pre;
-				dst.check_hash = 1;
-				p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, 0, 0, 1, &n_pathv);
-				if (n_pathv == 0 || dst.target_hash != dst.hash)
-					fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
-				assert(n_pathv > 0);
-				assert(dst.target_hash == dst.hash);
-				for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
-					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-					q = &tmp[n_tmp++];
-					q->off = q->cnt = q->score = 0;
-					q->v = p[s].v^1; // when reversing a path, we also need to flip the orientation
+				if (l0->v != l1->v) {
+					int32_t s, n_pathv;
+					mg_path_dst_t dst;
+					mg_pathv_t *p;
+					memset(&dst, 0, sizeof(mg_path_dst_t));
+					dst.v = l0->v ^ 1;
+					assert(l1->dist_pre >= 0);
+					dst.target_dist = l1->dist_pre;
+					dst.target_hash = l1->hash_pre;
+					dst.check_hash = 1;
+					p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, 0, 0, 1, &n_pathv);
+					if (n_pathv == 0 || dst.target_hash != dst.hash)
+						fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
+					assert(n_pathv > 0);
+					assert(dst.target_hash == dst.hash);
+					for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
+						if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
+						q = &tmp[n_tmp++];
+						q->off = q->cnt = q->score = 0;
+						q->v = p[s].v^1; // when reversing a path, we also need to flip the orientation
+					}
+					kfree(km, p);
 				}
 				if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 				copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
-				kfree(km, p);
 			}
 			gc->gc[k].cnt = n_tmp - s_tmp;
 			++k, s_tmp = n_tmp;

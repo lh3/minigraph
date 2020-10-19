@@ -114,8 +114,13 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 	if (n_pathv) *n_pathv = 0;
 	if (n_dst <= 0) return 0;
-	for (i = 0; i < n_dst; ++i)
-		dst[i].dist = -1, dst[i].n_path = 0, dst[i].path_end = -1;
+	for (i = 0; i < n_dst; ++i) { // initialize
+		mg_path_dst_t *t = &dst[i];
+		if (t->inner)
+			t->dist = 0, t->n_path = 1, t->path_end = -1;
+		else
+			t->dist = -1, t->n_path = 0, t->path_end = -1;
+	}
 	if (max_k > MG_MAX_SHORT_K) max_k = MG_MAX_SHORT_K;
 	km = (mg_dbg_flag&MG_DBG_NO_KALLOC) && (mg_dbg_flag&MG_DBG_SHORTK)? 0 : km_init2(km0, 0x4000);
 
@@ -175,6 +180,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			for (j = 0; j < cnt; ++j) {
 				mg_path_dst_t *t = &dst[(int32_t)dst_group[off + j]];
 				int32_t done = 0, copy = 0, mlen;
+				if (t->inner) continue;
 				mlen = h_seeds? path_mlen(out, n_out - 1, h, t->qlen) : 0;
 				//if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,mlen=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, dist - g->seg[src>>1].len, mlen, r->hash);
 				if (t->n_path == 0) { // keep the shortest path
@@ -261,7 +267,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 		KCALLOC(km, trans, n_out); // used to squeeze unused elements in out[]
 		for (i = 0; i < n_dst; ++i) { // mark dst vertices with a target distance
 			mg_path_dst_t *t = &dst[i];
-			if (t->n_path > 0 && t->target_dist >= 0)
+			if (t->n_path > 0 && t->target_dist >= 0 && t->path_end >= 0)
 				trans[(int32_t)out[t->path_end]->di] = 1;
 		}
 		for (i = 0; i < n_out; ++i) { // mark dst vertices without a target distance
