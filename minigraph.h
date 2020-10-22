@@ -62,6 +62,7 @@ typedef struct {
 	int best_n;
 	float pri_ratio;
 	int ref_bonus;
+	int max_gc_seq_ext;
 
 	int min_cov_mapq, min_cov_blen;
 } mg_mapopt_t;

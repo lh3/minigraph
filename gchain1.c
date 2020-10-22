@@ -13,6 +13,9 @@ typedef struct {
 #define gc_frag_key(p) ((p).srt)
 KRADIX_SORT_INIT(gc, gc_frag_t, gc_frag_key, 4)
 
+#define dst_key(p) ((p).srt_key)
+KRADIX_SORT_INIT(dst, mg_path_dst_t, dst_key, 8)
+
 static int32_t find_max(int32_t n, const gc_frag_t *gf, int32_t x)
 {
 	int32_t s = 0, e = n;
@@ -60,7 +63,7 @@ static inline int32_t cal_sc(const mg_path_dst_t *dj, const mg_lchain_t *li, con
 }
 
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, int32_t max_skip,
-					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, const char *qseq, const mg128_t *an, uint64_t **u_)
+					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, int32_t max_gc_seq_ext, const char *qseq, const mg128_t *an, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *v, *t;
@@ -167,22 +170,33 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			}
 		}
 		{ // confirm reach-ability
-			int32_t k, min_qs;
+			int32_t k;
 			// test reach-ability without sequences
 			mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, 0, 0, 1, 0);
-			for (j = k = 0, min_qs = li->qs; j < n_dst; ++j) {
-				const mg_lchain_t *lj;
-				if (dst[j].n_path == 0) continue;
-				lj = &lc[a[dst[j].meta].i];
-				if (lj->qe < min_qs) min_qs = lj->qe;
-				dst[k++] = dst[j];
+			// remove unreachable destinations
+			for (j = k = 0; j < n_dst; ++j) {
+				mg_path_dst_t *dj = &dst[j];
+				int32_t sc;
+				if (dj->n_path == 0) continue; // not reachable
+				sc = cal_sc(dj, li, lc, an, a, f, bw, ref_bonus, chn_pen_gap);
+				if (sc == INT32_MIN) continue; // out of band
+				dst[k] = dst[j];
+				dst[k++].srt_key = INT64_MAX/2 - (int64_t)sc; // sort in the descending order
 			}
 			n_dst = k;
-			if (n_dst > 0) {
-				memcpy(qs, &qseq[min_qs], li->qs - min_qs);
-				// test reach-ability considering sequences
-				mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, li->qs - min_qs, qs, 1, 0);
+			if (n_dst > 0) radix_sort_dst(dst, dst + n_dst);
+			if (n_dst > max_gc_seq_ext) n_dst = max_gc_seq_ext; // discard weaker chains
+		}
+		if (n_dst > 0) { // find paths with sequences
+			int32_t min_qs = li->qs;
+			for (j = 0; j < n_dst; ++j) {
+				const mg_lchain_t *lj;
+				assert(dst[j].n_path > 0);
+				lj = &lc[a[dst[j].meta].i];
+				if (lj->qe < min_qs) min_qs = lj->qe;
 			}
+			memcpy(qs, &qseq[min_qs], li->qs - min_qs);
+			mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, li->qs - min_qs, qs, 1, 0);
 			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", ai->i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
 		}
 		{ // DP
