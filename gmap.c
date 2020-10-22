@@ -8,7 +8,8 @@
 #include "gfa-priv.h"
 
 typedef struct {
-	int mini_batch_size, n_processed, n_threads, n_fp;
+	int64_t mini_batch_size;
+	int n_processed, n_threads, n_fp;
 	const mg_mapopt_t *opt;
 	mg_bseq_file_t **fp;
 	const mg_idx_t *gi;
