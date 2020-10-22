@@ -35,6 +35,30 @@ static int32_t mg_target_dist(const gfa_t *g, const mg_lchain_t *l0, const mg_lc
 	// when l0->v == l1->v, the above becomes (l1->qs - l0->qe) - (l1->rs - l0->re), which is what we want
 }
 
+static inline int32_t cal_sc(const mg_path_dst_t *dj, const mg_lchain_t *li, const mg_lchain_t *lc, const mg128_t *an, const gc_frag_t *a, const int32_t *f,
+							 int bw, int ref_bonus, float chn_pen_gap)
+{
+	const mg_lchain_t *lj;
+	int32_t gap, sc, segi, segj;
+	float lin_pen, log_pen;
+	if (dj->n_path == 0) return INT32_MIN;
+	segi = (an[li->off].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
+	gap = dj->dist - dj->target_dist;
+	lj = &lc[a[dj->meta].i];
+	segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
+	if (gap < 0) gap = -gap;
+	if (segi == segj && gap > bw) return INT32_MIN;
+	if (lj->qe <= li->qs) sc = li->score;
+	else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499); // dealing with overlap on query
+	//sc += dj->mlen; // TODO: is this line the right thing to do?
+	if (dj->is_0) sc += ref_bonus;
+	lin_pen = chn_pen_gap * (float)gap;
+	log_pen = gap >= 2? mg_log2(gap) : 0.0f;
+	sc -= (int32_t)(lin_pen + log_pen);
+	sc += f[dj->meta];
+	return sc;
+}
+
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, int32_t max_skip,
 					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, const char *qseq, const mg128_t *an, uint64_t **u_)
 {
@@ -127,6 +151,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				}
 				if (n_dst == m_dst) KEXPAND(km, dst, m_dst); // TODO: watch out the quadratic behavior!
 				q = &dst[n_dst++];
+				memset(q, 0, sizeof(mg_path_dst_t));
 				q->inner = (li->v == lj->v);
 				q->v = lj->v^1;
 				q->meta = j;
@@ -165,24 +190,13 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			uint32_t max_hash = 0;
 			for (j = 0; j < n_dst; ++j) {
 				mg_path_dst_t *dj = &dst[j];
-				mg_lchain_t *lj;
-				int32_t gap, sc, segj;
-				float lin_pen, log_pen;
-				if (dj->n_path == 0) continue;
-				gap = dj->dist - dj->target_dist;
-				lj = &lc[a[dj->meta].i];
-				segj = (an[lj->off + lj->cnt - 1].y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
-				if (gap < 0) gap = -gap;
-				if (segi == segj && gap > bw) continue;
-				if (lj->qe <= li->qs) sc = li->score;
-				else sc = (int32_t)((double)(li->qe - lj->qe) / (li->qe - li->qs) * li->score + .499); // dealing with overlap on query
-				//sc += dj->mlen; // TODO: is this line the right thing to do?
-				if (dj->is_0) sc += ref_bonus;
-				lin_pen = chn_pen_gap * (float)gap;
-				log_pen = gap >= 2? mg_log2(gap) : 0.0f;
-				sc -= (int32_t)(lin_pen + log_pen);
-				sc += f[dj->meta];
-				if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d), g_intv=[%d,%d)\n", dj->meta, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist - g->seg[li->v>>1].len, dj->dist - g->seg[li->v>>1].len, sc, lj->qs, lj->qe, lj->rs, lj->re);
+				int32_t sc;
+				sc = cal_sc(dj, li, lc, an, a, f, bw, ref_bonus, chn_pen_gap);
+				if (sc == INT32_MIN) continue;
+				if (mg_dbg_flag & MG_DBG_GC1) {
+					mg_lchain_t *lj = &lc[a[dj->meta].i];
+					fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d), g_intv=[%d,%d)\n", dj->meta, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist - g->seg[li->v>>1].len, dj->dist - g->seg[li->v>>1].len, sc, lj->qs, lj->qe, lj->rs, lj->re);
+				}
 				if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash;
 			}
 			f[i] = max_f, p[i] = max_j;
