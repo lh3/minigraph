@@ -1,4 +1,4 @@
-.TH minigraph 1 "13 September 2020" "minigraph-0.11-dirty (r372)" "Bioinformatics tools"
+.TH minigraph 1 "23 October 2020" "minigraph-0.11-dirty (r381)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -213,6 +213,12 @@ In output GAF, show mapping paths in the unstable segment coordinate.
 .TP
 .B -S
 Output linear chains in the format of: `*' segName segLen nMinimizer seqDiv segStart segEnd qStart qEnd
+.TP
+.B --write-mz
+Output linear chains in the format of: `*' segName segLen nMinimizer seqDiv segStart segEnd qStart qEnd
+k-mer segOffsets qOffsets. segOffsets and qOffsets are comma-separated lists
+with each consisting of nMinimizer-1 integers which give the distance from the
+previous minimizer on segments and query, respectively.
 .TP
 .BR --secondary = yes | no
 Whether to output secondary alignments [no]

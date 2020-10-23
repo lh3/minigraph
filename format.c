@@ -182,7 +182,7 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			for (j = 0; j < n_seg; ++j) mg_sprintf_lite(s, ",%d", qlens[j]);
 		}
 		mg_sprintf_lite(s, "\n");
-		if ((mg_dbg_flag & MG_DBG_LCHAIN) || (flag & MG_M_SHOW_LCHAIN)) {
+		if ((mg_dbg_flag & MG_DBG_LCHAIN) || (flag & MG_M_WRITE_LCHAIN)) {
 			char buf[16];
 			for (j = 0; j < p->cnt; ++j) {
 				const mg_llchain_t *lc = &gs->lc[p->off + j];
@@ -197,6 +197,25 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 					mg_sprintf_lite(s, "\t%s", buf);
 					mg_sprintf_lite(s, "\t%d\t%d", (int32_t)gs->a[lc->off].x + 1 - q_span, (int32_t)gs->a[lc->off + lc->cnt - 1].x + 1);
 					mg_sprintf_lite(s, "\t%d\t%d", (int32_t)gs->a[lc->off].y + 1 - q_span, (int32_t)gs->a[lc->off + lc->cnt - 1].y + 1);
+					if (flag & MG_M_WRITE_MZ) {
+						int32_t i, last;
+						last = (int32_t)gs->a[lc->off].x + 1 - q_span;
+						mg_sprintf_lite(s, "\t%d\t", q_span);
+						for (i = 1; i < lc->cnt; ++i) {
+							int32_t x = (int32_t)gs->a[lc->off + i].x + 1 - q_span;
+							if (i > 1) mg_sprintf_lite(s, ",");
+							mg_sprintf_lite(s, "%d", x - last);
+							last = x;
+						}
+						last = (int32_t)gs->a[lc->off].y + 1 - q_span;
+						mg_sprintf_lite(s, "\t");
+						for (i = 1; i < lc->cnt; ++i) {
+							int32_t x = (int32_t)gs->a[lc->off + i].y + 1 - q_span;
+							if (i > 1) mg_sprintf_lite(s, ",");
+							mg_sprintf_lite(s, "%d", x - last);
+							last = x;
+						}
+					}
 				}
 				mg_sprintf_lite(s, "\n");
 			}

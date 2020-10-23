@@ -36,7 +36,7 @@ graph and incrementally augments an existing graph with long query subsequences
 diverged from the graph. The figure on the right briefly explains the procedure.
 
 Minigraph borrows many ideas and code from [minimap2][minimap2]. It is fairly
-efficient and can construct a graph from 15 human assemblies in an hour using
+efficient and can construct a graph from 40 human assemblies in half a day using
 24 CPU cores. **However**, minigraph is at an early development stage. It lacks
 important features and may produce suboptimal mappings. Please read the
 [Limitations section](#limit) of this README before using minigraph.

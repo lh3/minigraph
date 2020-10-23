@@ -45,6 +45,7 @@ static ko_longopt_t long_options[] = {
 	{ "max-lc-iter",  ko_required_argument, 323 },
 	{ "max-rmq-size", ko_required_argument, 324 },
 	{ "inv",          ko_required_argument, 325 },
+	{ "write-mz",     ko_no_argument,       326 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -134,7 +135,7 @@ int main(int argc, char *argv[])
 		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 'L') gpt.min_var_len = atoi(o.arg);
-		else if (c == 'S') opt.flag |= MG_M_SHOW_LCHAIN;
+		else if (c == 'S') opt.flag |= MG_M_WRITE_LCHAIN;
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
 		else if (c == 309) gpt.ggs_min_end_cnt = atoi(o.arg);  // --gg-min-end-cnt
 		else if (c == 310) gpt.ggs_min_end_frac = atof(o.arg); // --gg-min-end-frac
@@ -151,6 +152,7 @@ int main(int argc, char *argv[])
 		else if (c == 322) opt.max_gc_skip = atoi(o.arg);     // --max-gc-skip
 		else if (c == 323) opt.max_lc_iter = mg_parse_num(o.arg);  // --max-lc-iter
 		else if (c == 324) opt.max_rmq_size = mg_parse_num(o.arg); // --max-rmq-size
+		else if (c == 326) opt.flag |= MG_M_WRITE_MZ | MG_M_WRITE_LCHAIN; // --write-mz
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain

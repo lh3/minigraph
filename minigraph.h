@@ -25,7 +25,8 @@
 #define MG_M_SHOW_UNMAP   0x100000
 #define MG_M_NO_COMP_PATH 0x200000
 #define MG_M_NO_DIAG      0x400000
-#define MG_M_SHOW_LCHAIN  0x800000
+#define MG_M_WRITE_LCHAIN 0x800000
+#define MG_M_WRITE_MZ     0x1000000
 
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1
