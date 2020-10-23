@@ -180,12 +180,19 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				if (dj->n_path == 0) continue; // not reachable
 				sc = cal_sc(dj, li, lc, an, a, f, bw, ref_bonus, chn_pen_gap);
 				if (sc == INT32_MIN) continue; // out of band
+				if (sc + li->score < 0) continue; // negative score and too low
 				dst[k] = dst[j];
 				dst[k++].srt_key = INT64_MAX/2 - (int64_t)sc; // sort in the descending order
 			}
 			n_dst = k;
-			if (n_dst > 0) radix_sort_dst(dst, dst + n_dst);
-			if (n_dst > max_gc_seq_ext) n_dst = max_gc_seq_ext; // discard weaker chains
+			if (n_dst > 0) {
+				radix_sort_dst(dst, dst + n_dst);
+				for (j = 1; j < n_dst; ++j) // discard weaker chains if the best score is much larger (assuming base-level heuristic won't lift it to the top chain)
+					if (dst[j].srt_key - dst[0].srt_key > li->score)
+						break;
+				n_dst = j;
+				if (n_dst > max_gc_seq_ext) n_dst = max_gc_seq_ext; // discard weaker chains
+			}
 		}
 		if (n_dst > 0) { // find paths with sequences
 			int32_t min_qs = li->qs;
