@@ -86,7 +86,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		min_end_dist_g = g->seg[r->v>>1].len - r->re;
 		if (r->rs < min_end_dist_g) min_end_dist_g = r->rs;
 		if (min_end_dist_g > max_dist_g) is_isolated = 1; // if too far from segment ends
-		else if (min_end_dist_g>>8 > r->score) is_isolated = 1; // if the lchain too small relative to distance to the segment ends
+		else if (min_end_dist_g>>3 > r->score) is_isolated = 1; // if the lchain too small relative to distance to the segment ends
 		ai->srt = (uint32_t)is_isolated<<31 | r->qe;
 		ai->i = i;
 		if (!is_isolated) ++n_ext;
