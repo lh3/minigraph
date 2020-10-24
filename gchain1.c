@@ -355,13 +355,12 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 	// core loop
 	tmp = 0; s_tmp = n_tmp = m_tmp = 0;
 	for (i = k = 0, st = 0, n_a = 0; i < n_u; ++i) {
-		int32_t m = 0, nui = (int32_t)u[i];
+		int32_t n_a0 = n_a, m = 0, nui = (int32_t)u[i];
 		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
 		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score) {
 			mg_llchain_t *q;
 			uint32_t h = hash;
 
-			gc->gc[k].n_anchor = m;
 			gc->gc[k].score = u[i]>>32;
 			gc->gc[k].off = s_tmp;
 
@@ -401,6 +400,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 					copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
 				} else { // on one segment
+					#if 1
 					int32_t k;
 					mg_llchain_t *t = &tmp[n_tmp - 1];
 					assert(l0->v == l1->v);
@@ -413,9 +413,14 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 					t->cnt += l1->cnt - k, t->score += l1->score;
 					memcpy(&gc->a[n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
 					n_a += l1->cnt - k;
+					#else
+					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
+					copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
+					#endif
 				}
 			}
 			gc->gc[k].cnt = n_tmp - s_tmp;
+			gc->gc[k].n_anchor = n_a - n_a0;
 			++k, s_tmp = n_tmp;
 		}
 		st += nui;
