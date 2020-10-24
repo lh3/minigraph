@@ -207,7 +207,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", ai->i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
 		}
 		{ // DP
-			int32_t max_f = li->score, max_j = -1, max_d = -1;
+			int32_t max_f = li->score, max_j = -1, max_d = -1, max_inner = 0;
 			uint32_t max_hash = 0;
 			for (j = 0; j < n_dst; ++j) {
 				mg_path_dst_t *dj = &dst[j];
@@ -218,11 +218,12 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 					mg_lchain_t *lj = &lc[a[dj->meta].i];
 					fprintf(stderr, "  [dst:%d] dst=%c%s[%d], n_path=%d, target=%d, opt_dist=%d, score=%d, q_intv=[%d,%d), g_intv=[%d,%d)\n", dj->meta, "><"[dj->v&1], g->seg[dj->v>>1].name, dj->v, dj->n_path, dj->target_dist - g->seg[li->v>>1].len, dj->dist - g->seg[li->v>>1].len, sc, lj->qs, lj->qe, lj->rs, lj->re);
 				}
-				if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash;
+				if (sc > max_f) max_f = sc, max_j = dj->meta, max_d = dj->dist, max_hash = dj->hash, max_inner = dj->inner;
 			}
 			f[i] = max_f, p[i] = max_j;
 			li->dist_pre = max_d;
 			li->hash_pre = max_hash;
+			li->inner_pre = max_inner;
 			v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
 			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, " [opt:%d] opt=%d, max_f=%d\n", ai->i, max_j, max_f);
 		}
@@ -320,9 +321,9 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old)
 {
 	q->cnt = p->cnt, q->v = p->v, q->score = p->score;
-	memcpy(&a_new[*n_a], &a_old[p->off], p->cnt * sizeof(mg128_t));
+	memcpy(&a_new[*n_a], &a_old[p->off], q->cnt * sizeof(mg128_t));
 	q->off = *n_a;
-	(*n_a) += p->cnt;
+	(*n_a) += q->cnt;
 }
 
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
@@ -375,7 +376,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
-				if (l0->v != l1->v) {
+				if (!l1->inner_pre) { // bridging two segments
 					int32_t s, n_pathv;
 					mg_path_dst_t dst;
 					mg_pathv_t *p;
@@ -397,9 +398,22 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 						q->v = p[s].v^1; // when reversing a path, we also need to flip the orientation
 					}
 					kfree(km, p);
+					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
+					copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
+				} else { // on one segment
+					int32_t k;
+					mg_llchain_t *t = &tmp[n_tmp - 1];
+					assert(l0->v == l1->v);
+					for (k = 0; k < l1->cnt; ++k) {
+						const mg128_t *ak = &a[l1->off + k];
+						if ((int32_t)ak->x > l0->re && (int32_t)ak->y > l0->qe)
+							break;
+					}
+					assert(k < l1->cnt);
+					t->cnt += l1->cnt - k, t->score += l1->score;
+					memcpy(&gc->a[n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
+					n_a += l1->cnt - k;
 				}
-				if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-				copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
 			}
 			gc->gc[k].cnt = n_tmp - s_tmp;
 			++k, s_tmp = n_tmp;

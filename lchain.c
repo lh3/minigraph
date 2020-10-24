@@ -225,7 +225,8 @@ static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, flo
 	return sc;
 }
 
-mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
+mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a,
+					   int *n_u_, uint64_t **_u, void *km)
 {
 	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0;
 	int64_t *p, i, st = 0, st_inner = 0, n_iter = 0;

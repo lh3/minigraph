@@ -142,7 +142,6 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					s = (int32_t)(qd * a_dens + .499);
 					s = s > c? s : c;
 				}
-				//if ((int32_t)q->x > 36598223 && (int32_t)q->x < 36600923) fprintf(stderr, "X\t%d\t%d\t%d\t%d\n", (int32_t)q->x, (int32_t)q->y, s, c);
 				sc[j - 1] = s;
 				meta[j-1] = (uint64_t)pd<<32 | off_l0;
 			}

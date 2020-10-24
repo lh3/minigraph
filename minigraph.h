@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.11-r381-dirty"
+#define MG_VERSION "0.11-r383-dirty"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -90,7 +90,7 @@ typedef struct {
 } mg_idx_t;
 
 typedef struct {
-	int32_t off, cnt;
+	int32_t off, cnt:31, inner_pre:1;
 	uint32_t v;
 	int32_t rs, re, qs, qe;
 	int32_t score, dist_pre;
