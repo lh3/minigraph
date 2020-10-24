@@ -420,8 +420,9 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 		}
 		st += nui;
 	}
-	assert(n_a == gc->n_a);
+	assert(n_a <= gc->n_a);
 
+	gc->n_a = n_a;
 	gc->n_lc = n_tmp;
 	KMALLOC(km_dst, gc->lc, n_tmp);
 	memcpy(gc->lc, tmp, n_tmp * sizeof(mg_llchain_t));
