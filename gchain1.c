@@ -81,10 +81,12 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 	for (i = n_ext = 0; i < n_lc; ++i) { // a[] is a view of frag[]; for sorting
 		mg_lchain_t *r = &lc[i];
 		gc_frag_t *ai = &a[i];
-		int32_t is_isolated = 0;
+		int32_t is_isolated = 0, min_end_dist_g;
 		r->dist_pre = -1;
-		if (r->rs > max_dist_g && g->seg[r->v>>1].len - r->re > max_dist_g)
-			is_isolated = 1;
+		min_end_dist_g = g->seg[r->v>>1].len - r->re;
+		if (r->rs < min_end_dist_g) min_end_dist_g = r->rs;
+		if (min_end_dist_g > max_dist_g) is_isolated = 1; // if too far from segment ends
+		else if (min_end_dist_g>>8 > r->score) is_isolated = 1; // if the lchain too small relative to distance to the segment ends
 		ai->srt = (uint32_t)is_isolated<<31 | r->qe;
 		ai->i = i;
 		if (!is_isolated) ++n_ext;
@@ -413,7 +415,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 					t->cnt += l1->cnt - k, t->score += l1->score;
 					memcpy(&gc->a[n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
 					n_a += l1->cnt - k;
-					#else
+					#else // don't use this block; for debugging only
 					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 					copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
 					#endif
