@@ -256,13 +256,12 @@ Paired-end mapping is not supported.
 .B asm
 Mapping long contigs or high-quality CCS reads
 .RB ( -k19
-.B -w10 -j.01 -g10k -r10k -n5,3 -m1000,40
-.BR --min-cov-blen=50k ).
+.B -w10 -j.01 -g100k -r100k --max-gap-pre=10k -n5,3 -m1000,40 -K4g --max-lc-skip=50 --max-gc-skip=50 --min-cov-mapq=5
+.BR --min-cov-blen=100k ).
 .TP
 .B ggs
 Simple algorithm for incremental graph generation
-.RB ( -k19
-.B -w10 -j.01 -g10k -r10k -n5,3 -m1000,40
+.RB ( -xasm
 .BR --ggen=simple ).
 .RE
 .SS Miscellaneous options

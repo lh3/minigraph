@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset []\n");
 		fprintf(fp_help, "                 - lr: noisy long read mapping (the default)\n");
-		fprintf(fp_help, "                 - asm20: asm-to-ref mapping, for ~5%% sequence divergence\n");
+		fprintf(fp_help, "                 - asm: asm-to-ref mapping\n");
 		fprintf(fp_help, "                 - sr: short reads\n");
 		fprintf(fp_help, "                 - ggs: simple algorithm for graph generation\n");
 		return fp_help == stdout? 0 : 1;
