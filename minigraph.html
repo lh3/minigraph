@@ -150,15 +150,17 @@ consecutive k-mers.
 
 <BLOCKQUOTE>
 <TABLE cellpadding=3>
-<TR valign=top><TD width=10% nowrap>
-<B>-U</B><I> INT</I> </TD><TD valign=bottom>
-Ignore minimizers with occurrences above
-<I>INT</I> [100]
+<TR valign=top><TD colspan=2>
+<B>-U</B><I> INT1</I><B>[,</B><I>INT2</I><B>]</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Choose the minimizer occurrence threshold within this interval [50,250]
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-f</B><I> FLOAT</I> </TD><TD valign=bottom>
 Ignore top
-<I>FLOAT</I> fraction of repetitive minimizers [0.0002]
+<I>FLOAT</I> fraction of repetitive minimizers [0.0002]. If this threshold falls within the
+interval set by
+<B>-U</B>, it will be the final threshold; otherwise the lower or the upper bound of
+<B>-U</B> will be applied.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-j</B><I> FLOAT</I> </TD><TD valign=bottom>
@@ -217,6 +219,23 @@ Similar to
 <B>-g</B> but used for prefiltering [1000]
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<B>--max-lc-iter</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+max number of iterations for linear chaining [10000]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--max-rmq-size</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+max size of the RMQ tree [100000]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--max-lc-skip</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+A heuristics that stops linear chaining early [25]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--max-gc-skip</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Similar to
+<B>--max-lc-skip</B> but applied to graph chaining [25]
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <B>--ref-bonus</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Bonus for a reference subwalk [0]
 </TD></TR>
@@ -269,16 +288,16 @@ Minimum chain length for depth calculation [10k]
 Minimum insertion length [250]
 </TD></TR>
 <TR valign=top><TD colspan=2>
-<B>--gg-vkiden</B><I> FLOAT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
-Maximum k-mer identity [0.7]
-</TD></TR>
-<TR valign=top><TD colspan=2>
 <B>--gg-match-pen</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Penalty for a pair of matching anchors [5]. Larger value for more fragmented inserts.
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--ins-qovlp</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
-Forcefully resolve query overlaps [yes]
+Forcefully resolve query overlaps [no]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--inv</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Generate graphs with inversions or not [yes]
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=7></A>
@@ -306,6 +325,21 @@ K/M/G/k/m/g suffix is accepted. A large
 <I>NUM</I> helps load balancing in the multi-threading mode, at the cost of increased
 memory. This option has no effect if
 <B>--ggen</B> is applied.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--vc</B> </TD><TD valign=bottom>
+In output GAF, show mapping paths in the unstable segment coordinate.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-S</B> </TD><TD valign=bottom>
+Output linear chains in the format of: &#145;*&#146; segName segLen nMinimizer seqDiv segStart segEnd qStart qEnd
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--write-mz</B> </TD><TD valign=bottom>
+Output linear chains in the format of: &#145;*&#146; segName segLen nMinimizer seqDiv segStart segEnd qStart qEnd
+k-mer segOffsets qOffsets. segOffsets and qOffsets are comma-separated lists
+with each consisting of nMinimizer-1 integers which give the distance from the
+previous minimizer on segments and query, respectively.
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--secondary</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
@@ -343,16 +377,16 @@ Mapping noisy long reads
 <TR valign=top><TD width=8% nowrap>
 <B>sr</B> </TD><TD valign=bottom>
 Mapping short single-end or paired-end reads
-(<B>-k21</B> <B>-w10 -U1000 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes -K50m --frag --ref-bonus=1</B> <B>--min-cov-blen=50</B>). Paired-end mapping is not supported.
+(<B>-k21</B> <B>-w10 -U1000,2500 -g100 -r100 -p.5 -n3,2 -m40,25 --heap-sort=yes -K50m --frag --ref-bonus=1</B> <B>--min-cov-blen=50</B>). Paired-end mapping is not supported.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>asm</B> </TD><TD valign=bottom>
 Mapping long contigs or high-quality CCS reads
-(<B>-k19</B> <B>-w10 -j.01 -g10k -r10k -n5,3 -m1000,40</B> <B>--min-cov-blen=50k</B>). </TD></TR>
+(<B>-k19</B> <B>-w10 -j.01 -g100k -r100k --max-gap-pre=10k -n5,3 -m1000,40 -K4g --max-lc-skip=50 --max-gc-skip=50 --min-cov-mapq=5</B> <B>--min-cov-blen=100k</B>). </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>ggs</B> </TD><TD valign=bottom>
 Simple algorithm for incremental graph generation
-(<B>-k19</B> <B>-w10 -j.01 -g10k -r10k -n5,3 -m1000,40</B> <B>--ggen=simple</B>). </TD></TR>
+(<B>-xasm</B> <B>--ggen=simple</B>). </TD></TR>
 <TR></TR></TABLE></TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=9></A>
@@ -482,4 +516,4 @@ more complex events. Other strategies may be explored in future.
 minimap2(1), gfatools(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minigraph-0.7 (r310)</I></TD> <TD width=33% align=center>minigraph (1)</TD> <TD align=right width=33%><I>21 November 2019</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minigraph-0.12 (r389)</I></TD> <TD width=33% align=center>minigraph (1)</TD> <TD align=right width=33%><I>26 October 2020</I></TD> </TR></TABLE></div></BODY></HTML>
