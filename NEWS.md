@@ -1,3 +1,29 @@
+Release 0.12-r389 (26 October 2020)
+-----------------------------------
+
+Notable changes:
+
+ * Improve alignments towards ends of graph segments. If there is an SV close to
+   the ends but not at the ends, older versions may produce an excessively
+   large bubble including high-identity matches.
+
+ * Heuristically accelerates alignment in complex subgraphs by skipping
+   many unnecessary sequence-aware graph traversals. This speeds up graph
+   generation for CHM13 by three folds without obviously affecting accuracy.
+
+ * Added option --inv to optionally disable inversions. Graph traversal is hard
+   with inversions.
+
+ * Fixed the bug that prevents large -K.
+
+ * Apply option -K4g to the asm preset.
+
+ * Added option --write-mz to output the positions of minimizer anchors.
+
+(26 October 2020, r389)
+
+
+
 Release 0.11-r371 (13 September 2020)
 -------------------------------------
 
