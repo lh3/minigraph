@@ -74,9 +74,6 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					rs = (int32_t)q->x + 1 - (int32_t)(q->y>>32&0xff);
 					q = &gt->a[lc->off + lc->cnt - 1];
 					re = (int32_t)q->x;
-					if (!(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len)) {
-						fprintf(stderr, "query=%d,rs=%d,re=%d,len=%d,node=%c%s\n", i, rs, re, g->seg[lc->v>>1].len, "><"[lc->v&1], g->seg[lc->v>>1].name);
-					}
 					assert(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len);
 					sum_alen += re - rs, sum_acnt += (q->x>>32) - (gt->a[lc->off].x>>32) + 1;
 					if (lc->v&1)
