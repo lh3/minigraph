@@ -229,7 +229,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 					   int *n_u_, uint64_t **_u, void *km)
 {
 	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0;
-	int64_t *p, i, i0, st = 0, st_inner = 0, n_iter = 0;
+	int64_t *p, i, st = 0, st_inner = 0, n_iter = 0;
 	uint64_t *u;
 	lc_elem_t *root = 0, *root_inner = 0;
 	void *mem_mp = 0;
@@ -246,7 +246,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 	mp = kmp_init_rmq(mem_mp);
 
 	// fill the score and backtrack arrays
-	for (i = i0 = 0; i < n; ++i) {
+	for (i = 0; i < n; ++i) {
 		int64_t max_j = -1;
 		int32_t q_span = a[i].y>>32&0xff, max_f = q_span;
 		lc_elem_t s, *q, *r, lo, hi;
@@ -306,25 +306,20 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 			}
 		}
 		// add
-		if (i0 < i && a[i0].x != a[i].x) {
-			int64_t j;
-			for (j = i0; j < i; ++j) {
-				q = kmp_alloc_rmq(mp);
-				q->y = (int32_t)a[j].y, q->i = j, q->pri = -(max_f + 0.5 * chn_pen_gap * ((int32_t)a[j].x + (int32_t)a[j].y));
-				krmq_insert(lc_elem, &root, q, 0);
-				if (max_dist_inner > 0) {
-					r = kmp_alloc_rmq(mp);
-					*r = *q;
-					krmq_insert(lc_elem, &root_inner, r, 0);
-				}
-			}
-			i0 = i;
+		q = kmp_alloc_rmq(mp);
+		q->y = (int32_t)a[i].y, q->i = i, q->pri = -(max_f + 0.5 * chn_pen_gap * ((int32_t)a[i].x + (int32_t)a[i].y));
+		krmq_insert(lc_elem, &root, q, 0);
+		if (max_dist_inner > 0) {
+			r = kmp_alloc_rmq(mp);
+			*r = *q;
+			krmq_insert(lc_elem, &root_inner, r, 0);
 		}
 		// set max
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 		if (mmax_f < max_f) mmax_f = max_f;
 		if (max_rmq_size < krmq_size(head, root)) max_rmq_size = krmq_size(head, root);
+		//fprintf(stderr, "XX\t%d\t%d\n", krmq_size(head, root), krmq_size(head, root_inner));
 	}
 	if (mg_dbg_flag & MG_DBG_LC_PROF) fprintf(stderr, "LP\tn_iter=%ld\tmmax_f=%d\trmq_size=%d\tmp_max=%ld\n", (long)n_iter, mmax_f, max_rmq_size, mp->max);
 	km_destroy(mem_mp);
