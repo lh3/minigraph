@@ -72,7 +72,7 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->gapo = 4, go->gapo2 = 24;
 	go->gape = 2, go->gape2 = 1;
 	go->ggs_max_iden = 0.80f;
-	go->ggs_min_inv_iden = 0.98f;
+	go->ggs_min_inv_iden = 0.95f;
 }
 
 int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t *go)
