@@ -834,6 +834,7 @@ function mg_cmd_extractseg(args)
 				ctg = t[0];
 			} else if (!flt) {
 				var s = t[1].substr(1);
+				t[7] = parseInt(t[7]), t[8] = parseInt(t[8]);
 				if (s == seg[0] && t[3] != '0') {
 					if (first[0] == null) first[0] = t.slice(0);
 					last[0] = t.slice(0);
