@@ -794,21 +794,24 @@ function mg_cmd_sveval(args)
 
 function mg_cmd_extractseg(args)
 {
-	function process(ctg, first, last) {
+	function process(ctg, first, last, is_end) {
 		if (ctg == null || first[0] == null || first[1] == null) return;
 		if (first[0][7] == first[1][7]) return;
 		if (first[0][7] < first[1][7]) {
 			if (last[0][7] >= first[1][7]) return;
-			print(ctg, last[0][8], first[1][7], '*', 0, '+');
+			if (is_end) print(ctg, last[0][8], first[1][7], '*', 0, '+');
+			else print(ctg, last[0][7], first[1][8], '*', 0, '+');
 		} else {
 			if (last[1][7] >= first[0][7]) return;
-			print(ctg, last[1][8], first[0][7], '*', 0, '-');
+			if (is_end) print(ctg, last[1][8], first[0][7], '*', 0, '-');
+			else print(ctg, last[1][7], first[0][8], '*', 0, '-');
 		}
 	}
 
-	var c, min_len = 100000;
-	while ((c = getopt(args, "l:")) != null) {
+	var c, min_len = 100000, is_end = false;
+	while ((c = getopt(args, "el:")) != null) {
 		if (c == 'l') min_len = parseInt(getopt.arg);
+		else if (c == 'e') is_end = true;
 	}
 	if (args.length - getopt.ind < 3) {
 		print("Usage: mgutils.js extractseg <seg1> <seg2> <in.gaf> [...]");
@@ -824,7 +827,7 @@ function mg_cmd_extractseg(args)
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
 			if (t[0] != "*") {
-				process(ctg, first, last);
+				process(ctg, first, last, is_end);
 				flt = (parseInt(t[3]) - parseInt(t[2]) < min_len || parseInt(t[8]) - parseInt(t[7]) < min_len);
 				first = [null, null];
 				last = [null, null];
@@ -840,7 +843,7 @@ function mg_cmd_extractseg(args)
 				}
 			}
 		}
-		process(ctg, first, last);
+		process(ctg, first, last, is_end);
 		file.close();
 	}
 	buf.destroy();
