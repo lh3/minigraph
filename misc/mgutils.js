@@ -792,6 +792,60 @@ function mg_cmd_sveval(args)
 	print("PI", fp[2], n_rst[2], (fp[2]/n_rst[2]).toFixed(4));
 }
 
+function mg_cmd_extractseg(args)
+{
+	function process(ctg, first, last) {
+		if (ctg == null || first[0] == null || first[1] == null) return;
+		if (first[0][7] == first[1][7]) return;
+		if (first[0][7] < first[1][7]) {
+			if (last[0][7] >= first[1][7]) return;
+			print(ctg, last[0][8], first[1][7], '*', 0, '+');
+		} else {
+			if (last[1][7] >= first[0][7]) return;
+			print(ctg, last[1][8], first[0][7], '*', 0, '-');
+		}
+	}
+
+	var c, min_len = 100000;
+	while ((c = getopt(args, "l:")) != null) {
+		if (c == 'l') min_len = parseInt(getopt.arg);
+	}
+	if (args.length - getopt.ind < 3) {
+		print("Usage: mgutils.js extractseg <seg1> <seg2> <in.gaf> [...]");
+		return;
+	}
+
+	var seg = [args[getopt.ind], args[getopt.ind+1]];
+	var buf = new Bytes();
+	for (var i = getopt.ind + 2; i < args.length; ++i) {
+		var file = new File(args[i]);
+		var flt = false;
+		var first = [null, null], last = [null, null], ctg = null;
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			if (t[0] != "*") {
+				process(ctg, first, last);
+				flt = (parseInt(t[3]) - parseInt(t[2]) < min_len || parseInt(t[8]) - parseInt(t[7]) < min_len);
+				first = [null, null];
+				last = [null, null];
+				ctg = t[0];
+			} else if (!flt) {
+				var s = t[1].substr(1);
+				if (s == seg[0] && t[3] != '0') {
+					if (first[0] == null) first[0] = t.slice(0);
+					last[0] = t.slice(0);
+				} else if (s == seg[1] && t[3] != '0') {
+					if (first[1] == null) first[1] = t.slice(0);
+					last[1] = t.slice(0);
+				}
+			}
+		}
+		process(ctg, first, last);
+		file.close();
+	}
+	buf.destroy();
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -805,6 +859,7 @@ function main(args)
 		print("  renamefa     add a prefix to sequence names in FASTA");
 		print("  paf2bl       blacklist regions from insert-to-ref alignment");
 		print("  anno         annotate short sequences");
+		print("  extractseg   extract a segment from GAF");
 		//print("  subgaf       extract GAF overlapping with a region (BUGGY)");
 		//print("  sveval       evaluate SV accuracy");
 		exit(1);
@@ -818,6 +873,7 @@ function main(args)
 	else if (cmd == 'sveval') mg_cmd_sveval(args);
 	else if (cmd == 'joinfa') mg_cmd_joinfa(args);
 	else if (cmd == 'stableGaf') mg_cmd_stableGaf(args);
+	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
