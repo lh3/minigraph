@@ -1,3 +1,15 @@
+Release 0.13-r397 (3 December 2020)
+-----------------------------------
+
+Notable change:
+
+ * Fixed incorrect anchors in linear chains. In older versions, a linear chain
+   may contain two anchors with identical reference or query coordinates.
+
+(3 December 2020, r397)
+
+
+
 Release 0.12-r389 (26 October 2020)
 -----------------------------------
 
