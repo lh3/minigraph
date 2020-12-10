@@ -27,6 +27,7 @@
 #define MG_M_NO_DIAG      0x400000
 #define MG_M_WRITE_LCHAIN 0x800000
 #define MG_M_WRITE_MZ     0x1000000
+#define MG_M_CALL         0x2000000
 
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1
