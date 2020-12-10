@@ -7,20 +7,12 @@
 #include "sys.h"
 #include "ggen.h"
 
-/**********************
- * Graph augmentation *
- **********************/
-
-void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
+int32_t mg_gc_index(void *km, int min_mapq, int min_map_len, int min_depth_len, const gfa_t *g, int32_t n_seq, mg_gchains_t *const* gcs,
+					double *a_dens, int32_t **soff_, int32_t **qoff_, mg_intv_t **sintv_, mg_intv_t **qintv_)
 {
-	int32_t t, i, j, *scnt, *soff, *qcnt, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins, n_inv;
-	int32_t l_pseq, m_pseq;
+	int32_t t, i, j, max_acnt, *scnt, *soff, *qcnt, *qoff;
 	int64_t sum_acnt, sum_alen;
-	uint64_t *meta;
 	mg_intv_t *sintv, *qintv;
-	double a_dens;
-	gfa_ins_t *ins;
-	char *pseq;
 
 	// count the number of intervals on each segment
 	KCALLOC(km, scnt, g->n_seg);
@@ -30,7 +22,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 		for (i = 0; i < gt->n_gc; ++i) {
 			const mg_gchain_t *gc = &gt->gc[i];
 			if (gc->id != gc->parent) continue;
-			if (gc->blen < opt->min_depth_len || gc->mapq < opt->min_mapq) continue;
+			if (gc->blen < min_depth_len || gc->mapq < min_mapq) continue;
 			if (gc->n_anchor > max_acnt) max_acnt = gc->n_anchor;
 			++qcnt[t];
 			for (j = 0; j < gc->cnt; ++j)
@@ -39,7 +31,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 	}
 	if (max_acnt == 0) { // no gchain
 		kfree(km, scnt); kfree(km, qcnt);
-		return;
+		return 0;
 	}
 
 	// compute soff[] and qoff[]
@@ -62,7 +54,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 			const mg_gchain_t *gc = &gt->gc[i];
 			mg_intv_t *p;
 			if (gc->id != gc->parent) continue;
-			if (gc->blen < opt->min_depth_len || gc->mapq < opt->min_mapq) continue;
+			if (gc->blen < min_depth_len || gc->mapq < min_mapq) continue;
 			p = &qintv[qoff[t] + qcnt[t]];
 			++qcnt[t];
 			p->st = gc->qs, p->en = gc->qe, p->rev = 0, p->far = -1, p->i = -1;
@@ -86,7 +78,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 			}
 		}
 	}
-	a_dens = (double)sum_acnt / sum_alen;
+	*a_dens = (double)sum_acnt / sum_alen;
 
 	// sort and index intervals
 	for (i = 0; i < g->n_seg; ++i) {
@@ -99,6 +91,28 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 		mg_intv_index(qoff[i+1] - qoff[i], &qintv[qoff[i]]);
 	}
 	kfree(km, qcnt);
+
+	*sintv_ = sintv, *qintv_ = qintv;
+	*soff_ = soff, *qoff_ = qoff;
+	return max_acnt;
+}
+
+/**********************
+ * Graph augmentation *
+ **********************/
+
+void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
+{
+	int32_t t, i, j, *soff, *qoff, max_acnt, *sc, m_ovlp = 0, *ovlp = 0, n_ins, m_ins, n_inv;
+	int32_t l_pseq, m_pseq;
+	uint64_t *meta;
+	mg_intv_t *sintv, *qintv;
+	double a_dens;
+	gfa_ins_t *ins;
+	char *pseq;
+
+	max_acnt = mg_gc_index(km, opt->min_mapq, opt->min_map_len, opt->min_depth_len, g, n_seq, gcs, &a_dens, &soff, &qoff, &sintv, &qintv);
+	if (max_acnt == 0) return;
 
 	// extract poorly regions
 	m_pseq = l_pseq = 0, pseq = 0;
