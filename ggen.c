@@ -119,9 +119,23 @@ int mg_ggen_cov(gfa_t *g, int32_t n_fn, const char **fn, const mg_idxopt_t *ipt,
 	return 0;
 }
 
+int mg_ggen_call(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt0, const mg_ggopt_t *go, int n_threads)
+{
+	mg_mapopt_t opt = *opt0;
+	mg_idx_t *gi;
+	maprst_t *r;
+	if ((gi = mg_index(g, ipt, n_threads, &opt)) == 0) return -1;
+	r = ggen_map(gi, &opt, fn, n_threads);
+	mg_call_asm(g, r->n_seq, r->gcs, go->min_mapq, go->min_map_len);
+	mg_free_maprst(r);
+	mg_idx_destroy(gi);
+	return 0;
+}
+
 int mg_ggen(gfa_t *g, int32_t n_fn, const char **fn, const mg_idxopt_t *ipt, const mg_mapopt_t *opt, const mg_ggopt_t *go, int n_threads)
 {
-	if (go->flag & MG_G_CAL_COV) return mg_ggen_cov(g, n_fn, fn, ipt, opt, go, n_threads);
+	if (go->flag & MG_G_CALL) return mg_ggen_call(g, fn[0], ipt, opt, go, n_threads);
+	else if (go->flag & MG_G_CAL_COV) return mg_ggen_cov(g, n_fn, fn, ipt, opt, go, n_threads);
 	else return mg_ggen_aug(g, n_fn, fn, ipt, opt, go, n_threads);
 }
 

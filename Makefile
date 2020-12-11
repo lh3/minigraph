@@ -2,10 +2,10 @@ CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -std=c99 -O2
 CPPFLAGS=
 INCLUDES=
-OBJS=		kalloc.o kthread.o algo.o sys.o gfa-base.o gfa-io.o gfa-aug.o \
+OBJS=		kalloc.o kthread.o algo.o sys.o gfa-base.o gfa-io.o gfa-aug.o bubble.o \
             sketch.o misc.o bseq.o options.o fastcmp.o shortk.o \
 			index.o lchain.o gchain1.o gcmisc.o map-algo.o cal_cov.o \
-			format.o gmap.o ksw2_extd2_sse.o ggsimple.o ggen.o
+			format.o gmap.o ksw2_extd2_sse.o ggsimple.o ggen.o asm-call.o
 PROG=		minigraph
 LIBS=		-lz -lpthread -lm
 
@@ -34,7 +34,9 @@ depend:
 # DO NOT DELETE
 
 algo.o: kalloc.h algo.h kvec.h ksort.h
+asm-call.o: mgpriv.h minigraph.h gfa.h
 bseq.o: bseq.h kvec.h kalloc.h kseq.h
+bubble.o: gfa-priv.h gfa.h kalloc.h ksort.h kvec.h
 cal_cov.o: mgpriv.h minigraph.h gfa.h gfa-priv.h algo.h kalloc.h
 fastcmp.o: mgpriv.h minigraph.h gfa.h algo.h kalloc.h ksw2.h
 format.o: kalloc.h mgpriv.h minigraph.h gfa.h
@@ -43,6 +45,7 @@ gcmisc.o: mgpriv.h minigraph.h gfa.h kalloc.h
 gfa-aug.o: gfa-priv.h gfa.h ksort.h
 gfa-base.o: gfa-priv.h gfa.h kstring.h khash.h kalloc.h ksort.h
 gfa-io.o: kstring.h gfa-priv.h gfa.h kseq.h
+gfa-sub.o: gfa-priv.h gfa.h kalloc.h ksort.h kvec.h
 ggen.o: kthread.h kalloc.h sys.h bseq.h ggen.h minigraph.h gfa.h mgpriv.h
 ggen.o: gfa-priv.h
 ggsimple.o: mgpriv.h minigraph.h gfa.h gfa-priv.h kalloc.h bseq.h algo.h

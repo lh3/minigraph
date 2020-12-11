@@ -33,10 +33,13 @@ typedef struct {
 	int32_t snid, ss, se;
 	uint32_t vs, ve;
 	int32_t is_bidir, n_seg, len_max, len_min;
-	float cf_max, cf_min;
-	uint32_t *v;
+	float cf_max, cf_min, cf_ref;
+	uint32_t *v, n_paths;
 	char *seq_max, *seq_min; // seq_max and seq_min point to v[]
 } gfa_bubble_t;
+
+struct gfa_scbuf_s;
+typedef struct gfa_scbuf_s gfa_scbuf_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,6 +82,7 @@ int gfa_topocut(gfa_t *g, float drop_ratio, int32_t tip_cnt, int32_t tip_len);
 int gfa_bub_simple(gfa_t *g, int min_side, int max_side);
 int gfa_pop_bubble(gfa_t *g, int radius, int max_del, int protect_tip); // bubble popping
 gfa_t *gfa_ug_gen(const gfa_t *g);
+void gfa_scc_all(const gfa_t *g);
 
 // subset, modifying the graph
 void gfa_sub(gfa_t *g, int n, char *const* seg, int step);
@@ -88,6 +92,10 @@ gfa_sub_t *gfa_sub_from(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist
 void gfa_sub_destroy(gfa_sub_t *sub);
 void gfa_sub_print(FILE *fp, const gfa_t *g, const gfa_sub_t *sub);
 
+gfa_scbuf_t *gfa_scbuf_init(const gfa_t *g);
+gfa_sub_t *gfa_scc1(void *km0, const gfa_t *g, gfa_scbuf_t *b, uint32_t v0);
+void gfa_scbuf_destroy(gfa_scbuf_t *b);
+
 // graph augmentation
 int gfa_ins_adj(const gfa_t *g, int min_len, gfa_ins_t *ins, const char *seq);
 int32_t gfa_ins_filter(const gfa_t *g, int32_t n_ins, gfa_ins_t *ins);
@@ -95,6 +103,7 @@ void gfa_augment(gfa_t *g, int32_t n_ins, const gfa_ins_t *ins, int32_t n_ctg, c
 
 gfa_sfa_t *gfa_gfa2sfa(const gfa_t *g, int32_t *n_sfa_, int32_t write_seq);
 
+void gfa_sort_ref_arc(gfa_t *g);
 gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_); // FIXME: doesn't work with translocation
 
 void gfa_gt_simple_print(const gfa_t *g, float min_dc, int32_t is_path); // FIXME: doesn't work with translocations

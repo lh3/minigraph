@@ -27,7 +27,6 @@
 #define MG_M_NO_DIAG      0x400000
 #define MG_M_WRITE_LCHAIN 0x800000
 #define MG_M_WRITE_MZ     0x1000000
-#define MG_M_CALL         0x2000000
 
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1
@@ -35,6 +34,7 @@
 #define MG_G_NO_QOVLP     0x1
 #define MG_G_CAL_COV      0x2
 #define MG_G_NO_INV       0x4
+#define MG_G_CALL         0x8
 
 typedef struct { uint64_t x, y; } mg128_t;
 typedef struct { size_t n, m; mg128_t *a; } mg128_v;

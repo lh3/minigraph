@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 		else if (c == 323) opt.max_lc_iter = mg_parse_num(o.arg);  // --max-lc-iter
 		else if (c == 324) opt.max_rmq_size = mg_parse_num(o.arg); // --max-rmq-size
 		else if (c == 326) opt.flag |= MG_M_WRITE_MZ | MG_M_WRITE_LCHAIN; // --write-mz
-		else if (c == 327) opt.flag |= MG_M_CALL; // --call
+		else if (c == 327) gpt.flag |= MG_G_CALL; // --call
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain

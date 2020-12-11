@@ -112,6 +112,8 @@ void mg_gchain_set_mapq(void *km, mg_gchains_t *gcs, int qlen, int max_mini, int
 void mg_cov_map(const gfa_t *g, const mg_gchains_t *gt, int32_t min_mapq, int32_t min_blen, double *c_seg, double *c_link, const char *qname);
 void mg_cov_asm(const gfa_t *g, int32_t n_seq, mg_gchains_t *const *gcs, int32_t min_mapq, int32_t min_blen, double *cov_seg, double *cov_link);
 
+void mg_call_asm(const gfa_t *g, int32_t n_seq, mg_gchains_t *const *gcs, int32_t min_mapq, int32_t min_blen);
+
 void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t *lc, const mg128_t *a, const char *qname);
 void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t n_seg, const int32_t *qlens, const char *qname, uint64_t flag, void *km);
 
