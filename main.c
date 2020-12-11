@@ -255,13 +255,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[M::%s::%.3f*%.2f] loaded the graph from \"%s\"\n", __func__, realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), argv[o.ind]);
 	}
 
-	if (gpt.algo == MG_G_NONE) {
+	if (gpt.algo == MG_G_NONE && !(gpt.flag & MG_G_CALL)) {
 		ret = mg_map_files(g, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &ipt, &opt, n_threads);
 	} else {
 		ret = mg_ggen(g, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &ipt, &opt, &gpt, n_threads);
 	}
 
-	if (gpt.algo != MG_G_NONE || (opt.flag & MG_M_CAL_COV))
+	if ((gpt.algo != MG_G_NONE || (opt.flag & MG_M_CAL_COV)) && !(gpt.flag & MG_G_CALL))
 		gfa_print(g, stdout, 0);
 	gfa_destroy(g);
 
