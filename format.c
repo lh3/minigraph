@@ -23,7 +23,7 @@ static inline void str_copy(kstring_t *s, const char *st, const char *en)
 	s->l += en - st;
 }
 
-static void mg_sprintf_lite(kstring_t *s, const char *fmt, ...)
+void mg_sprintf_lite(kstring_t *s, const char *fmt, ...)
 {
 	char buf[16]; // for integer to string conversion
 	const char *p, *q;

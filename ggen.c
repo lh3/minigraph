@@ -126,7 +126,7 @@ int mg_ggen_call(gfa_t *g, const char *fn, const mg_idxopt_t *ipt, const mg_mapo
 	maprst_t *r;
 	if ((gi = mg_index(g, ipt, n_threads, &opt)) == 0) return -1;
 	r = ggen_map(gi, &opt, fn, n_threads);
-	mg_call_asm(g, r->n_seq, r->gcs, go->min_mapq, go->min_map_len);
+	mg_call_asm(g, r->n_seq, r->seq, r->gcs, go->min_mapq, go->min_map_len);
 	mg_free_maprst(r);
 	mg_idx_destroy(gi);
 	return 0;
