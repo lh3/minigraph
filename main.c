@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 		else if (c == 312) opt.flag |= MG_M_NO_COMP_PATH;     // --no-comp-path
 		else if (c == 313) gpt.match_pen = atoi(o.arg);       // --gg-match-pen
 		else if (c == 314) opt.flag |= MG_M_FRAG_MODE | MG_M_FRAG_MERGE;       // --frag
-		else if (c == 315) opt.flag |= MG_M_CAL_COV, gpt.flag |= MG_G_CAL_COV; // --cov
+		else if (c == 315) opt.flag |= MG_M_CAL_COV | MG_M_SKIP_GCHECK, gpt.flag |= MG_G_CAL_COV; // --cov
 		else if (c == 316) opt.min_cov_blen = mg_parse_num(o.arg);             // --min-cov-blen
 		else if (c == 317) opt.min_cov_mapq = atoi(o.arg);                     // --min-cov-mapq
 		else if (c == 318) opt.chn_pen_gap = atof(o.arg);     // --gap-pen
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
 		else if (c == 323) opt.max_lc_iter = mg_parse_num(o.arg);  // --max-lc-iter
 		else if (c == 324) opt.max_rmq_size = mg_parse_num(o.arg); // --max-rmq-size
 		else if (c == 326) opt.flag |= MG_M_WRITE_MZ | MG_M_WRITE_LCHAIN; // --write-mz
-		else if (c == 327) gpt.flag |= MG_G_CALL; // --call
+		else if (c == 327) gpt.flag |= MG_G_CALL, opt.flag |= MG_M_SKIP_GCHECK; // --call
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain

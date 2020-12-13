@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.13-r407-dirty"
+#define MG_VERSION "0.13-r408-dirty"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -27,6 +27,7 @@
 #define MG_M_NO_DIAG      0x400000
 #define MG_M_WRITE_LCHAIN 0x800000
 #define MG_M_WRITE_MZ     0x1000000
+#define MG_M_SKIP_GCHECK  0x2000000
 
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1

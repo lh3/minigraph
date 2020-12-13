@@ -40,6 +40,7 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 			ca[b->v[j]>>1].bid = i;
 		ca[b->v[0]>>1].is_stem = ca[b->v[b->n_seg-1]>>1].is_stem = 1;
 		ca[b->v[0]>>1].is_src = 1;
+		ba[i].t = -1;
 	}
 
 	for (t = 0; t < n_seq; ++t) {
@@ -58,7 +59,7 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 					// test overlap on the query
 					span = gt->a[gt->lc[st].off].y >> 32 & 0xff;
 					qs = (int32_t)gt->a[gt->lc[st].off].y + 1 - span;
-					qe = (int32_t)gt->a[gt->lc[en - 1].off].y + 1;
+					qe = (int32_t)gt->a[gt->lc[en - 1].off + gt->lc[en - 1].cnt - 1].y + 1;
 					n_ovlp = mg_intv_overlap(0, qoff[t+1] - qoff[t], &qintv[qoff[t]], qs, qe, &ovlp, &m_ovlp);
 					if (n_ovlp > 1) continue; // overlap on the query - not orthologous
 					// test overlap on the graph
@@ -74,10 +75,14 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 					if (ca[gt->lc[st-1].v>>1].bid < ca[gt->lc[en].v>>1].bid)
 						bid = ca[gt->lc[st-1].v>>1].bid, strand = 1;
 					else bid = ca[gt->lc[en].v>>1].bid, strand = -1;
-					for (k = st; k < en; ++k) // sanity check
+					for (k = st; k < en; ++k) // check consistency
 						if (ca[gt->lc[k].v>>1].bid != bid)
 							break;
-					assert(k == en);
+					if (k != en) { // this may happen around an inversion towards the end of an alignment chain
+						fprintf(stderr, "[W::%s] folded inversion alignment around %c%s <=> %s:%d-%d\n",
+								__func__, "><"[gt->lc[st].v&1], g->seg[gt->lc[st].v>>1].name, seq[t].name, qs, qe);
+						continue;
+					}
 					p = &ba[bid];
 					p->t = t, p->i = i, p->st = st, p->en = en, p->strand = strand;
 				}
@@ -93,22 +98,26 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 		out.l = 0;
 		mg_sprintf_lite(&out, "%s\t%d\t%d\t%c%s\t%c%s\t", g->sseq[b->snid].name, b->ss, b->se, "><"[b->v[0]&1], g->seg[b->v[0]>>1].name,
 						"><"[b->v[b->n_seg-1]&1], g->seg[b->v[b->n_seg-1]>>1].name);
-		for (j = a->st; j < a->en; ++j)
-			len += g->seg[gcs[a->t]->lc[j].v>>1].len;
-		if (a->st == a->en) {
-			mg_sprintf_lite(&out, "*");
-		} else if (ba->strand > 0) {
+		if (a->t >= 0) {
 			for (j = a->st; j < a->en; ++j)
-				mg_sprintf_lite(&out, "%c%s", "><"[gt->lc[j].v&1], g->seg[gt->lc[j].v>>1].name);
+				len += g->seg[gcs[a->t]->lc[j].v>>1].len;
+			if (a->st == a->en) {
+				mg_sprintf_lite(&out, "*");
+			} else if (ba->strand > 0) {
+				for (j = a->st; j < a->en; ++j)
+					mg_sprintf_lite(&out, "%c%s", "><"[gt->lc[j].v&1], g->seg[gt->lc[j].v>>1].name);
+			} else {
+				for (j = a->en - 1; j >= a->st; --j)
+					mg_sprintf_lite(&out, "%c%s", "<>"[gt->lc[j].v&1], g->seg[gt->lc[j].v>>1].name);
+			}
+			mg_sprintf_lite(&out, ":%d:%c:%s", len, a->strand > 0? '+' : '-', seq[a->t].name);
+			span = gt->a[gt->lc[a->st - 1].off].y >> 32 & 0xff;
+			st = (int32_t)gt->a[gt->lc[a->st - 1].off + gt->lc[a->st - 1].cnt - 1].y + 1 - span;
+			en = (int32_t)gt->a[gt->lc[a->en].off].y + 1;
+			mg_sprintf_lite(&out, ":%d:%d", st, en);
 		} else {
-			for (j = a->en - 1; j >= a->st; --j)
-				mg_sprintf_lite(&out, "%c%s", "<>"[gt->lc[j].v&1], g->seg[gt->lc[j].v>>1].name);
+			mg_sprintf_lite(&out, ".");
 		}
-		mg_sprintf_lite(&out, ":%d:%c:%s", len, a->strand > 0? '+' : '-', seq[a->t].name);
-		span = gt->a[gt->lc[a->st - 1].off].y >> 32 & 0xff;
-		st = (int32_t)gt->a[gt->lc[a->st - 1].off + gt->lc[a->st - 1].cnt - 1].y + 1 - span;
-		en = (int32_t)gt->a[gt->lc[a->en].off].y + 1;
-		mg_sprintf_lite(&out, ":%d:%d", st, en);
 		puts(out.s);
 	}
 
