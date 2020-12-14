@@ -81,11 +81,20 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 					}
 					if (k < en) continue;
 
-					// attach to the bubble
+					// determine the bubble ID
 					assert(ca[gt->lc[st-1].v>>1].is_stem && ca[gt->lc[en].v>>1].is_stem);
-					if (ca[gt->lc[st-1].v>>1].bid <= ca[gt->lc[en].v>>1].bid) // <= is necessary for the last bubble on a chromosome
-						bid = ca[gt->lc[st-1].v>>1].bid, strand = 1;
-					else bid = ca[gt->lc[en].v>>1].bid, strand = -1;
+					if (ca[gt->lc[st-1].v>>1].bid < ca[gt->lc[en].v>>1].bid)
+						strand = 1;
+					else if (ca[gt->lc[st-1].v>>1].bid > ca[gt->lc[en].v>>1].bid)
+						strand = -1;
+					else {
+						assert(ca[gt->lc[st-1].v>>1].is_src + ca[gt->lc[en].v>>1].is_src == 1);
+						if (ca[gt->lc[st-1].v>>1].is_src) strand = 1;
+						else strand = -1;
+					}
+					bid = strand > 0? ca[gt->lc[st-1].v>>1].bid : ca[gt->lc[en].v>>1].bid;
+
+					// attach the bubble
 					for (k = st; k < en; ++k) // check consistency
 						if (ca[gt->lc[k].v>>1].bid != bid)
 							break;
