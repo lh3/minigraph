@@ -258,6 +258,7 @@ int main(int argc, char *argv[])
 	if (gpt.algo == MG_G_NONE && !(gpt.flag & MG_G_CALL)) {
 		ret = mg_map_files(g, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &ipt, &opt, n_threads);
 	} else {
+		if (gpt.flag & MG_G_CALL) gfa_sort_ref_arc(g);
 		ret = mg_ggen(g, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &ipt, &opt, &gpt, n_threads);
 	}
 

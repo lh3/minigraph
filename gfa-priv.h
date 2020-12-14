@@ -66,6 +66,7 @@ void gfa_cleanup(gfa_t *g); // permanently delete arcs marked as deleted, sort a
 void gfa_finalize(gfa_t *g);
 int32_t gfa_check_multi(const gfa_t *g);
 uint32_t gfa_fix_multi(gfa_t *g);
+void gfa_sort_ref_arc(gfa_t *g);
 
 int gfa_arc_del_multi_risky(gfa_t *g);
 int gfa_arc_del_asymm_risky(gfa_t *g);
