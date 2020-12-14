@@ -83,7 +83,7 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 
 					// attach to the bubble
 					assert(ca[gt->lc[st-1].v>>1].is_stem && ca[gt->lc[en].v>>1].is_stem);
-					if (ca[gt->lc[st-1].v>>1].bid < ca[gt->lc[en].v>>1].bid)
+					if (ca[gt->lc[st-1].v>>1].bid <= ca[gt->lc[en].v>>1].bid) // <= is necessary for the last bubble on a chromosome
 						bid = ca[gt->lc[st-1].v>>1].bid, strand = 1;
 					else bid = ca[gt->lc[en].v>>1].bid, strand = -1;
 					for (k = st; k < en; ++k) // check consistency
@@ -109,9 +109,10 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 		mg_sprintf_lite(&out, "%s\t%d\t%d\t%c%s\t%c%s\t", g->sseq[b->snid].name, b->ss, b->se, "><"[b->v[0]&1], g->seg[b->v[0]>>1].name,
 						"><"[b->v[b->n_seg-1]&1], g->seg[b->v[b->n_seg-1]>>1].name);
 		if (a->t >= 0) {
+			assert(a->strand != 0);
 			if (a->st == a->en) {
 				mg_sprintf_lite(&out, "*");
-			} else if (ba->strand > 0) {
+			} else if (a->strand > 0) {
 				for (j = a->st; j < a->en; ++j)
 					mg_sprintf_lite(&out, "%c%s", "><"[gt->lc[j].v&1], g->seg[gt->lc[j].v>>1].name);
 			} else {
