@@ -15,6 +15,7 @@ typedef struct {
 typedef struct {
 	int32_t t, i;
 	int32_t st, en, strand;
+	int32_t qs, qe, glen;
 } bbaux_t;
 
 void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const *gcs, int32_t min_mapq, int32_t min_blen)
@@ -52,24 +53,34 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 				const mg_llchain_t *lc = &gt->lc[gc->off + j];
 				if (!ca[lc->v>>1].is_stem && ca[(lc-1)->v>>1].is_stem) {
 					st = gc->off + j;
-				} else if (ca[lc->v>>1].is_stem && !ca[(lc-1)->v>>1].is_stem && st > 0) {
-					int32_t n_ovlp, k, en = gc->off + j, qs, qe, span, bid, strand;
+				} else if ((ca[lc->v>>1].is_stem && !ca[(lc-1)->v>>1].is_stem && st > 0) || (ca[lc->v>>1].is_stem && ca[(lc-1)->v>>1].is_stem)) {
+					int32_t n_ovlp, k, en = gc->off + j, qs, qe, span, bid, strand, glen;
 					bbaux_t *p;
-					assert(en > st);
+
+					// determine the source and sink nodes
+					if (ca[lc->v>>1].is_stem && ca[(lc-1)->v>>1].is_stem) { // two adjacent stems: this is a deletion
+						st = gc->off + j;
+					} else {
+						assert(en > st);
+					}
+
 					// test overlap on the query
 					span = gt->a[gt->lc[st].off].y >> 32 & 0xff;
-					qs = (int32_t)gt->a[gt->lc[st].off].y + 1 - span;
-					qe = (int32_t)gt->a[gt->lc[en - 1].off + gt->lc[en - 1].cnt - 1].y + 1;
+					qs = (int32_t)gt->a[gt->lc[st - 1].off + gt->lc[st - 1].cnt - 1].y + 1; // NB: it is fine even if .cnt==0
+					qe = (int32_t)gt->a[gt->lc[en].off].y + 1 - span;
 					n_ovlp = mg_intv_overlap(0, qoff[t+1] - qoff[t], &qintv[qoff[t]], qs, qe, &ovlp, &m_ovlp);
 					if (n_ovlp > 1) continue; // overlap on the query - not orthologous
+
 					// test overlap on the graph
-					for (k = st; k < en; ++k) {
+					for (k = st, glen = 0; k < en; ++k) {
 						const mg_llchain_t *lk = &gt->lc[k];
 						int32_t seg = lk->v>>1;
 						n_ovlp = mg_intv_overlap(0, soff[seg+1] - soff[seg], &sintv[soff[seg]], 0, g->seg[seg].len, &ovlp, &m_ovlp);
+						glen += g->seg[seg].len;
 						if (n_ovlp > 1) break; // overlap on the graph - not orthoologous
 					}
 					if (k < en) continue;
+
 					// attach to the bubble
 					assert(ca[gt->lc[st-1].v>>1].is_stem && ca[gt->lc[en].v>>1].is_stem);
 					if (ca[gt->lc[st-1].v>>1].bid < ca[gt->lc[en].v>>1].bid)
@@ -84,7 +95,7 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 						continue;
 					}
 					p = &ba[bid];
-					p->t = t, p->i = i, p->st = st, p->en = en, p->strand = strand;
+					p->t = t, p->i = i, p->st = st, p->en = en, p->strand = strand, p->qs = qs, p->qe = qe, p->glen = glen;
 				}
 			}
 		}
@@ -94,13 +105,10 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 		gfa_bubble_t *b = &bb[i];
 		bbaux_t *a = &ba[i];
 		const mg_gchains_t *gt = gcs[a->t];
-		int32_t st = -1, en = -1, len = 0, span;
 		out.l = 0;
 		mg_sprintf_lite(&out, "%s\t%d\t%d\t%c%s\t%c%s\t", g->sseq[b->snid].name, b->ss, b->se, "><"[b->v[0]&1], g->seg[b->v[0]>>1].name,
 						"><"[b->v[b->n_seg-1]&1], g->seg[b->v[b->n_seg-1]>>1].name);
 		if (a->t >= 0) {
-			for (j = a->st; j < a->en; ++j)
-				len += g->seg[gcs[a->t]->lc[j].v>>1].len;
 			if (a->st == a->en) {
 				mg_sprintf_lite(&out, "*");
 			} else if (ba->strand > 0) {
@@ -110,11 +118,7 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 				for (j = a->en - 1; j >= a->st; --j)
 					mg_sprintf_lite(&out, "%c%s", "<>"[gt->lc[j].v&1], g->seg[gt->lc[j].v>>1].name);
 			}
-			mg_sprintf_lite(&out, ":%d:%c:%s", len, a->strand > 0? '+' : '-', seq[a->t].name);
-			span = gt->a[gt->lc[a->st - 1].off].y >> 32 & 0xff;
-			st = (int32_t)gt->a[gt->lc[a->st - 1].off + gt->lc[a->st - 1].cnt - 1].y + 1 - span;
-			en = (int32_t)gt->a[gt->lc[a->en].off].y + 1;
-			mg_sprintf_lite(&out, ":%d:%d", st, en);
+			mg_sprintf_lite(&out, ":%d:%c:%s:%d:%d", a->glen, a->strand > 0? '+' : '-', seq[a->t].name, a->qs, a->qe);
 		} else {
 			mg_sprintf_lite(&out, ".");
 		}
