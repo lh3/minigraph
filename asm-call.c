@@ -88,7 +88,11 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 					else if (ca[gt->lc[st-1].v>>1].bid > ca[gt->lc[en].v>>1].bid)
 						strand = -1;
 					else {
-						assert(ca[gt->lc[st-1].v>>1].is_src + ca[gt->lc[en].v>>1].is_src == 1);
+						if (ca[gt->lc[st-1].v>>1].is_src + ca[gt->lc[en].v>>1].is_src != 1) {
+							fprintf(stderr, "[W::%s] type-1 folded inversion alignment around %c%s <=> %s:%d-%d\n",
+									__func__, "><"[gt->lc[st].v&1], g->seg[gt->lc[st].v>>1].name, seq[t].name, qs, qe);
+							continue;
+						}
 						if (ca[gt->lc[st-1].v>>1].is_src) strand = 1;
 						else strand = -1;
 					}
@@ -99,7 +103,7 @@ void mg_call_asm(const gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchain
 						if (ca[gt->lc[k].v>>1].bid != bid)
 							break;
 					if (k != en) { // this may happen around an inversion towards the end of an alignment chain
-						fprintf(stderr, "[W::%s] folded inversion alignment around %c%s <=> %s:%d-%d\n",
+						fprintf(stderr, "[W::%s] type-2 folded inversion alignment around %c%s <=> %s:%d-%d\n",
 								__func__, "><"[gt->lc[st].v&1], g->seg[gt->lc[st].v>>1].name, seq[t].name, qs, qe);
 						continue;
 					}
