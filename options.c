@@ -62,7 +62,7 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->min_map_len = 100000;
 	go->min_depth_len = 10000;
 	go->min_mapq = 5;
-	go->min_var_len = 100;
+	go->min_var_len = 50;
 	go->match_pen = 10;
 	// for ggs
 	go->ggs_shrink_pen = 9;
