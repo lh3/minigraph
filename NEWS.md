@@ -1,3 +1,17 @@
+Release 0.14-r415 (19 December 2020)
+------------------------------------
+
+Notable changes:
+
+ * Added the `--call` option to find the allele/walk in each bubble.
+
+ * Reduced the default minimum variant length (option `-L`) from 100 to 50 for
+   the consistency with the SV community.
+
+(19 December 2020, r415)
+
+
+
 Release 0.13-r397 (3 December 2020)
 -----------------------------------
 

@@ -225,13 +225,13 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(fp_help, "    -N INT       retain at most INT secondary mappings [%d]\n", opt.best_n);
 		fprintf(fp_help, "    -D           skip self diagonal matches\n");
-		fprintf(fp_help, "    --cov        remap and generate segment and link use frequencies; output GFA\n");
 		fprintf(fp_help, "  Graph generation:\n");
 		fprintf(fp_help, "    --ggen       perform incremental graph generation\n");
 		fprintf(fp_help, "    -q INT       min mapping quality [%d]\n", gpt.min_mapq);
 		fprintf(fp_help, "    -l NUM       min alignment length [%d]\n", gpt.min_map_len);
 		fprintf(fp_help, "    -d NUM       min alignment length for depth calculation [%d]\n", gpt.min_depth_len);
 		fprintf(fp_help, "    -L INT       min variant length [%d]\n", gpt.min_var_len);
+		fprintf(fp_help, "    --call       call the graph path in each bubble and output BED\n");
 		fprintf(fp_help, "  Input/output:\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -o FILE      output mappings to FILE [stdout]\n");

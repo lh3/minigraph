@@ -1,4 +1,4 @@
-.TH minigraph 1 "3 December 2020" "minigraph-0.13 (r397)" "Bioinformatics tools"
+.TH minigraph 1 "19 December 2020" "minigraph-0.14 (r415)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -151,19 +151,11 @@ Graph generation algorithm. So far only a
 algorithm is implemented [simple]. With this option, all query sequences are
 loaded into memory.
 .TP
-.B --cov
-Remap and generate segment and link use frequencies. This option triggers GFA
-output. When used with
-.BR --ggen ,
-minigraph writes the frequency of link uses and the average breadth of coverage
-of each segment to the
-.B cf
-tag. When used without
-.BR --ggen ,
-minigraph writes the count of link uses and the average depth of coverage of
-each segment to the
-.B dc
-tag.
+.B --call
+Call the graph path in each bubble and output in a BED-based format:
+.RS
+  ctg  start  end  sourceNode  sinkNode  walk:strand:queryName:qStart:qEnd
+.RE
 .TP
 .BI -q \ INT
 Minimum mapping quality [5]
@@ -185,6 +177,23 @@ Forcefully resolve query overlaps [no]
 .TP
 .BR --inv = yes | no
 Generate graphs with inversions or not [yes]
+.TP
+.B --cov
+Remap and generate segment and link use frequencies. This option triggers GFA
+output. When used with
+.BR --ggen ,
+minigraph writes the frequency of link uses and the average breadth of coverage
+of each segment to the
+.B cf
+tag. When used without
+.BR --ggen ,
+minigraph writes the count of link uses and the average depth of coverage of
+each segment to the
+.B dc
+tag.
+.B
+WARNING:
+THIS OPTION IS DEPRECATED AND MAY BE REMOVED IN FUTURE.
 .SS Input/output options
 .TP 10
 .BI -o \ FILE
