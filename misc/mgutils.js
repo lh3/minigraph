@@ -850,6 +850,67 @@ function mg_cmd_extractseg(args)
 	buf.destroy();
 }
 
+function mg_cmd_bed2sql(args)
+{
+	var c;
+	while ((c = getopt(args, "")) != null) {
+	}
+	if (args.length - getopt.ind == 0) {
+		print("Usage: paste *.bed | mgutils.js bed2sql <sample.list> | sqlite3 rGFA.db");
+		return;
+	}
+
+	var file, buf = new Bytes();
+
+	var sample = [];
+	file = new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		sample.push(t[0]);
+	}
+	file.close();
+
+	file = args.length - getopt.ind >= 2 && args[getopt.ind+1] != "-"? new File(args[getopt.ind+1]) : new File();
+	print("DROP INDEX IF EXISTS idx_bwalk;");
+	print("DROP INDEX IF EXISTS idx_cst;");
+	print("DROP INDEX IF EXISTS idx_cen;");
+	print("BEGIN TRANSACTION;");
+	var wid = 0, bid = 0, ins_walk = [];
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		if (t.length != sample.length * 6)
+			throw Error("Different number of samples");
+		var h = {}, w = [], j = 0;
+		for (var i = 5; i < t.length; i += 6, ++j) {
+			if (t[i] == ".") continue;
+			var s = t[i].split(":");
+			if (!(s[0] in h)) {
+				h[s[0]] = w.length;
+				ins_walk.push([wid, bid, s[1], s[0]]);
+				w.push([s[0], s[1], wid++]);
+			}
+			var v = [], x = w[h[s[0]]];
+			v.push("'" + bid + "'", "'" + sample[j] + "'", "'" + x[2] + "'", "'" + s[3] + "'");
+			v.push("'" + s[4] + "'", "'" + s[5] + "'", "'" + (s[2] == '+'? 1 : -1) + "'");
+			print("INSERT INTO call (bid,sample,wid,ctg,start,end,strand) VALUES (" + v.join(",") + ");");
+		}
+		++bid;
+	}
+	for (var i = 0; i < ins_walk.length; ++i) {
+		var w = ins_walk[i], v = [];
+		for (var j = 0; j < w.length; ++j)
+			v.push("'" + w[j] + "'");
+		print("INSERT INTO bwalk (wid,bid,len,walk) VALUES (" + v.join(",") + ");");
+	}
+	print("END TRANSACTION;");
+	print("CREATE INDEX IF NOT EXISTS idx_bwalk ON bwalk (bid);");
+	print("CREATE INDEX IF NOT EXISTS idx_cst   ON call  (ctg, start);");
+	print("CREATE INDEX IF NOT EXISTS idx_cen   ON call  (ctg, end);");
+	file.close();
+
+	buf.destroy();
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -864,6 +925,7 @@ function main(args)
 		print("  paf2bl       blacklist regions from insert-to-ref alignment");
 		print("  anno         annotate short sequences");
 		print("  extractseg   extract a segment from GAF");
+		print("  bed2sql      generate SQL from --call BED");
 		//print("  subgaf       extract GAF overlapping with a region (BUGGY)");
 		//print("  sveval       evaluate SV accuracy");
 		exit(1);
@@ -877,6 +939,8 @@ function main(args)
 	else if (cmd == 'sveval') mg_cmd_sveval(args);
 	else if (cmd == 'joinfa') mg_cmd_joinfa(args);
 	else if (cmd == 'stableGaf') mg_cmd_stableGaf(args);
+	else if (cmd == 'bed2sql') mg_cmd_bed2sql(args);
+	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else throw Error("unrecognized command: " + cmd);
 }
