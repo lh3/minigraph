@@ -10,8 +10,11 @@ cd minigraph && make
 ./minigraph test/MT.gfa test/MT-orangA.fa > out.gaf
 # Incremental graph generation (-l10k necessary for this toy example)
 ./minigraph -xggs -l10k test/MT.gfa test/MT-chimp.fa test/MT-orangA.fa > out.gfa
+
 # The lossy FASTA representation (requring https://github.com/lh3/gfatools)
 gfatools gfa2fa -s out.gfa > out.fa
+# Extract localized structural variations
+gfatools bubble out.gfa > SV.bed
 ```
 
 ## Table of Contents
@@ -24,22 +27,23 @@ gfatools gfa2fa -s out.gfa > out.fa
   - [Installation](#install)
   - [Sequence-to-graph mapping](#map)
   - [Graph generation](#ggen)
+  - [Working with a minigraph graph](#usemg)
   - [Prebuilt graphs](#prebuilt)
   - [Algorithm overview](#algo)
 - [Limitations](#limit)
 
 ## <a name="intro"></a>Introduction
 
-Minigraph is a *proof-of-concept* sequence-to-graph mapper and graph
+Minigraph is a sequence-to-graph mapper and graph
 constructor. It finds *approximate* locations of a query sequence in a sequence
 graph and incrementally augments an existing graph with long query subsequences
 diverged from the graph. The figure on the right briefly explains the procedure.
 
 Minigraph borrows many ideas and code from [minimap2][minimap2]. It is fairly
 efficient and can construct a graph from 40 human assemblies in half a day using
-24 CPU cores. **However**, minigraph is at an early development stage. It lacks
-important features and may produce suboptimal mappings. Please read the
-[Limitations section](#limit) of this README before using minigraph.
+24 CPU cores. Partly due to the lack of base alignment, minigraph may produce
+suboptimal mappings and local graphs. Please read the
+[Limitations section](#limit) of this README for more information.
 
 ## <a name="uguide"></a>Users' Guide
 
@@ -93,6 +97,35 @@ gfatools gfa2fa -s graph.gfa > out.stable.fa
 ```
 The output `out.stable.fa` will always include the initial reference `ref.fa`
 and may additionally add new segments diverged from the initial reference.
+
+### <a name="usemg"></a>Working with a minigraph graph
+
+A minigraph graph is composed of chains of bubbles with the reference as the
+backbone. Each *bubble* represents a structural variation. It can be
+multi-allelic if there are multiple paths through the bubble. You can extract
+these bubbles with
+```sh
+gfatools bubble <in.gfa> > <out.bed>
+```
+The output is a BED-like file. The first three columns give the position of a
+bubble/variation and the rest of columns are:
+
+4\) \# GFA segments in the bubble including the source and the sink of the bubble
+5) \# all possible paths through the bubble (not all paths present in input samples)
+6) 1 if the bubble involves an inversion; 0 otherwise
+7) length of the shortest path (i.e. allele) through the bubble
+8) length of the longest path/allele through the bubble
+9-11) please ignore
+12) list of segments in the bubble; first for the source and last for the sink
+13) sequence of the shortest path (`*` if zero length)
+14) sequence of the longest path (NB: it may not be present in the input samples)
+
+You can extract subgraphs, for example, with
+```sh
+gfatools view -l s123,s456,s789 graph.gfa > subgraph.gfa
+gfatools view -l @segList.txt graph.gfa > subgraph.gfa
+```
+and visualize the subgraph in [Bandage][bandage] or [gfaviz][gfaviz].
 
 ### <a name="prebuilt"></a>Prebuilt graphs
 
@@ -160,4 +193,6 @@ highlighted in bold. The description may help to tune minigraph parameters.
 [gfa1]: https://github.com/GFA-spec/GFA-spec/blob/master/GFA1.md
 [gaf]: https://github.com/lh3/gfatools/blob/master/doc/rGFA.md#the-graph-alignment-format-gaf
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
-[gfatools]: ttps://github.com/lh3/gfatools
+[gfatools]: https://github.com/lh3/gfatools
+[bandage]: https://rrwick.github.io/Bandage/
+[gfaviz]: https://github.com/ggonnella/gfaviz
