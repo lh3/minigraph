@@ -178,18 +178,17 @@ highlighted in bold. The description may help to tune minigraph parameters.
 
 ## <a name="limit"></a>Limitations
 
+* Minigraph mainly captures length variations between samples. A complex
+  subgraph is often suboptimal due to the lack of base alignment and the
+  order dependency of input samples. It may not represent the evolution history
+  or the functional relevance at the locus. Please *do not overinterpret*
+  complex subgraphs. If you are interested in a particular subgraph, it is
+  recommended to extract the input contig subsequences involved in the subgraph
+  with the `--call` option and manually curated the results.
+
 * Minigraph needs to find strong colinear chains first. For a graph consisting
   of many short segments (e.g. one generated from rare SNPs in large
   populations), minigraph will fail to map query sequences.
-
-* When connecting colinear chains on graphs, minigraph doesn't take full
-  advantage of base sequences and may miss the optimal alignments.
-
-* Minigraph doesn't give base-level alignment.
-
-* Minigraph only inserts segments contained in long graph chains. This
-  conservative strategy helps to build relatively accurate graph, but may miss
-  more complex events. Other strategies may be explored in future.
 
 
 
