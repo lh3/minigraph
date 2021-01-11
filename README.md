@@ -110,15 +110,15 @@ gfatools bubble <in.gfa> > <out.bed>
 The output is a BED-like file. The first three columns give the position of a
 bubble/variation and the rest of columns are:
 
- 4\) \# GFA segments in the bubble including the source and the sink of the bubble
- 5) \# all possible paths through the bubble (not all paths present in input samples)
- 6) 1 if the bubble involves an inversion; 0 otherwise
- 7) length of the shortest path (i.e. allele) through the bubble
- 8) length of the longest path/allele through the bubble
- 9-11) please ignore
- 12) list of segments in the bubble; first for the source and last for the sink
- 13) sequence of the shortest path (`*` if zero length)
- 14) sequence of the longest path (NB: it may not be present in the input samples)
+* (4) \# GFA segments in the bubble including the source and the sink of the bubble
+* (5) \# all possible paths through the bubble (not all paths present in input samples)
+* (6) 1 if the bubble involves an inversion; 0 otherwise
+* (7) length of the shortest path (i.e. allele) through the bubble
+* (8) length of the longest path/allele through the bubble
+* (9-11) please ignore
+* (12) list of segments in the bubble; first for the source and last for the sink
+* (13) sequence of the shortest path (`*` if zero length)
+* (14) sequence of the longest path (NB: it may not be present in the input samples)
 
 You can extract subgraphs, for example, with
 ```sh
