@@ -10,6 +10,8 @@ cd minigraph && make
 ./minigraph test/MT.gfa test/MT-orangA.fa > out.gaf
 # Incremental graph generation (-l10k necessary for this toy example)
 ./minigraph -xggs -l10k test/MT.gfa test/MT-chimp.fa test/MT-orangA.fa > out.gfa
+# Call per-sample path in each bubble/variation
+./minigraph -xasm -l10k --call test/MT.gfa test/MT-orangA.fa > orangA.call.bed
 
 # The lossy FASTA representation (requring https://github.com/lh3/gfatools)
 gfatools gfa2fa -s out.gfa > out.fa
@@ -27,7 +29,7 @@ gfatools bubble out.gfa > SV.bed
   - [Installation](#install)
   - [Sequence-to-graph mapping](#map)
   - [Graph generation](#ggen)
-  - [Working with a minigraph graph](#usemg)
+  - [Calling structural variations](#callsv)
   - [Prebuilt graphs](#prebuilt)
   - [Algorithm overview](#algo)
 - [Limitations](#limit)
@@ -98,14 +100,14 @@ gfatools gfa2fa -s graph.gfa > out.stable.fa
 The output `out.stable.fa` will always include the initial reference `ref.fa`
 and may additionally add new segments diverged from the initial reference.
 
-### <a name="usemg"></a>Working with a minigraph graph
+### <a name="callsv"></a>Calling structural variations
 
 A minigraph graph is composed of chains of bubbles with the reference as the
 backbone. Each *bubble* represents a structural variation. It can be
 multi-allelic if there are multiple paths through the bubble. You can extract
 these bubbles with
 ```sh
-gfatools bubble <in.gfa> > <out.bed>
+gfatools bubble graph.gfa > var.bed
 ```
 The output is a BED-like file. The first three columns give the position of a
 bubble/variation and the rest of columns are:
@@ -120,12 +122,16 @@ bubble/variation and the rest of columns are:
 * (13) sequence of the shortest path (`*` if zero length)
 * (14) sequence of the longest path (NB: it may not be present in the input samples)
 
-You can extract subgraphs, for example, with
+Given an assembly, you can find the path/allele of this assembly in each bubble with
 ```sh
-gfatools view -l s123,s456,s789 graph.gfa > subgraph.gfa
-gfatools view -l @segList.txt graph.gfa > subgraph.gfa
+minigraph -xasm --call graph.gfa sample-asm.fa > sample.bed
 ```
-and visualize the subgraph in [Bandage][bandage] or [gfaviz][gfaviz].
+On each line in the BED-like output, the last colon separated field gives the
+alignment path through the bubble, the path length in the graph, the mapping
+strand of sample contig, the contig name, the approximate contig start and
+contig end. The number of lines in the file is the same as the number of lines
+in the output of `gfatools bubble`. You can use the `paste` Unix command to
+piece multiple samples together.
 
 ### <a name="prebuilt"></a>Prebuilt graphs
 
