@@ -300,7 +300,6 @@ gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_bb_)
 				if (sst->snid == i && sen->snid == i) {
 					int32_t n, l;
 					uint32_t *v;
-					float f;
 					gfa_bubble_t *b;
 
 					// basic information
@@ -340,13 +339,13 @@ gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_bb_)
 
 					// generate sequences and cf_min/cf_max
 					GFA_MALLOC(v, j - jst);
-					k = j, n = 0, f = 1.0f;
+					k = j, n = 0;
 					while (k > jst) {
 						if (k < j) v[n++] = sub->v[k].v;
 						k = ba[k].sp;
 					}
 					bb_write_seq(g, n, v, b->len_min, b->seq_min);
-					k = j, n = 0, f = 1.0f;
+					k = j, n = 0;
 					while (k > jst) {
 						if (k < j) v[n++] = sub->v[k].v;
 						k = ba[k].lp;
