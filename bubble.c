@@ -10,37 +10,25 @@ KRADIX_SORT_INIT(gfa32, uint32_t, generic_key, 4)
 
 void gfa_sort_ref_arc(gfa_t *g)
 {
-	int32_t k;
-	for (k = 0; k < g->n_seg; ++k) {
-		gfa_seg_t *s = &g->seg[k];
-		uint32_t v;
+	uint32_t v, n_vtx = gfa_n_vtx(g);
+	for (v = 0; v < n_vtx; ++v) {
+		gfa_seg_t *s = &g->seg[v>>1];
 		int32_t i, nv;
 		gfa_arc_t *av, b;
 		if (s->rank != 0) continue;
-		// forward strand
-		v = (uint32_t)k<<1 | 0;
 		nv = gfa_arc_n(g, v);
 		av = gfa_arc_a(g, v);
 		for (i = 0; i < nv; ++i) {
 			uint32_t w = av[i].w;
 			gfa_seg_t *t = &g->seg[w>>1];
-			if ((w&1) == 0 && t->rank == 0 && t->snid == s->snid && s->soff + s->len == t->soff)
-				break;
+			if (t->rank == 0 && t->snid == s->snid && (v&1) == (w&1)) {
+				if (((v&1) == 0 && s->soff + s->len == t->soff) || ((v&1) == 1 && t->soff + t->len == s->soff))
+					break;
+			}
 		}
+		if (nv > 0 && i == nv) fprintf(stderr, "X\t%c%s\t%d\t%s\t%d\n", "><"[v&1], s->name, i, g->sseq[s->snid].name, s->soff);
 		assert(nv == 0 || i < nv);
-		if (i > 0) b = av[i], av[i] = av[0], av[0] = b;
-		// reverse strand
-		v = (uint32_t)k<<1 | 1;
-		nv = gfa_arc_n(g, v);
-		av = gfa_arc_a(g, v);
-		for (i = 0; i < nv; ++i) {
-			uint32_t w = av[i].w;
-			gfa_seg_t *t = &g->seg[w>>1];
-			if ((w&1) == 1 && t->rank == 0 && t->snid == s->snid && t->soff + t->len == s->soff)
-				break;
-		}
-		assert(nv == 0 || i < nv);
-		if (i > 0) b = av[i], av[i] = av[0], av[0] = b;
+		if (i > 0 && i < nv) b = av[i], av[i] = av[0], av[0] = b;
 	}
 }
 
