@@ -32,6 +32,23 @@ void gfa_sort_ref_arc(gfa_t *g)
 	}
 }
 
+void gfa_sub_print(FILE *fp, const gfa_t *g, const gfa_sub_t *sub)
+{
+	int32_t i, j;
+	for (i = 0; i < sub->n_v; ++i) {
+		gfa_subv_t *p = &sub->v[i];
+		fprintf(fp, "[%d]\t%d\t%c%s\t%d\t%d", i, p->v, "><"[p->v&1], g->seg[p->v>>1].name, p->d, p->n);
+		if (p->n > 0) {
+			fputc('\t', fp);
+			for (j = 0; j < p->n; ++j) {
+				if (j) fputc(',', fp);
+				fprintf(fp, "%d", (uint32_t)(sub->a[p->off + j]>>32));
+			}
+		}
+		fputc('\n', fp);
+	}
+}
+
 /****************
  * Tarjan's SCC *
  ****************/
@@ -149,6 +166,21 @@ gfa_sub_t *gfa_scc1(void *km0, const gfa_t *g, gfa_scbuf_t *b, uint32_t v0)
 		}
 	}
 	return sub;
+}
+
+void gfa_scc_all(const gfa_t *g)
+{
+	uint32_t v, n_vtx = gfa_n_vtx(g);
+	gfa_scbuf_t *b;
+	b = gfa_scbuf_init(g);
+	for (v = 0; v < n_vtx; ++v)
+		if (b->a[v].index == (uint32_t)-1 && b->a[v^1].index == (uint32_t)-1) {
+			gfa_sub_t *sub;
+			sub = gfa_scc1(0, g, b, v);
+			gfa_sub_print(stderr, g, sub);
+			gfa_sub_destroy(sub);
+		}
+	gfa_scbuf_destroy(b);
 }
 
 void gfa_sub_destroy(gfa_sub_t *sub)
