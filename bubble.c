@@ -199,36 +199,6 @@ static void bb_write_seq(const gfa_t *g, int32_t n, const uint32_t *v, int32_t l
 	seq[l] = 0;
 }
 
-static float aux_get_f(const gfa_aux_t *aux, const char tag[2], float fallback)
-{
-	const uint8_t *s;
-	s = gfa_aux_get(aux->l_aux, aux->aux, tag);
-	return s && *s == 'f'? *(float*)(s+1) : fallback;
-}
-
-static float bb_ref_freq(const gfa_t *g, const gfa_sub_t *sub, int32_t js, int32_t je)
-{
-	const gfa_subv_t *ts = &sub->v[js];
-	const gfa_subv_t *te = &sub->v[je];
-	int32_t j, k;
-	float f = 1.0f;
-	if (g->seg[ts->v>>1].snid != g->seg[te->v>>1].snid) return -1.0f;
-	if (g->seg[ts->v>>1].rank != 0) return -1.0f;
-	for (j = js; j < je; ++j) {
-		const gfa_subv_t *t = &sub->v[j];
-		if (g->seg[t->v>>1].rank != 0) continue;
-		for (k = 0; k < t->n; ++k) {
-			uint64_t a = sub->a[t->off + k];
-			const gfa_arc_t *arc = &g->arc[(uint32_t)a];
-			float h;
-			if (arc->rank != 0) continue;
-			h = aux_get_f(&g->link_aux[arc->link_id], "cf", -1.0f);
-			f = f < h? f : h;
-		}
-	}
-	return f;
-}
-
 static int32_t bb_n_paths(const gfa_t *g, const gfa_sub_t *sub, int32_t js, int32_t je)
 {
 	int32_t j, k;
@@ -273,7 +243,7 @@ gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_bb_)
 	scbuf = gfa_scbuf_init(g);
 	for (i = 0; i < g->n_sseq; ++i) {
 		gfa_sub_t *sub;
-		int32_t j, jst, max_a;
+		int32_t j, jst, max_a, max_soff;
 		bb_aux_t *ba;
 
 		if (vs[i] == (uint32_t)-1) continue;
@@ -296,15 +266,15 @@ gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_bb_)
 				int32_t l = (int32_t)g->arc[(uint32_t)a].v_lv;
 				if (jv <= j) continue; // skip loop or cycle
 				if (ba[jv].sd >= ba[j].sd + l)
-					ba[jv].sd = ba[j].sd + l, ba[jv].sp = j, ba[jv].sf = aux_get_f(&g->link_aux[g->arc[(uint32_t)a].link_id], "cf", -1.0f);
+					ba[jv].sd = ba[j].sd + l, ba[jv].sp = j;
 				if (ba[jv].ld < ba[j].ld + l)
-					ba[jv].ld = ba[j].ld + l, ba[jv].lp = j, ba[jv].lf = aux_get_f(&g->link_aux[g->arc[(uint32_t)a].link_id], "cf", -1.0f);
+					ba[jv].ld = ba[j].ld + l, ba[jv].lp = j;
 			}
 		}
-		for (j = 0, jst = 0, max_a = -1; j < sub->n_v; ++j) {
+		for (j = 0, jst = 0, max_a = max_soff = -1; j < sub->n_v; ++j) {
 			gfa_subv_t *t = &sub->v[j];
 			int32_t k;
-			if (j == max_a) {
+			if (j == max_a && g->seg[t->v>>1].soff > max_soff) {
 				const gfa_seg_t *sst = &g->seg[sub->v[jst].v>>1];
 				const gfa_seg_t *sen = &g->seg[t->v>>1];
 				if (sst->snid == i && sen->snid == i) {
@@ -314,7 +284,6 @@ gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_bb_)
 					gfa_bubble_t *b;
 
 					// basic information
-					if (j - jst <= 1) continue;
 					if (n_bb == m_bb) GFA_EXPAND(bb, m_bb);
 					b = &bb[n_bb++];
 					b->snid = i;
@@ -324,8 +293,8 @@ gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_bb_)
 					b->se = sen->soff;
 					b->len_min = ba[j].sd - ba[jst].sd - sst->len;
 					b->len_max = ba[j].ld - ba[jst].ld - sst->len;
-					b->cf_ref = bb_ref_freq(g, sub, jst, j);
 					b->n_paths = bb_n_paths(g, sub, jst, j);
+					//fprintf(stderr, "X\t%s[%d]\tvs=%c%s\tve=%c%s\tlen_min=%d\n", g->sseq[i].name, i, "><"[b->vs&1], g->seg[b->vs>>1].name, "><"[b->ve&1], g->seg[b->ve>>1].name, b->len_min);
 					assert(b->len_min >= 0);
 					assert(b->len_max >= 0 && b->len_max >= b->len_min);
 					b->n_seg = j - jst + 1;
@@ -354,30 +323,29 @@ gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_bb_)
 					k = j, n = 0, f = 1.0f;
 					while (k > jst) {
 						if (k < j) v[n++] = sub->v[k].v;
-						if (f > ba[k].sf) f = ba[k].sf;
 						k = ba[k].sp;
 					}
-					b->cf_min = f;
 					bb_write_seq(g, n, v, b->len_min, b->seq_min);
 					k = j, n = 0, f = 1.0f;
 					while (k > jst) {
 						if (k < j) v[n++] = sub->v[k].v;
-						if (f > ba[k].lf) f = ba[k].lf;
 						k = ba[k].lp;
 					}
-					b->cf_max = f;
 					bb_write_seq(g, n, v, b->len_max, b->seq_max);
 					free(v);
-				}
-				max_a = -1, jst = j;
-			}
+				} // ~if(sst->snid==i&&sen->snid==i)
+				max_a = max_soff = -1, jst = j;
+			} // ~if(j==max_a)
 			for (k = 0; k < t->n; ++k)
 				if ((int32_t)(sub->a[t->off + k]>>32) > max_a)
 					max_a = sub->a[t->off + k]>>32;
+			if (g->seg[t->v>>1].snid == i && g->seg[t->v>>1].soff > max_soff)
+				max_soff = g->seg[t->v>>1].soff;
 		}
 		free(ba);
 		gfa_sub_destroy(sub);
 	}
+	free(vtmp);
 	gfa_scbuf_destroy(scbuf);
 	free(vs);
 	*n_bb_ = n_bb;
