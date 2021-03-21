@@ -1,3 +1,13 @@
+Release 0.15-r426 (21 March 2021)
+---------------------------------
+
+Fixed a bug in bubble identification around inversions. This version should be
+used together with the latest gfatools for consistency.
+
+(21 March 2021, r426)
+
+
+
 Release 0.14-r415 (19 December 2020)
 ------------------------------------
 
