@@ -6,7 +6,25 @@
 #include "kalloc.h"
 #include "krmq.h"
 
-uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t extra_u, int32_t *n_u_, int32_t *n_v_)
+static int64_t mg_chain_bk_end(int32_t max_drop, const mg128_t *z, const int32_t *f, const int64_t *p, int32_t *t, int64_t k)
+{
+	int64_t i = z[k].y, end_i = -1, max_i = i;
+	int32_t max_s = 0;
+	if (i < 0 || t[i] != 0) return i;
+	do {
+		int32_t s;
+		t[i] = 2;
+		end_i = i = p[i];
+		s = i < 0? z[k].y : (int32_t)z[k].x - f[i];
+		if (s > max_s) max_s = s, max_i = i;
+		else if (max_s - s > max_drop) break;
+	} while (i >= 0 && t[i] == 0);
+	for (i = z[k].y; i >= 0 && i != end_i; i = p[i]) // reset modified t[]
+		t[i] = 0;
+	return max_i;
+}
+
+uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t max_drop, int32_t *n_u_, int32_t *n_v_)
 {
 	mg128_t *z;
 	uint64_t *u;
@@ -24,26 +42,32 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_
 
 	memset(t, 0, n * 4);
 	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // precompute n_u
-		int64_t n_v0 = n_v;
-		int32_t sc;
-		for (i = z[k].y; i >= 0 && t[i] == 0; i = p[i])
-			++n_v, t[i] = 1;
-		sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
-		if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
-			++n_u;
-		else n_v = n_v0;
+		if (t[z[k].y] == 0) {
+			int64_t n_v0 = n_v, end_i;
+			int32_t sc;
+			end_i = mg_chain_bk_end(max_drop, z, f, p, t, k);
+			for (i = z[k].y; i != end_i; i = p[i])
+				++n_v, t[i] = 1;
+			sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
+			if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
+				++n_u;
+			else n_v = n_v0;
+		}
 	}
-	KMALLOC(km, u, n_u + extra_u);
+	KMALLOC(km, u, n_u);
 	memset(t, 0, n * 4);
 	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // populate u[]
-		int64_t n_v0 = n_v;
-		int32_t sc;
-		for (i = z[k].y; i >= 0 && t[i] == 0; i = p[i])
-			v[n_v++] = i, t[i] = 1;
-		sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
-		if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
-			u[n_u++] = (uint64_t)sc << 32 | (n_v - n_v0);
-		else n_v = n_v0;
+		if (t[z[k].y] == 0) {
+			int64_t n_v0 = n_v, end_i;
+			int32_t sc;
+			end_i = mg_chain_bk_end(max_drop, z, f, p, t, k);
+			for (i = z[k].y; i != end_i; i = p[i])
+				v[n_v++] = i, t[i] = 1;
+			sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
+			if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
+				u[n_u++] = (uint64_t)sc << 32 | (n_v - n_v0);
+			else n_v = n_v0;
+		}
 	}
 	kfree(km, z);
 	assert(n_v < INT32_MAX);
@@ -86,16 +110,17 @@ static mg128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32
 	return b;
 }
 
-static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t max_dist_x, int32_t max_dist_y, int32_t bw, float chn_pen_gap, float chn_pen_skip, int is_cdna, int n_segs)
+static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t max_dist_x, int32_t max_dist_y, int32_t bw, float chn_pen_gap, float chn_pen_skip, int is_cdna, int n_seg)
 {
-	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, same_seg, q_span, sc;
+	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, q_span, sc;
+	int32_t sidi = (ai->y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
+	int32_t sidj = (aj->y & MG_SEED_SEG_MASK) >> MG_SEED_SEG_SHIFT;
 	if (dq <= 0 || dq > max_dist_x) return INT32_MIN;
-	same_seg = ((ai->y & MG_SEED_SEG_MASK) == (aj->y & MG_SEED_SEG_MASK));
 	dr = (int32_t)(ai->x - aj->x);
-	if (same_seg && (dq > max_dist_y || dr == 0)) return INT32_MIN; // don't skip if an anchor is used by multiple segments
-	if (n_segs > 1 && !is_cdna && same_seg && dr > max_dist_y) return INT32_MIN;
+	if (sidi == sidj && (dr == 0 || dq > max_dist_y)) return INT32_MIN;
 	dd = dr > dq? dr - dq : dq - dr;
-	if (same_seg && dd > bw) return INT32_MIN;
+	if (sidi == sidj && dd > bw) return INT32_MIN;
+	if (n_seg > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) return INT32_MIN;
 	dg = dr < dq? dr : dq;
 	q_span = aj->y>>32&0xff;
 	sc = q_span < dg? q_span : dg;
@@ -106,12 +131,12 @@ static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t ma
 			sc = tmp > 1? tmp : 1;
 		}
 		lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-		log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
-		if (is_cdna || !same_seg) {
-			if (!same_seg && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
-			else if (dr > dq || !same_seg) sc -= (int)(lin_pen < log_pen? lin_pen : log_pen); // deletion or jump between paired ends
-			else sc -= (int)(lin_pen + log_pen);
-		} else sc -= (int)(lin_pen + log_pen);
+		log_pen = dd >= 1? mg_log2(dd + 1) : 0.0f; // mg_log2() only works for dd>=2
+		if (is_cdna || sidi != sidj) {
+			if (sidi != sidj && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
+			else if (dr > dq || sidi != sidj) sc -= (int)(lin_pen < log_pen? lin_pen : log_pen); // deletion or jump between paired ends
+			else sc -= (int)(lin_pen + .5f * log_pen);
+		} else sc -= (int)(lin_pen + .5f * log_pen);
 	}
 	return sc;
 }
@@ -125,14 +150,20 @@ static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t ma
  * input a[] is deallocated on return
  */
 mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
-					  int is_cdna, int n_segs, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
+					  int is_cdna, int n_seg, int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
-	int32_t *f, *t, *v, n_u, n_v, mmax_f = 0;
+	int32_t *f, *t, *v, n_u, n_v, mmax_f = 0, max_drop = bw;
 	int64_t *p, i, j, max_ii, st = 0, n_iter = 0;
 	uint64_t *u;
 
 	if (_u) *_u = 0, *n_u_ = 0;
-	if (n == 0 || a == 0) return 0;
+	if (n == 0 || a == 0) {
+		kfree(km, a);
+		return 0;
+	}
+	if (max_dist_x < bw) max_dist_x = bw;
+	if (max_dist_y < bw && !is_cdna) max_dist_y = bw;
+	if (is_cdna) max_drop = INT32_MAX;
 	KMALLOC(km, p, n);
 	KMALLOC(km, f, n);
 	KMALLOC(km, v, n);
@@ -146,7 +177,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		if (i - st > max_iter) st = i - max_iter;
 		for (j = i - 1; j >= st; --j) {
 			int32_t sc;
-			sc = comput_sc(&a[i], &a[j], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_segs);
+			sc = comput_sc(&a[i], &a[j], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
 			++n_iter;
 			if (sc == INT32_MIN) continue;
 			sc += f[j];
@@ -168,7 +199,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		}
 		if (max_ii >= 0 && max_ii < end_j) {
 			int32_t tmp;
-			tmp = comput_sc(&a[i], &a[max_ii], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_segs);
+			tmp = comput_sc(&a[i], &a[max_ii], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
 			if (tmp != INT32_MIN && max_f < tmp + f[max_ii])
 				max_f = tmp + f[max_ii], max_j = max_ii;
 		}
@@ -180,7 +211,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	}
 	if (mg_dbg_flag & MG_DBG_LC_PROF) fprintf(stderr, "LP\tn_iter=%ld\tmmax_f=%d\n", (long)n_iter, mmax_f);
 
-	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
+	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
 	kfree(km, p); kfree(km, f); kfree(km, t);
 	if (n_u == 0) {
@@ -203,11 +234,11 @@ KRMQ_INIT(lc_elem, lc_elem_t, head, lc_elem_cmp, lc_elem_lt2)
 
 KALLOC_POOL_INIT(rmq, lc_elem_t)
 
-static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, float chn_pen_gap, float chn_pen_skip, int32_t *exact)
+static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, float chn_pen_gap, float chn_pen_skip, int32_t *exact, int32_t *width)
 {
 	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, q_span, sc;
 	dr = (int32_t)(ai->x - aj->x);
-	dd = dr > dq? dr - dq : dq - dr;
+	*width = dd = dr > dq? dr - dq : dq - dr;
 	dg = dr < dq? dr : dq;
 	q_span = aj->y>>32&0xff;
 	sc = q_span < dg? q_span : dg;
@@ -219,16 +250,16 @@ static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, flo
 			sc = tmp > 1? tmp : 1;
 		}
 		lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-		log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
-		sc -= (int)(lin_pen + log_pen);
+		log_pen = dd >= 1? mg_log2(dd + 1) : 0.0f; // mg_log2() only works for dd>=2
+		sc -= (int)(lin_pen + .5f * log_pen);
 	}
 	return sc;
 }
 
-mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mg128_t *a,
-					   int *n_u_, uint64_t **_u, void *km)
+mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
+					   int64_t n, mg128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
-	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0;
+	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0, max_drop = bw;
 	int64_t *p, i, i0, st = 0, st_inner = 0, n_iter = 0;
 	uint64_t *u;
 	lc_elem_t *root = 0, *root_inner = 0;
@@ -236,7 +267,11 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 	kmp_rmq_t *mp;
 
 	if (_u) *_u = 0, *n_u_ = 0;
-	if (n == 0 || a == 0) return 0;
+	if (n == 0 || a == 0) {
+		kfree(km, a);
+		return 0;
+	}
+	if (max_dist < bw) max_dist = bw;
 	if (max_dist_inner <= 0 || max_dist_inner >= max_dist) max_dist_inner = 0;
 	KMALLOC(km, p, n);
 	KMALLOC(km, f, n);
@@ -288,32 +323,35 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 		lo.i = INT32_MAX, lo.y = (int32_t)a[i].y - max_dist;
 		hi.i = 0, hi.y = (int32_t)a[i].y;
 		if ((q = krmq_rmq(lc_elem, root, &lo, &hi)) != 0) {
-			int32_t sc, exact, n_skip = 0;
+			int32_t sc, exact, width, n_skip = 0;
 			int64_t j = q->i;
-			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact);
-			if (sc > max_f) max_f = sc, max_j = j;
+			assert(q->y >= lo.y && q->y <= hi.y);
+			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact, &width);
+			if (width <= bw && sc > max_f) max_f = sc, max_j = j;
 			if (!exact && root_inner && (int32_t)a[i].y > 0) {
 				lc_elem_t *lo, *hi;
 				s.y = (int32_t)a[i].y - 1, s.i = n;
 				krmq_interval(lc_elem, root_inner, &s, &lo, &hi);
 				if (lo) {
 					const lc_elem_t *q;
-					int32_t n_rmq_iter = 0;
+					int32_t width, n_rmq_iter = 0;
 					krmq_itr_t(lc_elem) itr;
 					krmq_itr_find(lc_elem, root_inner, lo, &itr);
 					while ((q = krmq_at(&itr)) != 0) {
 						if (q->y < (int32_t)a[i].y - max_dist_inner) break;
 						++n_rmq_iter;
 						j = q->i;
-						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0);
-						if (sc > max_f) {
-							max_f = sc, max_j = j;
-							if (n_skip > 0) --n_skip;
-						} else if (t[j] == (int32_t)i) {
-							if (++n_skip > max_chn_skip)
-								break;
+						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0, &width);
+						if (width <= bw) {
+							if (sc > max_f) {
+								max_f = sc, max_j = j;
+								if (n_skip > 0) --n_skip;
+							} else if (t[j] == (int32_t)i) {
+								if (++n_skip > max_chn_skip)
+									break;
+							}
+							if (p[j] >= 0) t[p[j]] = i;
 						}
-						if (p[j] >= 0) t[p[j]] = i;
 						if (!krmq_itr_prev(lc_elem, &itr)) break;
 					}
 					n_iter += n_rmq_iter;
@@ -330,7 +368,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 	if (mg_dbg_flag & MG_DBG_LC_PROF) fprintf(stderr, "LP\tn_iter=%ld\tmmax_f=%d\trmq_size=%d\tmp_max=%ld\n", (long)n_iter, mmax_f, max_rmq_size, mp->max);
 	km_destroy(mem_mp);
 
-	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, 0, &n_u, &n_v);
+	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
 	kfree(km, p); kfree(km, f); kfree(km, t);
 	if (n_u == 0) {
