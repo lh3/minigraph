@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.15-r429-dirty"
+#define MG_VERSION "0.15-r430-dirty"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -53,7 +53,10 @@ typedef struct {
 	int pe_ori;
 	int occ_max1, occ_max1_cap, occ_weight;
 	float occ_max1_frac;
-	int bw, max_gap_pre, max_gap, max_gap_ref, max_frag_len;
+	int bw, bw_long;
+	int rmq_rescue_size;
+	float rmq_rescue_ratio;
+	int max_gap_pre, max_gap, max_gap_ref, max_frag_len;
 	float div;
 	float chn_pen_gap, chn_pen_skip;
 	int max_lc_skip, max_lc_iter, max_gc_skip;

@@ -23,7 +23,9 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->max_frag_len = 800;
 	mo->max_lc_skip = 25, mo->max_gc_skip = 25, mo->max_lc_iter = 10000;
 	mo->max_rmq_size = 100000;
-	mo->bw = 2000;
+	mo->bw = 1000, mo->bw_long = 20000;
+	mo->rmq_rescue_size = 1000;
+	mo->rmq_rescue_ratio = 0.1f;
 	mo->mini_batch_size = 500000000;
 	mo->div = 0.1f;
 	mo->chn_pen_gap = 1.0f, mo->chn_pen_skip = 0.05f;
@@ -83,12 +85,13 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mg_ggopt_init(go);
 	} else if (strcmp(preset, "lr") == 0) {
 		io->k = 15, io->w = 10;
-		mo->bw = 2000, mo->max_gap = 5000;
+		mo->bw = 1000, mo->bw_long = 20000;
+		mo->max_gap = 10000;
 	} else if (strcmp(preset, "asm") == 0 || strcmp(preset, "ggs") == 0) {
 		io->k = 19, io->w = 10;
 		mo->flag |= MG_M_RMQ;
-		mo->max_gap = mo->bw = 100000;
-		mo->max_gap_pre = 10000;
+		mo->max_gap = 10000, mo->max_gap_pre = 1000;
+		mo->bw = 1000, mo->bw_long = 100000;
 		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 		mo->min_cov_mapq = 5;
@@ -138,6 +141,7 @@ void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go)
 	if (q[0] + 1 > mo->occ_weight) mo->occ_weight = q[0] + 1;
 	if (q[1] + 1 > mo->occ_max1)   mo->occ_max1   = q[1] + 1;
 	if (mo->occ_max1 > mo->occ_max1_cap) mo->occ_max1 = mo->occ_max1_cap;
+	if (mo->bw_long < mo->bw) mo->bw_long = mo->bw;
 	if (mg_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_weight=%d, occ_max1=%d; 95 percentile: %d\n", __func__,
 				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_weight, mo->occ_max1, q[0]);
