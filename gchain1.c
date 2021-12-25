@@ -238,7 +238,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		i = mmax_i; while (i >= 0) { fprintf(stderr, "[best] i=%d, seg=%s, max_f=%d, chn_pen_gap=%f\n", a[i].i, g->seg[lc[a[i].i].v>>1].name, f[i], chn_pen_gap); i = p[i]; }
 	}
 
-	u = mg_chain_backtrack(km, n_ext, f, p, v, t, 0, 0, 0, n_lc - n_ext, &n_u, &n_v);
+	u = mg_chain_backtrack(km, n_ext, f, p, v, t, 0, 0, INT32_MAX, n_lc - n_ext, &n_u, &n_v);
 	kfree(km, f); kfree(km, p); kfree(km, t);
 
 	for (i = 0; i < n_lc - n_ext; ++i) {

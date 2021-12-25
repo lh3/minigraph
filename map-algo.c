@@ -298,11 +298,13 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 		if (a) kfree(b->km, a);
 		a = 0, n_lc = 0, u = 0;
 	} else {
-		if (opt->flag & MG_M_RMQ)
-			a = mg_lchain_rmq(opt->max_gap, opt->max_gap_pre, opt->bw, opt->max_lc_skip, opt->rmq_size_cap, opt->min_lc_cnt, opt->min_lc_score, chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
-		else
+		if (opt->flag & MG_M_RMQ) {
+			a = mg_lchain_rmq(opt->max_gap, opt->max_gap_pre, opt->bw, opt->max_lc_skip, opt->rmq_size_cap, opt->min_lc_cnt, opt->min_lc_score,
+							  chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
+		} else {
 			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_lc_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
 							 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
+		}
 	}
 
 	if (opt->bw_long > opt->bw && (opt->flag & (MG_M_SPLICE|MG_M_SR)) == 0 && n_segs == 1 && n_lc > 1) { // re-chain/long-join for long sequences
