@@ -17,13 +17,13 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->occ_max1 = 50, mo->occ_max1_cap = 250;
 	mo->occ_max1_frac = 2e-4f;
 	mo->occ_weight = 20;
-	mo->max_gap = 10000;
+	mo->max_gap = 5000;
 	mo->max_gap_ref = -1;
 	mo->max_gap_pre = 1000;
-	mo->max_frag_len = 800;
-	mo->max_lc_skip = 25, mo->max_gc_skip = 25, mo->max_lc_iter = 10000;
-	mo->max_rmq_size = 100000;
-	mo->bw = 1000, mo->bw_long = 20000;
+	mo->max_lc_skip = 25, mo->max_gc_skip = 25;
+	mo->max_lc_iter = 5000;
+	mo->bw = 500, mo->bw_long = 20000;
+	mo->rmq_size_cap = 100000;
 	mo->rmq_rescue_size = 1000;
 	mo->rmq_rescue_ratio = 0.1f;
 	mo->mini_batch_size = 500000000;
@@ -83,15 +83,12 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mg_idxopt_init(io);
 		mg_mapopt_init(mo);
 		mg_ggopt_init(go);
-	} else if (strcmp(preset, "lr") == 0) {
-		io->k = 15, io->w = 10;
-		mo->bw = 1000, mo->bw_long = 20000;
-		mo->max_gap = 10000;
+	} else if (strcmp(preset, "lr") == 0) { // this is the default
 	} else if (strcmp(preset, "asm") == 0 || strcmp(preset, "ggs") == 0) {
 		io->k = 19, io->w = 10;
 		mo->flag |= MG_M_RMQ;
-		mo->max_gap = 10000, mo->max_gap_pre = 1000;
 		mo->bw = 1000, mo->bw_long = 100000;
+		mo->max_gap = 10000, mo->max_gap_pre = 1000;
 		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 		mo->min_cov_mapq = 5;
@@ -106,7 +103,9 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->flag |= MG_M_SR | MG_M_HEAP_SORT | MG_M_2_IO_THREADS;
 		mo->occ_max1 = 1000;
 		mo->occ_max1_cap = 2500;
-		mo->max_gap = 100, mo->bw = 100;
+		mo->max_gap = 100;
+		mo->bw = mo->bw_long = 100;
+		mo->max_frag_len = 800;
 		mo->pri_ratio = 0.5f;
 		mo->min_lc_cnt = 2, mo->min_lc_score = 25;
 		mo->min_gc_cnt = 3, mo->min_gc_score = 40;

@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
 		else if (c == 321) opt.max_lc_skip = atoi(o.arg);     // --max-lc-skip
 		else if (c == 322) opt.max_gc_skip = atoi(o.arg);     // --max-gc-skip
 		else if (c == 323) opt.max_lc_iter = mg_parse_num(o.arg);  // --max-lc-iter
-		else if (c == 324) opt.max_rmq_size = mg_parse_num(o.arg); // --max-rmq-size
+		else if (c == 324) opt.rmq_size_cap = mg_parse_num(o.arg); // --max-rmq-size
 		else if (c == 326) opt.flag |= MG_M_WRITE_MZ | MG_M_WRITE_LCHAIN; // --write-mz
 		else if (c == 327) gpt.flag |= MG_G_CALL, opt.flag |= MG_M_SKIP_GCHECK; // --call
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc

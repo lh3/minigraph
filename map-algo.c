@@ -206,7 +206,7 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	radix_sort_128x(a, a + (*n_a));
 	return a;
 }
-
+/*
 static int64_t flt_anchors(int64_t n_a, mg128_t *a, int32_t r)
 {
 	int64_t i, j;
@@ -240,7 +240,7 @@ static int64_t flt_anchors(int64_t n_a, mg128_t *a, int32_t r)
 			a[j++] = a[i];
 	return j;
 }
-
+*/
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, mg_gchains_t **gcs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
 	int i, l, rep_len, qlen_sum, n_lc, n_gc, n_mini_pos;
@@ -292,14 +292,14 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	chn_pen_gap = opt->chn_pen_gap * tmp;
 	chn_pen_skip = opt->chn_pen_skip * tmp;
 
-	if (!(opt->flag & MG_M_RMQ) && !is_splice && !is_sr && opt->max_gap_pre > 0 && opt->max_gap_pre * 2 < opt->max_gap)
-		n_a = flt_anchors(n_a, a, opt->max_gap_pre);
+//	if (!(opt->flag & MG_M_RMQ) && !is_splice && !is_sr && opt->max_gap_pre > 0 && opt->max_gap_pre * 2 < opt->max_gap)
+//		n_a = flt_anchors(n_a, a, opt->max_gap_pre);
 	if (n_a == 0) {
 		if (a) kfree(b->km, a);
 		a = 0, n_lc = 0, u = 0;
 	} else {
 		if (opt->flag & MG_M_RMQ)
-			a = mg_lchain_rmq(opt->max_gap, opt->max_gap_pre, opt->bw, opt->max_lc_skip, opt->max_rmq_size, opt->min_lc_cnt, opt->min_lc_score, chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
+			a = mg_lchain_rmq(opt->max_gap, opt->max_gap_pre, opt->bw, opt->max_lc_skip, opt->rmq_size_cap, opt->min_lc_cnt, opt->min_lc_score, chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
 		else
 			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_lc_skip, opt->max_lc_iter, opt->min_lc_cnt, opt->min_lc_score,
 							 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
@@ -312,7 +312,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 			for (i = 0, n_a = 0; i < n_lc; ++i) n_a += (int32_t)u[i];
 			kfree(b->km, u);
 			radix_sort_128x(a, a + n_a);
-			a = mg_lchain_rmq(opt->max_gap, opt->max_gap_pre, opt->bw_long, opt->max_lc_skip, opt->max_rmq_size, opt->min_lc_cnt, opt->min_lc_score,
+			a = mg_lchain_rmq(opt->max_gap, opt->max_gap_pre, opt->bw_long, opt->max_lc_skip, opt->rmq_size_cap, opt->min_lc_cnt, opt->min_lc_score,
 							  chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
 		}
 	}
