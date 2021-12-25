@@ -24,7 +24,8 @@ static int64_t mg_chain_bk_end(int32_t max_drop, const mg128_t *z, const int32_t
 	return max_i;
 }
 
-uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t max_drop, int32_t *n_u_, int32_t *n_v_)
+uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t max_drop,
+							 int32_t extra_u, int32_t *n_u_, int32_t *n_v_)
 {
 	mg128_t *z;
 	uint64_t *u;
@@ -54,7 +55,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_
 			else n_v = n_v0;
 		}
 	}
-	KMALLOC(km, u, n_u);
+	KMALLOC(km, u, n_u + extra_u);
 	memset(t, 0, n * 4);
 	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // populate u[]
 		if (t[z[k].y] == 0) {
@@ -211,7 +212,7 @@ mg128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	}
 	if (mg_dbg_flag & MG_DBG_LC_PROF) fprintf(stderr, "LP\tn_iter=%ld\tmmax_f=%d\n", (long)n_iter, mmax_f);
 
-	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, &n_u, &n_v);
+	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, 0, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
 	kfree(km, p); kfree(km, f); kfree(km, t);
 	if (n_u == 0) {
@@ -368,7 +369,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 	if (mg_dbg_flag & MG_DBG_LC_PROF) fprintf(stderr, "LP\tn_iter=%ld\tmmax_f=%d\trmq_size=%d\tmp_max=%ld\n", (long)n_iter, mmax_f, max_rmq_size, mp->max);
 	km_destroy(mem_mp);
 
-	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, &n_u, &n_v);
+	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, 0, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
 	kfree(km, p); kfree(km, f); kfree(km, t);
 	if (n_u == 0) {
