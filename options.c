@@ -40,6 +40,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->max_gc_seq_ext = 5;
 	mo->min_cov_mapq = 20;
 	mo->min_cov_blen = 1000;
+	mo->cap_kalloc = 1000000000;
 }
 
 void mg_ggopt_gen_sc_mat(int8_t mat[25], int32_t a, int32_t b)

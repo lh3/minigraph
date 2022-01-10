@@ -360,7 +360,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 			fprintf(stderr, "[E::%s] memory leak at %s\n", __func__, qname);
 			abort();
 		}
-		if (kmst.largest > 1U<<28) {
+		if (kmst.largest > 1U<<28 || (opt->cap_kalloc > 0 && kmst.capacity > opt->cap_kalloc)) {
 			km_destroy(b->km);
 			b->km = km_init();
 		}

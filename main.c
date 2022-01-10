@@ -47,6 +47,7 @@ static ko_longopt_t long_options[] = {
 	{ "inv",          ko_required_argument, 325 },
 	{ "write-mz",     ko_no_argument,       326 },
 	{ "call",         ko_no_argument,       327 },
+	{ "cap-calloc",   ko_required_argument, 328 },
 	{ "no-kalloc",    ko_no_argument,       401 },
 	{ "dbg-qname",    ko_no_argument,       402 },
 	{ "dbg-lchain",   ko_no_argument,       403 },
@@ -155,6 +156,7 @@ int main(int argc, char *argv[])
 		else if (c == 324) opt.rmq_size_cap = mg_parse_num(o.arg); // --max-rmq-size
 		else if (c == 326) opt.flag |= MG_M_WRITE_MZ | MG_M_WRITE_LCHAIN; // --write-mz
 		else if (c == 327) gpt.flag |= MG_G_CALL, opt.flag |= MG_M_SKIP_GCHECK; // --call
+		else if (c == 328) opt.cap_kalloc = mg_parse_num(o.arg); // --cap-kalloc
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
