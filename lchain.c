@@ -322,7 +322,7 @@ mg128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 		}
 		// RMQ
 		lo.i = INT32_MAX, lo.y = (int32_t)a[i].y - max_dist;
-		hi.i = 0, hi.y = (int32_t)a[i].y;
+		hi.i = 0, hi.y = (int32_t)a[i].y - 1;
 		if ((q = krmq_rmq(lc_elem, root, &lo, &hi)) != 0) {
 			int32_t sc, exact, width, n_skip = 0;
 			int64_t j = q->i;
