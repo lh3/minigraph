@@ -4,7 +4,7 @@
 #include <assert.h>
 #define __STDC_LIMIT_MACROS
 #include "bseq.h"
-#include "kvec.h"
+#include "kvec-km.h"
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 

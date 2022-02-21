@@ -2,7 +2,7 @@
 #include "ksort.h"
 #include "kavl.h"
 #include "algo.h"
-#include "khash.h"
+#include "khashl.h"
 
 typedef struct sp_node_s {
 	uint64_t di; // dist<<32 | unique_id
@@ -25,8 +25,8 @@ typedef struct {
 	sp_node_t *p[MG_MAX_SHORT_K]; // this forms a max-heap
 } sp_topk_t;
 
-KHASH_MAP_INIT_INT(sp, sp_topk_t)
-KHASH_MAP_INIT_INT(sp2, uint64_t)
+KHASHL_MAP_INIT(KH_LOCAL, kh_sp_t,  sp,  uint32_t, sp_topk_t, kh_hash_uint32, kh_eq_generic)
+KHASHL_MAP_INIT(KH_LOCAL, kh_sp2_t, sp2, uint32_t, uint64_t,  kh_hash_uint32, kh_eq_generic)
 
 #define MG_SHORT_KK 17
 #define MG_SHORT_KW 11
@@ -68,14 +68,14 @@ static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, co
 	return mlen;
 }
 
-static int32_t path_mlen(sp_node_t **out, int32_t start, khash_t(sp) *h, int32_t qlen)
+static int32_t path_mlen(sp_node_t **out, int32_t start, kh_sp_t *h, int32_t qlen)
 {
 	int32_t i;
 	double mlen = 0.0;
 	for (i = out[start]->pre; i; i = out[i]->pre) {
 		uint32_t v = out[i]->v;
 		khint_t k;
-		k = kh_get(sp, h, v);
+		k = sp_get(h, v);
 		if (k != kh_end(h)) {
 			sp_topk_t *z = &kh_val(h, k);
 			int32_t ovlp;
@@ -99,8 +99,8 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 {
 	sp_node_t *p, *root = 0, **out;
 	sp_topk_t *q;
-	khash_t(sp) *h;
-	khash_t(sp2) *h2;
+	kh_sp_t *h;
+	kh_sp2_t *h2;
 	void *km;
 	khint_t k;
 	int absent;
@@ -138,27 +138,27 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 		dst_group[i] = (uint64_t)dst[i].v<<32 | i;
 	radix_sort_gfa64(dst_group, dst_group + n_dst);
 
-	h2 = kh_init2(sp2, km); // this hash table keeps all destinations
-	kh_resize(sp2, h2, n_dst * 2);
+	h2 = sp2_init2(km); // this hash table keeps all destinations
+	sp2_resize(h2, n_dst * 2);
 	for (i = 1, j = 0; i <= n_dst; ++i) {
 		if (i == n_dst || dst_group[i]>>32 != dst_group[j]>>32) {
-			k = kh_put(sp2, h2, dst_group[j]>>32, &absent);
+			k = sp2_put(h2, dst_group[j]>>32, &absent);
 			kh_val(h2, k) = (uint64_t)j << 32 | (i - j);
 			assert(absent);
 			j = i;
 		}
 	}
 
-	h = kh_init2(sp, km); // this hash table keeps visited vertices
-	kh_resize(sp, h, 16);
+	h = sp_init2(km); // this hash table keeps visited vertices
+	sp_resize(h, 16);
 	m_out = 16, n_out = 0;
 	KMALLOC(km, out, m_out);
 
 	id = 0;
 	p = gen_sp_node(km, g, src, 0, id++);
-	p->hash = __ac_Wang_hash(src);
+	p->hash = kh_hash_uint32(src);
 	kavl_insert(sp, &root, p, 0);
-	k = kh_put(sp, h, src, &absent);
+	k = sp_put(h, src, &absent);
 	q = &kh_val(h, k);
 	q->k = 1, q->p[0] = p, q->mlen = 0, q->qs = q->qe = -1;
 
@@ -174,7 +174,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 		r->di = r->di>>32<<32 | n_out; // lower 32 bits now for position in the out[] array
 		out[n_out++] = r;
 
-		k = kh_get(sp2, h2, r->v);
+		k = sp2_get(h2, r->v);
 		if (k != kh_end(h2)) { // we have reached one dst vertex
 			int32_t j, dist = r->di>>32, off = kh_val(h2, k) >> 32, cnt = (int32_t)kh_val(h2, k);
 			for (j = 0; j < cnt; ++j) {
@@ -220,7 +220,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			gfa_arc_t *ai = &av[i];
 			int32_t d = (r->di>>32) + (uint32_t)ai->v_lv;
 			if (d > max_dist) continue; // don't probe vertices too far away
-			k = kh_put(sp, h, ai->w, &absent);
+			k = sp_put(h, ai->w, &absent);
 			q = &kh_val(h, k);
 			if (absent) { // a new vertex visited
 				q->k = 0, q->qs = q->qe = -1;
@@ -230,7 +230,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			if (q->k < max_k) { // enough room: add to the heap
 				p = gen_sp_node(km, g, ai->w, d, id++);
 				p->pre = n_out - 1;
-				p->hash = r->hash + __ac_Wang_hash(ai->w);
+				p->hash = r->hash + kh_hash_uint32(ai->w);
 				p->is_0 = r->is_0;
 				if (ai->rank > 0) p->is_0 = 0;
 				kavl_insert(sp, &root, p, 0);
@@ -241,7 +241,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				if (p) {
 					p->di = (uint64_t)d<<32 | (id++);
 					p->pre = n_out - 1;
-					p->hash = r->hash + __ac_Wang_hash(ai->w);
+					p->hash = r->hash + kh_hash_uint32(ai->w);
 					p->is_0 = r->is_0;
 					if (ai->rank > 0) p->is_0 = 0;
 					kavl_insert(sp, &root, p, 0);
@@ -257,7 +257,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 
 	kfree(km, dst_group);
 	kfree(km, dst_done);
-	kh_destroy(sp, h);
+	sp_destroy(h);
 	mg_idx_hfree(h_seeds);
 	kfree(km, seeds);
 	kfree(km, mini.a);
@@ -275,7 +275,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				trans[(int32_t)out[t->path_end]->di] = 1;
 		}
 		for (i = 0; i < n_out; ++i) { // mark dst vertices without a target distance
-			k = kh_get(sp2, h2, out[i]->v);
+			k = sp2_get(h2, out[i]->v);
 			if (k != kh_end(h2)) { // TODO: check if this is correct!
 				int32_t off = kh_val(h2, k)>>32, cnt = (int32_t)kh_val(h2, k);
 				for (j = off; j < off + cnt; ++j)

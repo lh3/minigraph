@@ -33,7 +33,6 @@ typedef struct {
 	int32_t snid, ss, se;
 	uint32_t vs, ve;
 	int32_t is_bidir, n_seg, len_max, len_min;
-	float cf_max, cf_min, cf_ref;
 	uint32_t *v, n_paths;
 	char *seq_max, *seq_min; // seq_max and seq_min point to v[]
 } gfa_bubble_t;
@@ -66,7 +65,6 @@ void gfa_cleanup(gfa_t *g); // permanently delete arcs marked as deleted, sort a
 void gfa_finalize(gfa_t *g);
 int32_t gfa_check_multi(const gfa_t *g);
 uint32_t gfa_fix_multi(gfa_t *g);
-void gfa_sort_ref_arc(gfa_t *g);
 
 int gfa_arc_del_multi_risky(gfa_t *g);
 int gfa_arc_del_asymm_risky(gfa_t *g);
@@ -87,6 +85,7 @@ void gfa_scc_all(const gfa_t *g);
 
 // subset, modifying the graph
 void gfa_sub(gfa_t *g, int n, char *const* seg, int step);
+char **gfa_query_by_reg(const gfa_t *g, int32_t n_bb, const gfa_bubble_t *bb, const char *reg, int *n_seg);
 
 // subset, without modifying the graph
 gfa_sub_t *gfa_sub_from(void *km0, const gfa_t *g, uint32_t v0, int32_t max_dist);
@@ -110,6 +109,8 @@ gfa_bubble_t *gfa_bubble(const gfa_t *g, int32_t *n_); // FIXME: doesn't work wi
 void gfa_gt_simple_print(const gfa_t *g, float min_dc, int32_t is_path); // FIXME: doesn't work with translocations
 
 void gfa_aux_update_cv(gfa_t *g, const char *tag, const double *cov_seg, const double *cov_link);
+
+void gfa_sql_write(FILE *fp, const gfa_t *g, int write_seq);
 
 static inline int64_t gfa_find_arc(const gfa_t *g, uint32_t v, uint32_t w)
 {

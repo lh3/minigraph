@@ -90,14 +90,14 @@ gfa_sub_t *gfa_scc1(void *km0, const gfa_t *g, gfa_scbuf_t *b, uint32_t v0)
 	KCALLOC(km0, sub, 1);
 	sub->km = km0;
 
-	kv_push(uint64_t, 0, b->ds, (uint64_t)v0<<32);
+	kv_push(uint64_t, b->ds, (uint64_t)v0<<32);
 	while (b->ds.n > 0) {
 		uint64_t x = kv_pop(b->ds);
 		uint32_t i = (uint32_t)x, v = x>>32, nv;
 		if (i == 0) { // i is the number of outgoing edges already visited
 			b->a[v].low = b->a[v].index = b->index++;
 			b->a[v].stack = 1;
-			kv_push(uint32_t, 0, b->ts, v);
+			kv_push(uint32_t, b->ts, v);
 		}
 		nv = gfa_arc_n(g, v);
 		if (i == nv) { // done with v
@@ -123,9 +123,9 @@ gfa_sub_t *gfa_scc1(void *km0, const gfa_t *g, gfa_scbuf_t *b, uint32_t v0)
 		} else { // process v's neighbor av[i].w
 			gfa_arc_t *av = gfa_arc_a(g, v);
 			uint32_t w = av[i].w;
-			kv_push(uint64_t, 0, b->ds, (uint64_t)v<<32 | (i+1)); // update the old top of the stack
+			kv_push(uint64_t, b->ds, (uint64_t)v<<32 | (i+1)); // update the old top of the stack
 			if (b->a[w].index == (uint32_t)-1 && b->a[w^1].stack == 0)
-				kv_push(uint64_t, 0, b->ds, (uint64_t)w<<32);
+				kv_push(uint64_t, b->ds, (uint64_t)w<<32);
 			else if (b->a[w].stack)
 				b->a[v].low = b->a[v].low < b->a[w].index? b->a[v].low : b->a[w].index;
 		}

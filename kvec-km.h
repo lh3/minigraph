@@ -49,6 +49,7 @@ int main() {
 #define AC_KVEC_H
 
 #include <stdlib.h>
+#include "kalloc.h"
 
 #define kv_roundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
@@ -60,41 +61,35 @@ int main() {
 #define kv_size(v) ((v).n)
 #define kv_max(v) ((v).m)
 
-#define kv_resize(type, v, s) do { \
+#define kv_resize(type, km, v, s) do { \
 		if ((v).m < (s)) { \
 			(v).m = (s); \
 			kv_roundup32((v).m); \
-			(v).a = (type*)realloc((v).a, sizeof(type) * (v).m); \
+			(v).a = (type*)krealloc((km), (v).a, sizeof(type) * (v).m); \
 		} \
 	} while (0)
 
-#define kv_copy(type, v1, v0) do {							\
-		if ((v1).m < (v0).n) kv_resize(type, v1, (v0).n);	\
-		(v1).n = (v0).n;									\
-		memcpy((v1).a, (v0).a, sizeof(type) * (v0).n);		\
-	} while (0)												\
+#define kv_copy(type, km, v1, v0) do { \
+		if ((v1).m < (v0).n) kv_resize(type, (km), (v1), (v0).n); \
+		(v1).n = (v0).n; \
+		memcpy((v1).a, (v0).a, sizeof(type) * (v0).n); \
+	} while (0) \
 
-#define kv_push(type, v, x) do {									\
-		if ((v).n == (v).m) {										\
-			(v).m = (v).m? (v).m<<1 : 2;							\
-			(v).a = (type*)realloc((v).a, sizeof(type) * (v).m);	\
-		}															\
-		(v).a[(v).n++] = (x);										\
-	} while (0)
-
-#define kv_pushp(type, v, p) do { \
+#define kv_push(type, km, v, x) do { \
 		if ((v).n == (v).m) { \
 			(v).m = (v).m? (v).m<<1 : 2; \
-			(v).a = (type*)realloc((v).a, sizeof(type) * (v).m); \
+			(v).a = (type*)krealloc((km), (v).a, sizeof(type) * (v).m); \
+		} \
+		(v).a[(v).n++] = (x); \
+	} while (0)
+
+#define kv_pushp(type, km, v, p) do { \
+		if ((v).n == (v).m) { \
+			(v).m = (v).m? (v).m<<1 : 2; \
+			(v).a = (type*)krealloc((km), (v).a, sizeof(type) * (v).m); \
 		} \
 		*(p) = &(v).a[(v).n++]; \
 	} while (0)
-
-#define kv_a(type, v, i) ((v).m <= (size_t)(i)?						\
-						  ((v).m = (v).n = (i) + 1, kv_roundup32((v).m), \
-						   (v).a = (type*)realloc((v).a, sizeof(type) * (v).m), 0) \
-						  : (v).n <= (size_t)(i)? (v).n = (i)			\
-						  : 0), (v).a[(i)]
 
 #define kv_reverse(type, v, start) do { \
 		if ((v).m > 0 && (v).n > (start)) { \

@@ -3,7 +3,7 @@
 #include <math.h>
 #include "kalloc.h"
 #include "mgpriv.h"
-#include "khash.h"
+#include "khashl.h"
 
 struct mg_tbuf_s {
 	void *km;
@@ -262,9 +262,9 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MG_MAX_SEG) return;
 	if (opt->max_qlen > 0 && qlen_sum > opt->max_qlen) return;
 
-	hash  = qname? __ac_X31_hash_string(qname) : 0;
-	hash ^= __ac_Wang_hash(qlen_sum) + __ac_Wang_hash(opt->seed);
-	hash  = __ac_Wang_hash(hash);
+	hash  = qname? kh_hash_str(qname) : 0;
+	hash ^= kh_hash_uint32(qlen_sum) + kh_hash_uint32(opt->seed);
+	hash  = kh_hash_uint32(hash);
 
 	collect_minimizers(b->km, opt, gi, n_segs, qlens, seqs, &mv);
 	if (opt->flag & MG_M_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->occ_max1, gi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);

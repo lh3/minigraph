@@ -195,7 +195,9 @@ int gfa_parse_L(gfa_t *g, char *s)
 				if (*q != '+' && *q != '-') return -2;
 				oriw = (*q != '+');
 			} else if (i == 4) {
-				if (*q == ':') {
+				if (*q == '*') {
+					ov = ow = 0;
+				} else if (*q == ':') {
 					ov = INT32_MAX;
 					ow = isdigit(*(q+1))? strtol(q+1, &q, 10) : INT32_MAX;
 				} else if (isdigit(*q)) {
@@ -221,6 +223,7 @@ int gfa_parse_L(gfa_t *g, char *s)
 			if (c == 0) break;
 		}
 	}
+	if (i == 4 && is_ok == 0) ov = ow = 0, is_ok = 1; // no overlap field
 	if (is_ok) {
 		uint32_t v, w;
 		int l_aux, m_aux = 0;
@@ -348,6 +351,7 @@ void gfa_print(const gfa_t *g, FILE *fp, int flag)
 			fprintf(fp, "\tSN:Z:%s\tSO:i:%d", g->sseq[s->snid].name, s->soff);
 		if (s->rank >= 0)
 			fprintf(fp, "\tSR:i:%d", s->rank);
+		if (s->utg && s->utg->n) fprintf(fp, "\tRC:i:%d\tlc:i:%d", s->utg->n, s->utg->len_comp);
 		if (s->aux.l_aux > 0) {
 			char *t = 0;
 			int max = 0;
@@ -360,7 +364,7 @@ void gfa_print(const gfa_t *g, FILE *fp, int flag)
 			uint32_t j, l;
 			for (j = l = 0; j < s->utg->n; ++j) {
 				const gfa_utg_t *u = s->utg;
-				fprintf(fp, "A\t%s\t%d\t%c\t%s\t0\t0\n", s->name, l, "+-"[u->a[j]>>32&1], u->name[j]);
+				fprintf(fp, "A\t%s\t%d\t%c\t%s\t%d\t%d\n", s->name, l, "+-"[u->a[j]>>32&1], u->name[j], (int32_t)(u->r[j]>>32), (int32_t)u->r[j]);
 				l += (uint32_t)u->a[j];
 			}
 		}

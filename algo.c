@@ -33,7 +33,7 @@ int32_t mg_lis_64(void *km, int32_t n, const MG_LIS_TYPE *a, int32_t *b)
  * Max-scoring segments *
  ************************/
 
-#include "kvec.h"
+#include "kvec-km.h"
 
 #define MSS_NEG_INF INT32_MIN
 

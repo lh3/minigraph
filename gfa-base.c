@@ -4,9 +4,8 @@
 #include "gfa-priv.h"
 #include "kstring.h"
 
-#include "khash.h"
-KHASH_MAP_INIT_STR(seg, uint32_t)
-typedef khash_t(seg) seghash_t;
+#include "khashl.h"
+KHASHL_MAP_INIT(KH_LOCAL, h_s2i_t, h_s2i, kh_cstr_t, uint32_t, kh_hash_str, kh_eq_str)
 
 #include "ksort.h"
 #define gfa_arc_key(a) ((a).v_lv)
@@ -21,8 +20,8 @@ gfa_t *gfa_init(void)
 {
 	gfa_t *g;
 	g = (gfa_t*)calloc(1, sizeof(gfa_t));
-	g->h_names = kh_init(seg);
-	g->h_snames = kh_init(seg);
+	g->h_names = h_s2i_init();
+	g->h_snames = h_s2i_init();
 	return g;
 }
 
@@ -31,7 +30,7 @@ void gfa_destroy(gfa_t *g)
 	uint32_t i, j;
 	uint64_t k;
 	if (g == 0) return;
-	kh_destroy(seg, (seghash_t*)g->h_names);
+	h_s2i_destroy((h_s2i_t*)g->h_names);
 	for (i = 0; i < g->n_seg; ++i) {
 		gfa_seg_t *s = &g->seg[i];
 		free(s->name);
@@ -46,7 +45,7 @@ void gfa_destroy(gfa_t *g)
 		}
 	}
 	for (i = 0; i < g->n_sseq; ++i) free(g->sseq[i].name);
-	kh_destroy(seg, (seghash_t*)g->h_snames);
+	h_s2i_destroy((h_s2i_t*)g->h_snames);
 	if (g->link_aux)
 		for (k = 0; k < g->n_arc; ++k)
 			free(g->link_aux[k].aux);
@@ -77,8 +76,8 @@ int32_t gfa_add_seg(gfa_t *g, const char *name)
 {
 	khint_t k;
 	int absent;
-	seghash_t *h = (seghash_t*)g->h_names;
-	k = kh_put(seg, h, name, &absent);
+	h_s2i_t *h = (h_s2i_t*)g->h_names;
+	k = h_s2i_put(h, name, &absent);
 	if (absent) {
 		gfa_seg_t *s;
 		if (g->n_seg == g->m_seg) {
@@ -98,10 +97,10 @@ int32_t gfa_add_seg(gfa_t *g, const char *name)
 
 int32_t gfa_sseq_add(gfa_t *g, const char *sname)
 {
-	khash_t(seg) *h = (khash_t(seg)*)g->h_snames;
+	h_s2i_t *h = (h_s2i_t*)g->h_snames;
 	khint_t k;
 	int absent;
-	k = kh_put(seg, h, sname, &absent);
+	k = h_s2i_put(h, sname, &absent);
 	if (absent) {
 		gfa_sseq_t *ss;
 		if (g->n_sseq == g->m_sseq) GFA_EXPAND(g->sseq, g->m_sseq);
@@ -115,9 +114,9 @@ int32_t gfa_sseq_add(gfa_t *g, const char *sname)
 
 int32_t gfa_sseq_get(const gfa_t *g, const char *sname)
 {
-	khash_t(seg) *h = (khash_t(seg)*)g->h_snames;
+	h_s2i_t *h = (h_s2i_t*)g->h_snames;
 	khint_t k;
-	k = kh_get(seg, h, sname);
+	k = h_s2i_get(h, sname);
 	return k == kh_end(h)? -1 : kh_val(h, k);
 }
 
@@ -137,9 +136,9 @@ void gfa_sseq_update(gfa_t *g, const gfa_seg_t *s)
 
 int32_t gfa_name2id(const gfa_t *g, const char *name)
 {
-	seghash_t *h = (seghash_t*)g->h_names;
+	h_s2i_t *h = (h_s2i_t*)g->h_names;
 	khint_t k;
-	k = kh_get(seg, h, name);
+	k = h_s2i_get(h, name);
 	return k == kh_end(h)? -1 : kh_val(h, k);
 }
 

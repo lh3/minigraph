@@ -2,7 +2,7 @@
 #include <string.h>
 #include "mgpriv.h"
 #include "ksort.h" // for radix sort
-#include "khash.h" // for __ac_Wang_hash()
+#include "khashl.h" // for kh_hash_uint32()
 #include "gfa-priv.h"
 
 typedef struct {
@@ -368,9 +368,9 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 
 			for (j = 0; j < nui; ++j) {
 				const mg_lchain_t *p = &lc[st + j];
-				h += __ac_Wang_hash(p->qs) + __ac_Wang_hash(p->re) + __ac_Wang_hash(p->v);
+				h += kh_hash_uint32(p->qs) + kh_hash_uint32(p->re) + kh_hash_uint32(p->v);
 			}
-			gc->gc[k].hash = __ac_Wang_hash(h);
+			gc->gc[k].hash = kh_hash_uint32(h);
 
 			if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 			copy_lchain(&tmp[n_tmp++], &lc[st], &n_a, gc->a, a); // copy the first lchain
