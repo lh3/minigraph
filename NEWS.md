@@ -1,3 +1,20 @@
+Release 0.16-r436 (21 February 2022)
+------------------------------------
+
+Notable changes:
+
+ * Improvement: 2-level chaining. This is a feature backported from minimap2.
+   It speeds up graph generation for human graphs.
+
+ * Improvement: break a chain at poorly aligned regions, another recent
+   minimap2 feature.
+
+ * Added the script for generating figures in the minigraph paper.
+
+(21 February 2022, r436)
+
+
+
 Release 0.15-r426 (21 March 2021)
 ---------------------------------
 
