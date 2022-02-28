@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define GFA_VERSION "0.5-r240-dirty"
+#define GFA_VERSION "0.5-r241-dirty"
 
 #define GFA_O_OV_EXT   0x1
 #define GFA_O_NO_SEQ   0x2
@@ -100,20 +100,6 @@ typedef struct {
 	uint64_t *idx;
 } gfa_t;
 
-// edit distance
-
-typedef struct {
-	const char *seq;
-	int32_t len;
-} gfa_edseq_t;
-
-typedef struct {
-	int32_t s;
-	int32_t end_v, end_off;
-	int32_t nv;
-	int32_t *v;
-} gfa_edrst_t;
-
 // graph augmentation
 
 typedef struct {
@@ -137,11 +123,6 @@ void gfa_print(const gfa_t *g, FILE *fp, int M_only);
 int32_t gfa_name2id(const gfa_t *g, const char *name);
 uint8_t *gfa_aux_get(int l_data, const uint8_t *data, const char tag[2]);
 int gfa_aux_del(int l_data, uint8_t *data, uint8_t *s);
-
-gfa_edseq_t *gfa_edseq_init(const gfa_t *g);
-void gfa_edseq_destroy(int32_t n_seg, gfa_edseq_t *es);
-int32_t gfa_edit_dist(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, int32_t v0, int32_t off0, int32_t v1, int32_t off1,
-					  uint32_t max_lag, int32_t traceback, gfa_edrst_t *rst);
 
 #ifdef __cplusplus
 }
