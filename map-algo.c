@@ -252,7 +252,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	mg128_t *a;
 	mg128_v mv = {0,0,0};
 	mg_lchain_t *lc;
-	char *seq_cat;
+	char *seq_cat[2];
 	km_stat_t kmst;
 	float tmp, chn_pen_gap, chn_pen_skip;
 
@@ -333,16 +333,19 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	if (mg_dbg_flag & MG_DBG_LCHAIN)
 		mg_print_lchain(stdout, gi, n_lc, lc, a, qname);
 
-	KMALLOC(b->km, seq_cat, qlen_sum);
+	KMALLOC(b->km, seq_cat[0], qlen_sum * 2);
+	seq_cat[1] = seq_cat[0] + qlen_sum;
 	for (i = l = 0; i < n_segs; ++i) {
-		strncpy(&seq_cat[l], seqs[i], qlens[i]);
+		strncpy(&seq_cat[0][l], seqs[i], qlens[i]);
 		l += qlens[i];
 	}
+	for (i = 0; i < qlen_sum; ++i)
+		seq_cat[1][i] = gfa_comp_table[(uint8_t)seq_cat[0][qlen_sum - 1 - i]];
 	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw_long, opt->max_gc_skip, opt->ref_bonus,
 						 chn_pen_gap, chn_pen_skip, opt->mask_level, opt->max_gc_seq_ext, seq_cat, a, &u);
-	gcs[0] = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score);
+	gcs[0] = mg_gchain_gen(0, b->km, gi->g, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score, seq_cat);
 	gcs[0]->rep_len = rep_len;
-	kfree(b->km, seq_cat);
+	kfree(b->km, seq_cat[0]);
 	kfree(b->km, a);
 	kfree(b->km, lc);
 	kfree(b->km, u);

@@ -100,6 +100,11 @@ typedef struct {
 	uint64_t *idx;
 } gfa_t;
 
+typedef struct {
+	const char *seq;
+	int32_t len;
+} gfa_edseq_t;
+
 // graph augmentation
 
 typedef struct {
@@ -119,6 +124,9 @@ gfa_t *gfa_init(void);
 void gfa_destroy(gfa_t *g);
 gfa_t *gfa_read(const char *fn);
 void gfa_print(const gfa_t *g, FILE *fp, int M_only);
+
+gfa_edseq_t *gfa_edseq_init(const gfa_t *g);
+void gfa_edseq_destroy(int32_t n_seg, gfa_edseq_t *es);
 
 int32_t gfa_name2id(const gfa_t *g, const char *name);
 uint8_t *gfa_aux_get(int l_data, const uint8_t *data, const char tag[2]);

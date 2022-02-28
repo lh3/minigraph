@@ -63,7 +63,7 @@ static inline int32_t cal_sc(const mg_path_dst_t *dj, const mg_lchain_t *li, con
 }
 
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, int32_t max_skip,
-					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, int32_t max_gc_seq_ext, const char *qseq, const mg128_t *an, uint64_t **u_)
+					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, int32_t max_gc_seq_ext, char *const qseq[2], const mg128_t *an, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *v, *t;
@@ -204,7 +204,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				lj = &lc[a[dst[j].meta].i];
 				if (lj->qe < min_qs) min_qs = lj->qe;
 			}
-			memcpy(qs, &qseq[min_qs], li->qs - min_qs);
+			memcpy(qs, &qseq[0][min_qs], li->qs - min_qs);
 			mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, li->qs - min_qs, qs, 1, 0);
 			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", ai->i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
 		}
@@ -330,7 +330,7 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a,
-							uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score)
+							uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score, char *const qseq[2])
 {
 	mg_gchains_t *gc;
 	mg_llchain_t *tmp;

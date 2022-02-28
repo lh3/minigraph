@@ -71,11 +71,6 @@ int gfa_arc_del_asymm_risky(gfa_t *g);
 
 // edit distance
 typedef struct {
-	const char *seq;
-	int32_t len;
-} gfa_edseq_t;
-
-typedef struct {
 	int32_t s;
 	int32_t end_v, end_off;
 	int32_t nv;
@@ -90,8 +85,6 @@ typedef struct {
 } gfa_edopt_t;
 
 void gfa_edopt_init(gfa_edopt_t *opt);
-gfa_edseq_t *gfa_edseq_init(const gfa_t *g);
-void gfa_edseq_destroy(int32_t n_seg, gfa_edseq_t *es);
 int32_t gfa_edit_dist(const gfa_edopt_t *opt, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v0, int32_t off0,
 					  int32_t n_end, const uint64_t *end, gfa_edrst_t *rst);
 

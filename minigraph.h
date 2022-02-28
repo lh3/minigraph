@@ -91,6 +91,7 @@ typedef struct {
 
 typedef struct {
 	const gfa_t *g;
+	gfa_edseq_t *es;
 	int32_t b, w, k, flag;
 	struct mg_idx_bucket_s *B; // index (hidden)
 } mg_idx_t;
