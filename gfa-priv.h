@@ -87,14 +87,13 @@ typedef struct {
 	int32_t max_width;
 	int32_t max_lag;
 	int32_t traceback;
-	uint32_t v0, v1;
-	int32_t off0, off1;
 } gfa_edopt_t;
 
 void gfa_edopt_init(gfa_edopt_t *opt);
 gfa_edseq_t *gfa_edseq_init(const gfa_t *g);
 void gfa_edseq_destroy(int32_t n_seg, gfa_edseq_t *es);
-int32_t gfa_edit_dist(const gfa_edopt_t *opt, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, gfa_edrst_t *rst);
+int32_t gfa_edit_dist(const gfa_edopt_t *opt, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v0, int32_t off0,
+					  int32_t n_end, const uint64_t *end, gfa_edrst_t *rst);
 
 // assembly related routines
 int gfa_arc_del_trans(gfa_t *g, int fuzz); // transitive reduction
