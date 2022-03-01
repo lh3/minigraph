@@ -383,7 +383,7 @@ static void gwf_ed_extend_batch(void *km, const gfa_t *g, const gfa_edseq_t *es,
 }
 
 // wfa_extend and wfa_next combined
-static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, int32_t n_end, const uint64_t *end, int32_t max_size, int32_t max_lag,
+static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v1, int32_t off1, int32_t max_size, int32_t max_lag,
 								 int32_t traceback, int32_t *end_v, int32_t *end_off, int32_t *end_tb, int32_t *n_a_, gwf_diag_t *a)
 {
 	int32_t i, x, n = *n_a_, do_dedup = 1;
@@ -460,26 +460,20 @@ static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_eds
 			}
 			if (nv == 0 || n_ext != nv) // add an insertion to the target; this *might* cause a duplicate in corner cases
 				gwf_diag_push(buf->km, &B, v, d+1, k, x0 + 1, 1, t.t);
-		} else { // i + 1 == ql, i.e. reaching the end of the query sequence
-			int32_t j;
-			for (j = 0; j < n_end; ++j) // WARNING: if there are too many ending positions, this could be bad
-				if (v == end[j]>>32 && k == (int32_t)end[j])
-					break;
-			if (n_end == 0 || j < n_end) {
-				*end_v = v, *end_off = k, *end_tb = t.t, *n_a_ = 0;
-				kdq_destroy(gwf_diag_t, A);
-				kfree(buf->km, B.a);
-				return 0;
-			} else if (k + 1 < vl) { // i + 1 == ql; reaching the end of the query but not the end of the vertex
-				gwf_diag_push(buf->km, &B, v, d-1, k+1, x0 + 1, ooo, t.t); // add an deletion; this *might* case a duplicate in corner cases
-			} else { // i + 1 == ql && k + 1 == g->len[v]
-				int32_t nv = gfa_arc_n(g, v), j, tw = -1;
-				const gfa_arc_t *av = gfa_arc_a(g, v);
-				if (traceback) tw = gwf_trace_push(buf->km, &buf->t, v, t.t, buf->ht);
-				for (j = 0; j < nv; ++j)
-					gwf_diag_push(buf->km, &B, av[j].w, i - av[j].ow, av[j].ow, x0 + 1, 1, tw); // deleting the first base on the next vertex
-			}
-		}
+		} else if (v1 == (uint32_t)-1 || (v == v1 && k == off1)) { // i + 1 == ql
+			*end_v = v, *end_off = k, *end_tb = t.t, *n_a_ = 0;
+			kdq_destroy(gwf_diag_t, A);
+			kfree(buf->km, B.a);
+			return 0;
+		} else if (k + 1 < vl) { // i + 1 == ql; reaching the end of the query but not the end of the vertex
+			gwf_diag_push(buf->km, &B, v, d-1, k+1, x0 + 1, ooo, t.t); // add an deletion; this *might* case a duplicate in corner cases
+		} else if (v != v1) { // i + 1 == ql && k + 1 == g->len[v]; not reaching the last vertex $v1
+			int32_t nv = gfa_arc_n(g, v), j, tw = -1;
+			const gfa_arc_t *av = gfa_arc_a(g, v);
+			if (traceback) tw = gwf_trace_push(buf->km, &buf->t, v, t.t, buf->ht);
+			for (j = 0; j < nv; ++j)
+				gwf_diag_push(buf->km, &B, av[j].w, i - av[j].ow, av[j].ow, x0 + 1, 1, tw); // deleting the first base on the next vertex
+		} else assert(0); // should never come here
 	}
 
 	kdq_destroy(gwf_diag_t, A);
@@ -526,10 +520,11 @@ void gfa_edopt_init(gfa_edopt_t *opt)
 	memset(opt, 0, sizeof(*opt));
 	opt->max_dist = -1;
 	opt->max_width = 1000;
+	opt->v1 = (uint32_t)-1;
+	opt->off1 = -1;
 }
 
-int32_t gfa_edit_dist(const gfa_edopt_t *opt, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v0, int32_t off0,
-					  int32_t n_end, const uint64_t *end, gfa_edrst_t *rst)
+int32_t gfa_edit_dist(const gfa_edopt_t *opt, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, gfa_edrst_t *rst)
 {
 	int32_t s = 0, n_a = 1, end_tb;
 	gwf_diag_t *a;
@@ -541,10 +536,10 @@ int32_t gfa_edit_dist(const gfa_edopt_t *opt, void *km, const gfa_t *g, const gf
 	buf.ht = gwf_map64_init2(km);
 	kv_resize(gwf_trace_t, km, buf.t, gfa_n_vtx(g) + 16);
 	KCALLOC(km, a, 1);
-	a[0].vd = gwf_gen_vd(v0, off0), a[0].k = off0 - 1, a[0].xo = 0; // the initial state
+	a[0].vd = gwf_gen_vd(opt->v0, opt->off0), a[0].k = opt->off0 - 1, a[0].xo = 0; // the initial state
 	if (opt->traceback) a[0].t = gwf_trace_push(km, &buf.t, -1, -1, buf.ht);
 	while (n_a > 0) {
-		a = gwf_ed_extend(&buf, g, es, ql, q, n_end, end, opt->max_width, opt->max_lag, opt->traceback, &rst->end_v, &rst->end_off, &end_tb, &n_a, a);
+		a = gwf_ed_extend(&buf, g, es, ql, q, opt->v1, opt->off1, opt->max_width, opt->max_lag, opt->traceback, &rst->end_v, &rst->end_off, &end_tb, &n_a, a);
 		if (rst->end_off >= 0 || n_a == 0) break;
 		if (opt->max_dist >= 0 && s >= opt->max_dist) break;
 		++s;
