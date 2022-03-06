@@ -72,22 +72,17 @@ int gfa_arc_del_asymm_risky(gfa_t *g);
 // edit distance
 typedef struct {
 	int32_t s;
-	int32_t end_v, end_off;
+	uint32_t end_v;
+	int32_t end_off;
 	int32_t nv;
 	int32_t *v;
 } gfa_edrst_t;
 
-typedef struct {
-	int32_t max_dist;
-	int32_t max_width;
-	int32_t max_lag;
-	int32_t traceback;
-	uint32_t v0, v1;
-	int32_t off0, off1;
-} gfa_edopt_t;
-
-void gfa_edopt_init(gfa_edopt_t *opt);
-int32_t gfa_edit_dist(const gfa_edopt_t *opt, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, gfa_edrst_t *rst);
+int32_t gfa_edit_dist(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v0, int32_t off0,
+					  int32_t max_width, int32_t max_lag, int32_t max_s, int32_t traceback, gfa_edrst_t *rst);
+void *gfa_ed_init(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *q, uint32_t v0, int32_t off0, int32_t max_width, int32_t max_lag, int32_t traceback);
+void gfa_ed_next(void *z_, int32_t ql, uint32_t v1, int32_t off1, int32_t max_s, gfa_edrst_t *rst);
+void gfa_ed_destroy(void *z_);
 
 // assembly related routines
 int gfa_arc_del_trans(gfa_t *g, int fuzz); // transitive reduction
