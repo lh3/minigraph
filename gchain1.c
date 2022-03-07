@@ -385,8 +385,42 @@ static mg_llchain_t *bridge_shortk(void *km, const gfa_t *g, const mg_lchain_t *
 	return tmp;
 }
 
+static mg_llchain_t *bridge_gwfa(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, int32_t kmer_size, const mg_lchain_t *l0, const mg_lchain_t *l1,
+								 mg_llchain_t *tmp, int32_t *n_tmp_, int32_t *m_tmp_)
+{
+	int32_t n_tmp = *n_tmp_, m_tmp = *m_tmp_;
+	uint32_t v0 = l0->v, v1 = l1->v;
+	int32_t qs = l0->qe - kmer_size, qe = l1->qs + kmer_size, end0, end1, j;
+	void *z;
+	gfa_edrst_t r;
+
+	end0 = l0->re - kmer_size;
+	if (v0&1) end0 = g->seg[v0>>1].len - 1 - end0;
+	end1 = l1->rs + kmer_size - 1;
+	if (v1&1) end1 = g->seg[v1>>1].len - 1 - end1;
+
+	km = 0;
+	z = gfa_ed_init(km, g, es, qe - qs, &qseq[qs], 0, v0, end0, 1000, 10000, 1);
+	gfa_ed_step(z, -1, v1, end1, -1, &r);
+	gfa_ed_destroy(z);
+	fprintf(stderr, "qs=%d,qe=%d,v0=%c%s:%d:%d,v1=%c%s:%d,s=%d,nv=%d\n", qs, qe, "><"[v0&1], g->seg[v0>>1].name, end0, g->seg[v0>>1].len - end0 - 1, "><"[v1&1], g->seg[v1>>1].name, end1, r.s, r.nv);
+	assert(r.s >= 0);
+
+	for (j = 1; j < r.nv - 1; ++j) {
+		mg_llchain_t *q;
+		if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
+		q = &tmp[n_tmp++];
+		q->off = q->cnt = q->score = 0;
+		q->v = r.v[j];
+	}
+	kfree(km, r.v);
+	*n_tmp_ = n_tmp, *m_tmp_ = m_tmp;
+	return tmp;
+}
+
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
-mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a,
+mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t kmer_size,
+							int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a,
 							uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score, char *const qseq[2])
 {
 	mg_gchains_t *gc;
@@ -431,10 +465,12 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 			if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 			copy_lchain(&tmp[n_tmp++], &lc[st], &n_a, gc->a, a); // copy the first lchain
 
+			fprintf(stderr, "===> %d <===\n", i);
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
 				if (!l1->inner_pre) { // bridging two segments
-					tmp = bridge_shortk(km, g, l0, l1, tmp, &n_tmp, &m_tmp);
+					if (0) tmp = bridge_shortk(km, g, l0, l1, tmp, &n_tmp, &m_tmp);
+					else tmp = bridge_gwfa(km, g, es, qseq[0], kmer_size, l0, l1, tmp, &n_tmp, &m_tmp);
 					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 					copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
 				} else { // on one segment
