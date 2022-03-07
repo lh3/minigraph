@@ -357,6 +357,34 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 	(*n_a) += q->cnt;
 }
 
+static mg_llchain_t *bridge_shortk(void *km, const gfa_t *g, const mg_lchain_t *l0, const mg_lchain_t *l1, mg_llchain_t *tmp, int32_t *n_tmp_, int32_t *m_tmp_)
+{
+	int32_t s, n_pathv, n_tmp = *n_tmp_, m_tmp = *m_tmp_;
+	mg_path_dst_t dst;
+	mg_pathv_t *p;
+	memset(&dst, 0, sizeof(mg_path_dst_t));
+	dst.v = l0->v ^ 1;
+	assert(l1->dist_pre >= 0);
+	dst.target_dist = l1->dist_pre;
+	dst.target_hash = l1->hash_pre;
+	dst.check_hash = 1;
+	p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, 0, 0, 1, &n_pathv);
+	if (n_pathv == 0 || dst.target_hash != dst.hash)
+		fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
+	assert(n_pathv > 0);
+	assert(dst.target_hash == dst.hash);
+	for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
+		mg_llchain_t *q;
+		if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
+		q = &tmp[n_tmp++];
+		q->off = q->cnt = q->score = 0;
+		q->v = p[s].v^1; // when reversing a path, we also need to flip the orientation
+	}
+	kfree(km, p);
+	*n_tmp_ = n_tmp, *m_tmp_ = m_tmp;
+	return tmp;
+}
+
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a,
 							uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score, char *const qseq[2])
@@ -389,7 +417,6 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 		int32_t n_a0 = n_a, m = 0, nui = (int32_t)u[i];
 		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
 		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score) {
-			mg_llchain_t *q;
 			uint32_t h = hash;
 
 			gc->gc[k].score = u[i]>>32;
@@ -407,27 +434,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, int32_t n_u,
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
 				if (!l1->inner_pre) { // bridging two segments
-					int32_t s, n_pathv;
-					mg_path_dst_t dst;
-					mg_pathv_t *p;
-					memset(&dst, 0, sizeof(mg_path_dst_t));
-					dst.v = l0->v ^ 1;
-					assert(l1->dist_pre >= 0);
-					dst.target_dist = l1->dist_pre;
-					dst.target_hash = l1->hash_pre;
-					dst.check_hash = 1;
-					p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, 0, 0, 1, &n_pathv);
-					if (n_pathv == 0 || dst.target_hash != dst.hash)
-						fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
-					assert(n_pathv > 0);
-					assert(dst.target_hash == dst.hash);
-					for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
-						if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-						q = &tmp[n_tmp++];
-						q->off = q->cnt = q->score = 0;
-						q->v = p[s].v^1; // when reversing a path, we also need to flip the orientation
-					}
-					kfree(km, p);
+					tmp = bridge_shortk(km, g, l0, l1, tmp, &n_tmp, &m_tmp);
 					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 					copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
 				} else { // on one segment
