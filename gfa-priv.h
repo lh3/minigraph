@@ -70,19 +70,30 @@ int gfa_arc_del_multi_risky(gfa_t *g);
 int gfa_arc_del_asymm_risky(gfa_t *g);
 
 // edit distance
+#define GFA_ED_MAX_END 64
+
+typedef struct {
+	uint32_t v;
+	int32_t vo, qo;
+} gfa_edend_t;
+
 typedef struct {
 	int32_t s;
 	uint32_t end_v;
 	int32_t end_off;
+	int32_t wlen; // length of walk
+	int32_t n_end;
 	int32_t nv;
 	int32_t *v;
+	gfa_edend_t end[GFA_ED_MAX_END];
 } gfa_edrst_t;
+
+void *gfa_ed_init(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, const int32_t *qm, uint32_t v0, int32_t off0, int32_t max_width, int32_t max_lag, int32_t traceback);
+void gfa_ed_step(void *z_, int32_t mark, uint32_t v1, int32_t off1, int32_t max_s, gfa_edrst_t *r);
+void gfa_ed_destroy(void *z_);
 
 int32_t gfa_edit_dist(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v0, int32_t off0,
 					  int32_t max_width, int32_t max_lag, int32_t max_s, int32_t traceback, gfa_edrst_t *rst);
-void *gfa_ed_init(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *q, uint32_t v0, int32_t off0, int32_t max_width, int32_t max_lag, int32_t traceback);
-void gfa_ed_next(void *z_, int32_t ql, uint32_t v1, int32_t off1, int32_t max_s, gfa_edrst_t *rst);
-void gfa_ed_destroy(void *z_);
 
 // assembly related routines
 int gfa_arc_del_trans(gfa_t *g, int fuzz); // transitive reduction

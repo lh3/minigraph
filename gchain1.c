@@ -196,6 +196,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				if (n_dst > max_gc_seq_ext) n_dst = max_gc_seq_ext; // discard weaker chains
 			}
 		}
+#if 1
 		if (n_dst > 0) { // find paths with sequences
 			int32_t min_qs = li->qs;
 			for (j = 0; j < n_dst; ++j) {
@@ -208,6 +209,34 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 			mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, li->qs - min_qs, qs, 1, 0);
 			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", ai->i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
 		}
+#else
+		if (n_dst > 0) {
+			int32_t k, qe, off0;
+			void *z;
+			for (j = k = 0; j < n_dst; ++j) {
+				const mg_lchain_t *lj;
+				assert(dst[j].n_path > 0);
+				lj = &lc[a[dst[j].meta].i];
+				qsw[k++] = (uint64_t)lj->qe << 32 | j;
+			}
+			radix_sort_gfa64(qsw, qsw + n_dst);
+			qe = qlen - (li->qs + kmer_size); // qlen - (li->qs + kmer_size - 1) - 1
+			if ((li->v&1) == 0) { // forward strand
+				off0 = g->seg[li->v>>1].len - (li->rs + kmer_size);
+			} else { // reverse strand
+				off0 = li->re - kmer_size - 1;
+			}
+			z = gfa_ed_init(km, g, es, qseq[1][qe], li->v^1, off0, 1000, 10000, 0);
+			for (k = n_dst - 1; k >= 0; --k) {
+				const mg_lchain_t *lj;
+				int32_t ql;
+				lj = &lc[a[dst[(int32_t)qsw[k]].meta].i];
+				ql = qe + 1 - (lj->qe - kmer_size);
+				gfa_ed_next(z, ql, (uint32_t)-1, -1, 10000, gfa_edrst_t *rst);
+			}
+			gfa_ed_destroy(z);
+		}
+#endif
 		{ // DP
 			int32_t max_f = li->score, max_j = -1, max_d = -1, max_inner = 0;
 			uint32_t max_hash = 0;
