@@ -174,7 +174,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 		{ // confirm reach-ability
 			int32_t k;
 			// test reach-ability without sequences
-			mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, 0, 0, 1, 0);
+			mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, 0);
 			// remove unreachable destinations
 			for (j = k = 0; j < n_dst; ++j) {
 				mg_path_dst_t *dj = &dst[j];
@@ -196,20 +196,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				if (n_dst > max_gc_seq_ext) n_dst = max_gc_seq_ext; // discard weaker chains
 			}
 		}
-#if 1
-		if (n_dst > 0) { // find paths with sequences
-			int32_t min_qs = li->qs;
-			for (j = 0; j < n_dst; ++j) {
-				const mg_lchain_t *lj;
-				assert(dst[j].n_path > 0);
-				lj = &lc[a[dst[j].meta].i];
-				if (lj->qe < min_qs) min_qs = lj->qe;
-			}
-			memcpy(qs, &qseq[0][min_qs], li->qs - min_qs);
-			mg_shortest_k(km, g, li->v^1, n_dst, dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), MG_MAX_SHORT_K, li->qs - min_qs, qs, 1, 0);
-			if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "[src:%d] q_intv=[%d,%d), src=%c%s[%d], n_dst=%d, max_dist=%d, min_qs=%d, lc_score=%d\n", ai->i, li->qs, li->qe, "><"[(li->v&1)^1], g->seg[li->v>>1].name, li->v^1, n_dst, max_dist_g + (g->seg[li->v>>1].len - li->rs), min_qs, li->score);
-		}
-#else
+#if 0
 		if (n_dst > 0) {
 			int32_t k, qe, off0;
 			void *z;
@@ -368,7 +355,7 @@ static mg_llchain_t *bridge_shortk(void *km, const gfa_t *g, const mg_lchain_t *
 	dst.target_dist = l1->dist_pre;
 	dst.target_hash = l1->hash_pre;
 	dst.check_hash = 1;
-	p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, 0, 0, 1, &n_pathv);
+	p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, &n_pathv);
 	if (n_pathv == 0 || dst.target_hash != dst.hash)
 		fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
 	assert(n_pathv > 0);

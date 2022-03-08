@@ -20,7 +20,7 @@ KAVL_INIT(sp, sp_node_t, head, sp_node_cmp)
 KSORT_INIT(sp, sp_node_p, sp_node_lt)
 
 typedef struct {
-	int32_t k, mlen;
+	int32_t k;
 	int32_t qs, qe;
 	sp_node_t *p[MG_MAX_SHORT_K]; // this forms a max-heap
 } sp_topk_t;
@@ -33,60 +33,6 @@ KHASHL_MAP_INIT(KH_LOCAL, kh_sp2_t, sp2, uint32_t, uint64_t,  kh_hash_uint32, kh
 #define MG_SHORT_KM 50
 #define MG_SHORT_K_EXT 1000
 
-static int32_t node_mlen(void *km, const gfa_t *g, uint32_t v, mg128_v *mini, const void *h, int32_t n_seeds, const uint64_t *seeds, int32_t *qs, int32_t *qe)
-{
-	const gfa_seg_t *s = &g->seg[v>>1];
-	int32_t mlen = 0, m_a, n_a, i;
-	uint64_t *a;
-	*qs = *qe = -1;
-	if (h == 0 || s->len < MG_SHORT_KK) return 0;
-	mini->n = 0;
-	mg_sketch(km, s->seq, s->len, MG_SHORT_KW, MG_SHORT_KK, 0, mini);
-	if (mini->n == 0) return 0;
-	m_a = mini->n, n_a = 0;
-	KMALLOC(km, a, m_a);
-	for (i = 0; i < mini->n; ++i) {
-		const uint64_t *x;
-		mg128_t *p = &mini->a[i];
-		int32_t j, n, v_pos;
-		x = mg_idx_hget(h, seeds, 0, p->x>>8, &n);
-		if (n > MG_SHORT_KM) continue;
-		v_pos = (uint32_t)p->y >> 1;
-		if (v&1) v_pos = s->len - (v_pos + 1 - MG_SHORT_KK) - 1;
-		assert(v_pos >= 0);
-		for (j = 0; j < n; ++j) {
-			if ((v&1) == ((x[j]&1) ^ (p->y&1))) { // find an anchor
-				int32_t q_pos = (uint32_t)x[j] >> 1;
-				if (n_a == m_a) KEXPAND(km, a, m_a);
-				a[n_a++] = (uint64_t)q_pos<<32 | v_pos;
-			}
-		}
-	}
-	mlen = mg_anchor2mlen(km, MG_SHORT_KK, n_a, a, qs, qe);
-	assert(mlen >= 0 && *qe >= *qs);
-	kfree(km, a);
-	return mlen;
-}
-
-static int32_t path_mlen(sp_node_t **out, int32_t start, kh_sp_t *h, int32_t qlen)
-{
-	int32_t i;
-	double mlen = 0.0;
-	for (i = out[start]->pre; i; i = out[i]->pre) {
-		uint32_t v = out[i]->v;
-		khint_t k;
-		k = sp_get(h, v);
-		if (k != kh_end(h)) {
-			sp_topk_t *z = &kh_val(h, k);
-			int32_t ovlp;
-			if (z->qe <= z->qs || z->qs >= qlen) continue;
-			ovlp = z->qe <= qlen? z->qe - z->qs : qlen - z->qs;
-			mlen += z->mlen * (double)ovlp / (z->qe - z->qs);
-		}
-	}
-	return (int32_t)(mlen + .499);
-}
-
 static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32_t d, int32_t id)
 {
 	sp_node_t *p;
@@ -95,7 +41,7 @@ static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32
 	return p;
 }
 
-mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, mg_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t ql, const char *qs, int is_rev, int32_t *n_pathv)
+mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst, mg_path_dst_t *dst, int32_t max_dist, int32_t max_k, int32_t *n_pathv)
 {
 	sp_node_t *p, *root = 0, **out;
 	sp_topk_t *q;
@@ -104,7 +50,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	void *km;
 	khint_t k;
 	int absent;
-	int32_t i, j, n_done, n_found, n_seeds = 0;
+	int32_t i, j, n_done, n_found;
 	uint32_t id, n_out, m_out;
 	int8_t *dst_done;
 	mg_pathv_t *ret = 0;
@@ -123,14 +69,6 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	}
 	if (max_k > MG_MAX_SHORT_K) max_k = MG_MAX_SHORT_K;
 	km = (mg_dbg_flag&MG_DBG_NO_KALLOC) && (mg_dbg_flag&MG_DBG_SHORTK)? 0 : km_init2(km0, 0x4000);
-
-	if (ql > 0 && qs) { // build the seed hash table for the query
-		mg_sketch(km, qs, ql, MG_SHORT_KW, MG_SHORT_KK, 0, &mini);
-		if (is_rev)
-			for (i = 0; i < mini.n; ++i)
-				mini.a[i].y = (ql - (((int32_t)mini.a[i].y>>1) + 1 - MG_SHORT_KK) - 1) << 1 | ((mini.a[i].y&1)^1);
-		h_seeds = mg_idx_a2h(km, mini.n, mini.a, 0, &seeds, &n_seeds);
-	}
 
 	KCALLOC(km, dst_done, n_dst);
 	KMALLOC(km, dst_group, n_dst);
@@ -160,7 +98,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 	kavl_insert(sp, &root, p, 0);
 	k = sp_put(h, src, &absent);
 	q = &kh_val(h, k);
-	q->k = 1, q->p[0] = p, q->mlen = 0, q->qs = q->qe = -1;
+	q->k = 1, q->p[0] = p, q->qs = q->qe = -1;
 
 	n_done = 0;
 	while (kavl_size(head, root) > 0) {
@@ -183,9 +121,8 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 				if (t->inner) {
 					done = 1;
 				} else {
-					int32_t mlen, copy = 0;
-					mlen = h_seeds? path_mlen(out, n_out - 1, h, t->qlen) : 0;
-					//if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,mlen=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, dist - g->seg[src>>1].len, mlen, r->hash);
+					int32_t copy = 0;
+					//if (mg_dbg_flag & MG_DBG_GC1) fprintf(stderr, "  src=%c%s[%d],qlen=%d\tdst=%c%s[%d]\ttarget_distx=%d,target_hash=%x\tdistx=%d,hash=%x\n", "><"[src&1], g->seg[src>>1].name, src, ql, "><"[t->v&1], g->seg[t->v>>1].name, t->v, t->target_dist - g->seg[src>>1].len, t->target_hash, dist - g->seg[src>>1].len, r->hash);
 					if (t->n_path == 0) { // keep the shortest path
 						copy = 1;
 					} else if (t->target_dist >= 0) { // we have a target distance; choose the closest
@@ -195,11 +132,11 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 							int32_t d0 = t->dist, d1 = dist;
 							d0 = d0 > t->target_dist? d0 - t->target_dist : t->target_dist - d0;
 							d1 = d1 > t->target_dist? d1 - t->target_dist : t->target_dist - d1;
-							if (d1 - mlen/2 < d0 - t->mlen/2) copy = 1;
+							if (d1 < d0) copy = 1;
 						}
 					}
 					if (copy) {
-						t->path_end = n_out - 1, t->dist = dist, t->hash = r->hash, t->mlen = mlen, t->is_0 = r->is_0;
+						t->path_end = n_out - 1, t->dist = dist, t->hash = r->hash, t->is_0 = r->is_0;
 						if (t->target_dist >= 0) {
 							if (dist == t->target_dist && t->check_hash && r->hash == t->target_hash) done = 1;
 							else if (dist > t->target_dist + MG_SHORT_K_EXT) done = 1;
@@ -224,8 +161,7 @@ mg_pathv_t *mg_shortest_k(void *km0, const gfa_t *g, uint32_t src, int32_t n_dst
 			q = &kh_val(h, k);
 			if (absent) { // a new vertex visited
 				q->k = 0, q->qs = q->qe = -1;
-				q->mlen = h_seeds && d + gfa_arc_lw(g, *ai) <= max_dist? node_mlen(km, g, ai->w, &mini, h_seeds, n_seeds, seeds, &q->qs, &q->qe) : 0;
-				//if (ql && qs) fprintf(stderr, "ql=%d,src=%d\tv=%c%s[%d],n_seeds=%d,mlen=%d\n", ql, src, "><"[ai->w&1], g->seg[ai->w>>1].name, ai->w, n_seeds, q->mlen);
+				//if (ql && qs) fprintf(stderr, "ql=%d,src=%d\tv=%c%s[%d]\n", ql, src, "><"[ai->w&1], g->seg[ai->w>>1].name, ai->w);
 			}
 			if (q->k < max_k) { // enough room: add to the heap
 				p = gen_sp_node(km, g, ai->w, d, id++);
