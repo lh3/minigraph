@@ -489,13 +489,13 @@ static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_eds
 			return 0;
 		} else if (k + 1 < vl) { // i + 1 == ql; reaching the end of the query but not the end of the vertex
 			gwf_diag_push(buf->km, &B, v, d-1, k+1, x0 + 1, ooo, t.t); // add an deletion; this *might* case a duplicate in corner cases
-		} else if (v != v1) { // i + 1 == ql && k + 1 == g->len[v]; not reaching the last vertex $v1
+		} else { // i + 1 == ql && k + 1 == g->len[v]; not reaching the last vertex $v1
 			int32_t nv = gfa_arc_n(g, v), j, tw = -1;
 			const gfa_arc_t *av = gfa_arc_a(g, v);
 			if (traceback) tw = gwf_trace_push(buf->km, &buf->t, v, t.t, buf->ht);
 			for (j = 0; j < nv; ++j)
 				gwf_diag_push(buf->km, &B, av[j].w, i - av[j].ow, av[j].ow, x0 + 1, 1, tw); // deleting the first base on the next vertex
-		} else assert(0); // should never come here
+		}
 	}
 
 	kdq_destroy(gwf_diag_t, A);
@@ -570,7 +570,7 @@ void *gfa_ed_init(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, c
 void gfa_ed_step(void *z_, int32_t mark, uint32_t v1, int32_t off1, int32_t max_s, gfa_edrst_t *r)
 {
 	gfa_edbuf_t *z = (gfa_edbuf_t*)z_;
-	r->n_end = 0;
+	r->n_end = 0, r->nv = 0;
 	while (z->n_a > 0) {
 		z->a = gwf_ed_extend(&z->buf, z->g, z->es, z->ql, z->q, z->qm, mark, v1, off1, z->max_width, z->max_lag, z->traceback, &z->end_tb, &z->n_a, z->a, r);
 		if (r->end_off >= 0 || z->n_a == 0) break;
@@ -592,6 +592,7 @@ void gfa_ed_destroy(void *z_)
 {
 	gfa_edbuf_t *z = (gfa_edbuf_t*)z_;
 	void *km = z->buf.km;
+	kfree(km, z->a);
 	gwf_set64_destroy(z->buf.ha);
 	gwf_map64_destroy(z->buf.ht);
 	kfree(km, z->buf.ooo.a);
