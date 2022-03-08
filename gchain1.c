@@ -401,7 +401,7 @@ static mg_llchain_t *bridge_gwfa(void *km, const gfa_t *g, const gfa_edseq_t *es
 	z = gfa_ed_init(km, g, es, qe - qs, &qseq[qs], 0, v0, end0, 500, 2000, 1);
 	gfa_ed_step(z, -1, v1, end1, 1000, &r);
 	gfa_ed_destroy(z);
-	fprintf(stderr, "qs=%d,qe=%d,v0=%c%s:%d:%d,v1=%c%s:%d,s=%d,nv=%d\n", qs, qe, "><"[v0&1], g->seg[v0>>1].name, end0, g->seg[v0>>1].len - end0 - 1, "><"[v1&1], g->seg[v1>>1].name, end1, r.s, r.nv);
+	//fprintf(stderr, "qs=%d,qe=%d,v0=%c%s:%d:%d,v1=%c%s:%d,s=%d,nv=%d\n", qs, qe, "><"[v0&1], g->seg[v0>>1].name, end0, g->seg[v0>>1].len - end0 - 1, "><"[v1&1], g->seg[v1>>1].name, end1, r.s, r.nv);
 	if (r.s < 0) return tmp;
 
 	for (j = 1; j < r.nv - 1; ++j) {
@@ -464,7 +464,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 			if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
 			copy_lchain(&tmp[n_tmp++], &lc[st], &n_a, gc->a, a); // copy the first lchain
 
-			fprintf(stderr, "===> %d <===\n", i);
+			//fprintf(stderr, "===> %d <===\n", i);
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
 				if (!l1->inner_pre) { // bridging two segments
