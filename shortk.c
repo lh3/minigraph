@@ -28,9 +28,6 @@ typedef struct {
 KHASHL_MAP_INIT(KH_LOCAL, kh_sp_t,  sp,  uint32_t, sp_topk_t, kh_hash_uint32, kh_eq_generic)
 KHASHL_MAP_INIT(KH_LOCAL, kh_sp2_t, sp2, uint32_t, uint64_t,  kh_hash_uint32, kh_eq_generic)
 
-#define MG_SHORT_KK 17
-#define MG_SHORT_KW 11
-#define MG_SHORT_KM 50
 #define MG_SHORT_K_EXT 1000
 
 static inline sp_node_t *gen_sp_node(void *km, const gfa_t *g, uint32_t v, int32_t d, int32_t id)
