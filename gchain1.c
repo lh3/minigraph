@@ -187,43 +187,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				dst[k++].srt_key = INT64_MAX/2 - (int64_t)sc; // sort in the descending order
 			}
 			n_dst = k;
-			if (n_dst > 0) {
-				radix_sort_dst(dst, dst + n_dst);
-				for (j = 1; j < n_dst; ++j) // discard weaker chains if the best score is much larger (assuming base-level heuristic won't lift it to the top chain)
-					if (dst[j].srt_key - dst[0].srt_key > li->score)
-						break;
-				n_dst = j;
-				if (n_dst > max_gc_seq_ext) n_dst = max_gc_seq_ext; // discard weaker chains
-			}
 		}
-#if 0
-		if (n_dst > 0) {
-			int32_t k, qe, off0;
-			void *z;
-			for (j = k = 0; j < n_dst; ++j) {
-				const mg_lchain_t *lj;
-				assert(dst[j].n_path > 0);
-				lj = &lc[a[dst[j].meta].i];
-				qsw[k++] = (uint64_t)lj->qe << 32 | j;
-			}
-			radix_sort_gfa64(qsw, qsw + n_dst);
-			qe = qlen - (li->qs + kmer_size); // qlen - (li->qs + kmer_size - 1) - 1
-			if ((li->v&1) == 0) { // forward strand
-				off0 = g->seg[li->v>>1].len - (li->rs + kmer_size);
-			} else { // reverse strand
-				off0 = li->re - kmer_size - 1;
-			}
-			z = gfa_ed_init(km, g, es, qseq[1][qe], li->v^1, off0, 1000, 10000, 0);
-			for (k = n_dst - 1; k >= 0; --k) {
-				const mg_lchain_t *lj;
-				int32_t ql;
-				lj = &lc[a[dst[(int32_t)qsw[k]].meta].i];
-				ql = qe + 1 - (lj->qe - kmer_size);
-				gfa_ed_next(z, ql, (uint32_t)-1, -1, 10000, gfa_edrst_t *rst);
-			}
-			gfa_ed_destroy(z);
-		}
-#endif
 		{ // DP
 			int32_t max_f = li->score, max_j = -1, max_d = -1, max_inner = 0;
 			uint32_t max_hash = 0;

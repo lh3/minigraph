@@ -206,41 +206,40 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	radix_sort_128x(a, a + (*n_a));
 	return a;
 }
-/*
-static int64_t flt_anchors(int64_t n_a, mg128_t *a, int32_t r)
+
+static void mm_fix_bad_ends(const mg128_t *a, int32_t score, int bw, int min_match, int32_t *as, int32_t *cnt)
 {
-	int64_t i, j;
-	for (i = 0; i < n_a; ++i) {
-		for (j = i - 1; j >= 0; --j) {
-			int32_t dq;
-			int64_t dr = a[i].x - a[j].x;
-			if (dr > r) break;
-			dq = (int32_t)a[i].y - (int32_t)a[j].y;
-			if (dq > r || dq < 0) continue;
-			a[j].y |= MG_SEED_KEPT;
-			a[i].y |= MG_SEED_KEPT;
-			break;
-		}
+	int32_t i, l, m, as0 = *as, cnt0 = *cnt;
+	if (cnt0 < 3) return;
+	m = l = a[as0].y >> 32 & 0xff;
+	for (i = as0 + 1; i < as0 + cnt0 - 1; ++i) {
+		int32_t lq, lr, min, max;
+		int32_t q_span = a[i].y >> 32 & 0xff;
+		lr = (int32_t)a[i].x - (int32_t)a[i-1].x;
+		lq = (int32_t)a[i].y - (int32_t)a[i-1].y;
+		min = lr < lq? lr : lq;
+		max = lr > lq? lr : lq;
+		if (max - min > l >> 1) *as = i;
+		l += min;
+		m += min < q_span? min : q_span;
+		if (l >= bw << 1 || (m >= min_match && m >= bw) || m >= score>>1) break;
 	}
-	for (i = n_a - 1; i >= 0; --i) {
-		if (a[i].y & MG_SEED_KEPT) continue;
-		for (j = i + 1; j < n_a; ++j) {
-			int32_t dq;
-			int64_t dr = a[j].x - a[i].x;
-			if (dr > r) break;
-			dq = (int32_t)a[j].y - (int32_t)a[i].y;
-			if (dq > r || dq < 0) continue;
-			a[j].y |= MG_SEED_KEPT;
-			a[i].y |= MG_SEED_KEPT;
-			break;
-		}
+	*cnt = as0 + cnt0 - *as;
+	m = l = a[as0 + cnt0 - 1].y >> 32 & 0xff;
+	for (i = as0 + cnt0 - 2; i > *as; --i) {
+		int32_t lq, lr, min, max;
+		int32_t q_span = a[i+1].y >> 32 & 0xff;
+		lr = (int32_t)a[i+1].x - (int32_t)a[i].x;
+		lq = (int32_t)a[i+1].y - (int32_t)a[i].y;
+		min = lr < lq? lr : lq;
+		max = lr > lq? lr : lq;
+		if (max - min > l >> 1) *cnt = i + 1 - *as;
+		l += min;
+		m += min < q_span? min : q_span;
+		if (l >= bw << 1 || (m >= min_match && m >= bw) || m >= score>>1) break;
 	}
-	for (i = j = 0; i < n_a; ++i)
-		if (a[i].y & MG_SEED_KEPT)
-			a[j++] = a[i];
-	return j;
 }
-*/
+
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, mg_gchains_t **gcs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
 	int i, l, rep_len, qlen_sum, n_lc, n_gc, n_mini_pos;
@@ -292,8 +291,6 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	chn_pen_gap = opt->chn_pen_gap * tmp;
 	chn_pen_skip = opt->chn_pen_skip * tmp;
 
-//	if (!(opt->flag & MG_M_RMQ) && !is_splice && !is_sr && opt->max_gap_pre > 0 && opt->max_gap_pre * 2 < opt->max_gap)
-//		n_a = flt_anchors(n_a, a, opt->max_gap_pre);
 	if (n_a == 0) {
 		if (a) kfree(b->km, a);
 		a = 0, n_lc = 0, u = 0;
@@ -324,8 +321,14 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 
 	if (n_lc) {
 		lc = mg_lchain_gen(b->km, hash, qlen_sum, n_lc, u, a);
-		for (i = 0; i < n_lc; ++i)
+		for (i = 0; i < n_lc; ++i) {
+			/*
+			int32_t cnt = lc[i].cnt;
+			mm_fix_bad_ends(a, lc[i].score, opt->bw, 100, &lc[i].off, &cnt);
+			lc[i].cnt = cnt;
+			*/
 			mg_update_anchors(lc[i].cnt, &a[lc[i].off], n_mini_pos, mini_pos);
+		}
 	} else lc = 0;
 	kfree(b->km, mini_pos);
 	kfree(b->km, u);
