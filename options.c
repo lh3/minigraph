@@ -36,7 +36,6 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->pri_ratio = 0.8f;
 	mo->ref_bonus = 0;
 	mo->pe_ori = 0; // FF
-	mo->max_gc_seq_ext = 5;
 	mo->min_cov_mapq = 20;
 	mo->min_cov_blen = 1000;
 	mo->cap_kalloc = 1000000000;

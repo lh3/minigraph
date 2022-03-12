@@ -328,7 +328,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	for (i = 0; i < qlen_sum; ++i)
 		seq_cat[1][i] = gfa_comp_table[(uint8_t)seq_cat[0][qlen_sum - 1 - i]];
 	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, max_chain_gap_ref, max_chain_gap_qry, opt->bw_long, opt->max_gc_skip, opt->ref_bonus,
-						 chn_pen_gap, chn_pen_skip, opt->mask_level, opt->max_gc_seq_ext, seq_cat, a, &u);
+						 chn_pen_gap, chn_pen_skip, opt->mask_level, seq_cat, a, &u);
 	gcs[0] = mg_gchain_gen(0, b->km, gi->g, gi->es, gi->k, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score, seq_cat);
 	gcs[0]->rep_len = rep_len;
 	kfree(b->km, seq_cat[0]);
