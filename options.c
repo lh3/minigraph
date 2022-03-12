@@ -16,7 +16,6 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->seed = 11;
 	mo->occ_max1 = 50, mo->occ_max1_cap = 250;
 	mo->occ_max1_frac = 2e-4f;
-	mo->occ_weight = 20;
 	mo->max_gap = 5000;
 	mo->max_gap_ref = -1;
 	mo->max_gap_pre = 1000;
@@ -138,11 +137,10 @@ void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go)
 	int32_t q[2];
 	f[0] = 0.05f, f[1] = mo->occ_max1_frac;
 	mg_idx_cal_quantile(gi, 2, f, q);
-	if (q[0] + 1 > mo->occ_weight) mo->occ_weight = q[0] + 1;
 	if (q[1] + 1 > mo->occ_max1)   mo->occ_max1   = q[1] + 1;
 	if (mo->occ_max1 > mo->occ_max1_cap) mo->occ_max1 = mo->occ_max1_cap;
 	if (mo->bw_long < mo->bw) mo->bw_long = mo->bw;
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_weight=%d, occ_max1=%d; 95 percentile: %d\n", __func__,
-				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_weight, mo->occ_max1, q[0]);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_max1=%d; 95 percentile: %d\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_max1, q[0]);
 }

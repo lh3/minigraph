@@ -51,7 +51,7 @@ typedef struct {
 	int seed;
 	int max_qlen;
 	int pe_ori;
-	int occ_max1, occ_max1_cap, occ_weight;
+	int occ_max1, occ_max1_cap;
 	float occ_max1_frac;
 	int bw, bw_long;
 	int rmq_size_cap;

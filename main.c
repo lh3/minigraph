@@ -86,7 +86,7 @@ static inline void yes_or_no(uint64_t *flag_, uint64_t f, int long_idx, const ch
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:W:DS";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:DS";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -122,7 +122,6 @@ int main(int argc, char *argv[])
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'f') opt.occ_max1_frac = atof(o.arg);
-		else if (c == 'W') opt.occ_weight = atoi(o.arg);
 		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
 		else if (c == 'g') opt.max_gap = mg_parse_num(o.arg);
 		else if (c == 'F') opt.max_frag_len = mg_parse_num(o.arg);

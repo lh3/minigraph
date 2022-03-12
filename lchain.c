@@ -127,10 +127,6 @@ static inline int32_t comput_sc(const mg128_t *ai, const mg128_t *aj, int32_t ma
 	sc = q_span < dg? q_span : dg;
 	if (dd || dg > q_span) {
 		float lin_pen, log_pen;
-		if (aj->y>>MG_SEED_WT_SHIFT < 255) {
-			int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
-			sc = tmp > 1? tmp : 1;
-		}
 		lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
 		log_pen = dd >= 1? mg_log2(dd + 1) : 0.0f; // mg_log2() only works for dd>=2
 		if (is_cdna || sidi != sidj) {
@@ -246,12 +242,6 @@ static inline int32_t comput_sc_simple(const mg128_t *ai, const mg128_t *aj, flo
 	if (exact) *exact = (dd == 0 && dg <= q_span);
 	if (dd || dq > q_span) {
 		float lin_pen, log_pen;
-		#if 1
-		if (aj->y>>MG_SEED_WT_SHIFT < 255) {
-			int tmp = (int)(0.00392156862745098 * (aj->y>>MG_SEED_WT_SHIFT) * sc); // 0.00392... = 1/255
-			sc = tmp > 1? tmp : 1;
-		}
-		#endif
 		lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
 		log_pen = dd >= 1? mg_log2(dd + 1) : 0.0f; // mg_log2() only works for dd>=2
 		sc -= (int)(lin_pen + .5f * log_pen);

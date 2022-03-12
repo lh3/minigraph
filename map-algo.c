@@ -50,7 +50,7 @@ KSORT_INIT(heap, mg128_t, heap_lt)
 typedef struct {
 	uint32_t n;
 	uint32_t q_pos, q_span;
-	uint32_t seg_id:16, weight:15, is_tandem:1;
+	uint32_t seg_id:31, is_tandem:1;
 	const uint64_t *cr;
 } mg_match_t;
 
@@ -77,7 +77,7 @@ static mg_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mg_id
 		} else {
 			mg_match_t *q = &m[n_m++];
 			q->q_pos = q_pos, q->q_span = q_span, q->cr = cr, q->n = t, q->seg_id = p->y >> 32;
-			q->is_tandem = 0, q->weight = 255;
+			q->is_tandem = 0;
 			if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) q->is_tandem = 1;
 			if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) q->is_tandem = 1;
 			*n_a += q->n;
@@ -89,21 +89,6 @@ static mg_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mg_id
 	return m;
 }
 
-static void cal_weight(int base, int n_m, mg_match_t *m)
-{
-	const float b = 10.0, log2_b = 3.321928f; // log2_b is slightly smaller than log_2{b}
-	int i;
-	for (i = 0; i < n_m; ++i) {
-		mg_match_t *p = &m[i];
-		p->weight = 255;
-		if (p->n > base) {
-			float x = (float)(b * p->n / base);
-			float y = log2_b / mg_log2(x); // y < 1 if there were no rounding errors
-			p->weight = y >= 1.0f? 255 : (int)(255.0 * (y > 0.7f? y : 0.7f));
-		}
-	}
-}
-
 static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max_occ, const mg_idx_t *gi, const char *qname, const mg128_v *mv, int qlen, int64_t *n_a, int *rep_len,
 								  int *n_mini_pos, int32_t **mini_pos)
 {
@@ -113,7 +98,6 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 	mg128_t *a, *heap;
 
 	m = collect_matches(km, &n_m, max_occ, gi, mv, n_a, rep_len, n_mini_pos, mini_pos);
-	cal_weight(opt->occ_weight, n_m, m);
 
 	heap = (mg128_t*)kmalloc(km, n_m * sizeof(mg128_t));
 	a = (mg128_t*)kmalloc(km, *n_a * sizeof(mg128_t));
@@ -142,7 +126,7 @@ static mg128_t *collect_seed_hits_heap(void *km, const mg_mapopt_t *opt, int max
 		p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 		p->y |= (uint64_t)q->seg_id << MG_SEED_SEG_SHIFT;
 		if (q->is_tandem) p->y |= MG_SEED_TANDEM;
-		p->y |= (uint64_t)q->weight << MG_SEED_WT_SHIFT;
+		p->y |= (uint64_t)(q->n < 255? q->n : 255) << MG_SEED_OCC_SHIFT;
 		// update the heap
 		if ((uint32_t)heap->y < q->n - 1) {
 			++heap[0].y;
@@ -171,7 +155,6 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	mg_match_t *m;
 	mg128_t *a;
 	m = collect_matches(km, &n_m, max_occ, gi, mv, n_a, rep_len, n_mini_pos, mini_pos);
-	cal_weight(opt->occ_weight, n_m, m);
 	a = (mg128_t*)kmalloc(km, *n_a * sizeof(mg128_t));
 	for (i = 0, *n_a = 0; i < n_m; ++i) {
 		mg_match_t *q = &m[i];
@@ -199,7 +182,7 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 			p->y |= (uint64_t)q->seg_id << MG_SEED_SEG_SHIFT;
 			if (q->is_tandem) p->y |= MG_SEED_TANDEM;
-			p->y |= (uint64_t)q->weight << MG_SEED_WT_SHIFT;
+			p->y |= (uint64_t)(q->n < 255? q->n : 255) << MG_SEED_OCC_SHIFT;
 		}
 	}
 	kfree(km, m);
