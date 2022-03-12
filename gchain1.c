@@ -13,9 +13,6 @@ typedef struct {
 #define gc_frag_key(p) ((p).srt)
 KRADIX_SORT_INIT(gc, gc_frag_t, gc_frag_key, 4)
 
-#define dst_key(p) ((p).srt_key)
-KRADIX_SORT_INIT(dst, mg_path_dst_t, dst_key, 8)
-
 static int32_t find_max(int32_t n, const gc_frag_t *gf, int32_t x)
 {
 	int32_t s = 0, e = n;
@@ -183,8 +180,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 				sc = cal_sc(dj, li, lc, an, a, f, bw, ref_bonus, chn_pen_gap);
 				if (sc == INT32_MIN) continue; // out of band
 				if (sc + li->score < 0) continue; // negative score and too low
-				dst[k] = dst[j];
-				dst[k++].srt_key = INT64_MAX/2 - (int64_t)sc; // sort in the descending order
+				dst[k++] = dst[j];
 			}
 			n_dst = k;
 		}

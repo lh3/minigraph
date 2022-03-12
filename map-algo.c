@@ -322,11 +322,11 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	if (n_lc) {
 		lc = mg_lchain_gen(b->km, hash, qlen_sum, n_lc, u, a);
 		for (i = 0; i < n_lc; ++i) {
-			/*
+			#if 0
 			int32_t cnt = lc[i].cnt;
 			mm_fix_bad_ends(a, lc[i].score, opt->bw, 100, &lc[i].off, &cnt);
 			lc[i].cnt = cnt;
-			*/
+			#endif
 			mg_update_anchors(lc[i].cnt, &a[lc[i].off], n_mini_pos, mini_pos);
 		}
 	} else lc = 0;

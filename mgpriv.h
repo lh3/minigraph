@@ -47,8 +47,6 @@ typedef struct {
 	int32_t path_end;
 	int32_t dist;
 	uint32_t hash;
-	// aux
-	uint64_t srt_key;
 } mg_path_dst_t;
 
 typedef struct {
