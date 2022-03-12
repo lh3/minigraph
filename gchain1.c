@@ -60,7 +60,7 @@ static inline int32_t cal_sc(const mg_path_dst_t *dj, const mg_lchain_t *li, con
 }
 
 int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc, int32_t qlen, int32_t max_dist_g, int32_t max_dist_q, int32_t bw, int32_t max_skip,
-					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, char *const qseq[2], const mg128_t *an, uint64_t **u_)
+					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, const mg128_t *an, uint64_t **u_)
 {
 	int32_t i, j, k, m_dst, n_dst, n_ext, n_u, n_v, n_lc = *n_lc_;
 	int32_t *f, *v, *t;
@@ -332,7 +332,7 @@ static mg_llchain_t *bridge_shortk(void *km, const gfa_t *g, const mg_lchain_t *
 	return tmp;
 }
 
-static mg_llchain_t *bridge_gwfa(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, int32_t kmer_size, const mg_lchain_t *l0, const mg_lchain_t *l1,
+static mg_llchain_t *bridge_gwfa(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1,
 								 mg_llchain_t *tmp, int32_t *n_tmp_, int32_t *m_tmp_, int32_t *done)
 {
 	int32_t n_tmp = *n_tmp_, m_tmp = *m_tmp_;
@@ -345,8 +345,8 @@ static mg_llchain_t *bridge_gwfa(void *km, const gfa_t *g, const gfa_edseq_t *es
 	end0 = l0->re - kmer_size;
 	end1 = l1->rs + kmer_size - 1;
 
-	z = gfa_ed_init(km, g, es, qe - qs, &qseq[qs], 0, v0, end0, 500, 2000, 1);
-	gfa_ed_step(z, -1, v1, end1, 1000, &r);
+	z = gfa_ed_init(km, g, es, qe - qs, &qseq[qs], 0, v0, end0, gdp_max_ed/2, gdp_max_ed*2, 1);
+	gfa_ed_step(z, -1, v1, end1, gdp_max_ed, &r);
 	gfa_ed_destroy(z);
 	//fprintf(stderr, "qs=%d,qe=%d,v0=%c%s:%d:%d,v1=%c%s:%d,s=%d,nv=%d\n", qs, qe, "><"[v0&1], g->seg[v0>>1].name, end0, g->seg[v0>>1].len - end0 - 1, "><"[v1&1], g->seg[v1>>1].name, end1, r.s, r.nv);
 	if (r.s < 0) return tmp;
@@ -365,9 +365,9 @@ static mg_llchain_t *bridge_gwfa(void *km, const gfa_t *g, const gfa_edseq_t *es
 }
 
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
-mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t kmer_size,
-							int32_t n_u, const uint64_t *u, const mg_lchain_t *lc, const mg128_t *a,
-							uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score, char *const qseq[2])
+mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t kmer_size, int32_t n_u, const uint64_t *u,
+							const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
+							int32_t gdp_max_ed, int32_t gdp_max_trim, int32_t max_occ, const char *qseq)
 {
 	mg_gchains_t *gc;
 	mg_llchain_t *tmp;
@@ -419,7 +419,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 					tmp = bridge_shortk(km, g, l0, l1, tmp, &n_tmp, &m_tmp);
 					#else
 					int32_t done;
-					tmp = bridge_gwfa(km, g, es, qseq[0], kmer_size, l0, l1, tmp, &n_tmp, &m_tmp, &done);
+					tmp = bridge_gwfa(km, g, es, qseq, kmer_size, gdp_max_ed, l0, l1, tmp, &n_tmp, &m_tmp, &done);
 					if (!done) tmp = bridge_shortk(km, g, l0, l1, tmp, &n_tmp, &m_tmp);
 					#endif
 					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);

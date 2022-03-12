@@ -63,6 +63,7 @@ typedef struct {
 	int max_lc_skip, max_lc_iter, max_gc_skip;
 	int min_lc_cnt, min_lc_score;
 	int min_gc_cnt, min_gc_score;
+	int gdp_max_ed, gdp_max_trim, gdp_max_occ;
 	float mask_level;
 	int sub_diff;
 	int best_n;
