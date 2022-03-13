@@ -296,6 +296,15 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 	}
 }
 
+typedef struct {
+	void *km;
+	const gfa_t *g;
+	const gfa_edseq_t *es;
+	const char *qseq;
+	int32_t n_llc, m_llc, n_a;
+	mg_llchain_t *llc;
+} bridge_aux_t;
+
 static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old)
 {
 	q->cnt = p->cnt, q->v = p->v, q->score = p->score;
@@ -304,9 +313,9 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 	(*n_a) += q->cnt;
 }
 
-static mg_llchain_t *bridge_shortk(void *km, const gfa_t *g, const mg_lchain_t *l0, const mg_lchain_t *l1, mg_llchain_t *tmp, int32_t *n_tmp_, int32_t *m_tmp_)
+static void bridge_shortk(bridge_aux_t *aux, const mg_lchain_t *l0, const mg_lchain_t *l1)
 {
-	int32_t s, n_pathv, n_tmp = *n_tmp_, m_tmp = *m_tmp_;
+	int32_t s, n_pathv;
 	mg_path_dst_t dst;
 	mg_pathv_t *p;
 	memset(&dst, 0, sizeof(mg_path_dst_t));
@@ -315,53 +324,46 @@ static mg_llchain_t *bridge_shortk(void *km, const gfa_t *g, const mg_lchain_t *
 	dst.target_dist = l1->dist_pre;
 	dst.target_hash = l1->hash_pre;
 	dst.check_hash = 1;
-	p = mg_shortest_k(km, g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, &n_pathv);
+	p = mg_shortest_k(aux->km, aux->g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, &n_pathv);
 	if (n_pathv == 0 || dst.target_hash != dst.hash)
-		fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
+		fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], aux->g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], aux->g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
 	assert(n_pathv > 0);
 	assert(dst.target_hash == dst.hash);
 	for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
 		mg_llchain_t *q;
-		if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-		q = &tmp[n_tmp++];
+		if (aux->n_llc == aux->m_llc) KEXPAND(aux->km, aux->llc, aux->m_llc);
+		q = &aux->llc[aux->n_llc++];
 		q->off = q->cnt = q->score = 0;
 		q->v = p[s].v^1; // when reversing a path, we also need to flip the orientation
 	}
-	kfree(km, p);
-	*n_tmp_ = n_tmp, *m_tmp_ = m_tmp;
-	return tmp;
+	kfree(aux->km, p);
 }
 
-static mg_llchain_t *bridge_gwfa(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1,
-								 mg_llchain_t *tmp, int32_t *n_tmp_, int32_t *m_tmp_, int32_t *done)
+static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1)
 {
-	int32_t n_tmp = *n_tmp_, m_tmp = *m_tmp_;
 	uint32_t v0 = l0->v, v1 = l1->v;
-	int32_t qs = l0->qe - kmer_size, qe = l1->qs + kmer_size, end0, end1, j;
+	int32_t qs = l0->qe - kmer_size, qe = l1->qs + kmer_size, end0, end1, j;;
 	void *z;
 	gfa_edrst_t r;
 
-	*done = 0;
 	end0 = l0->re - kmer_size;
 	end1 = l1->rs + kmer_size - 1;
 
-	z = gfa_ed_init(km, g, es, qe - qs, &qseq[qs], 0, v0, end0, gdp_max_ed/2, gdp_max_ed*2, 1);
+	z = gfa_ed_init(aux->km, aux->g, aux->es, qe - qs, &aux->qseq[qs], 0, v0, end0, gdp_max_ed/2, gdp_max_ed*2, 1);
 	gfa_ed_step(z, -1, v1, end1, gdp_max_ed, &r);
 	gfa_ed_destroy(z);
 	//fprintf(stderr, "qs=%d,qe=%d,v0=%c%s:%d:%d,v1=%c%s:%d,s=%d,nv=%d\n", qs, qe, "><"[v0&1], g->seg[v0>>1].name, end0, g->seg[v0>>1].len - end0 - 1, "><"[v1&1], g->seg[v1>>1].name, end1, r.s, r.nv);
-	if (r.s < 0) return tmp;
+	if (r.s < 0) return 0;
 
 	for (j = 1; j < r.nv - 1; ++j) {
 		mg_llchain_t *q;
-		if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-		q = &tmp[n_tmp++];
+		if (aux->n_llc == aux->m_llc) KEXPAND(aux->km, aux->llc, aux->m_llc);
+		q = &aux->llc[aux->n_llc++];
 		q->off = q->cnt = q->score = 0;
 		q->v = r.v[j];
 	}
-	kfree(km, r.v);
-	*n_tmp_ = n_tmp, *m_tmp_ = m_tmp;
-	*done = 1;
-	return tmp;
+	kfree(aux->km, r.v);
+	return 1;
 }
 
 // TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
@@ -370,37 +372,40 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 							int32_t gdp_max_ed, int32_t gdp_max_trim, int32_t max_occ, const char *qseq)
 {
 	mg_gchains_t *gc;
-	mg_llchain_t *tmp;
-	int32_t i, j, k, st, n_g, n_a, s_tmp, n_tmp, m_tmp;
+	int32_t i, j, k, st, n_llc0;
+	bridge_aux_t aux;
 
 	KCALLOC(km_dst, gc, 1);
+	memset(&aux, 0, sizeof(aux));
+	aux.km = km, aux.g = g, aux.es = es, aux.qseq = qseq;
 
-	// count the number of gchains and remaining anchors
-	for (i = 0, st = 0, n_g = n_a = 0; i < n_u; ++i) {
-		int32_t m = 0, nui = (int32_t)u[i];
-		for (j = 0; j < nui; ++j) m += lc[st + j].cnt; // m is the number of anchors in this gchain
-		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score)
-			++n_g, n_a += m;
-		st += nui;
+	{ // count the number of gchains and remaining anchors and then preallocate
+		int32_t n_a, n_g;
+		for (i = 0, st = 0, n_g = n_a = 0; i < n_u; ++i) {
+			int32_t m = 0, nui = (int32_t)u[i];
+			for (j = 0; j < nui; ++j) m += lc[st + j].cnt; // m is the number of anchors in this gchain
+			if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score)
+				++n_g, n_a += m;
+			st += nui;
+		}
+		if (n_g == 0) return gc;
+
+		gc->km = km_dst;
+		gc->n_gc = n_g, gc->n_a = n_a;
+		KCALLOC(km_dst, gc->gc, n_g);
+		KMALLOC(km_dst, gc->a, n_a);
 	}
-	if (n_g == 0) return gc;
-
-	// preallocate
-	gc->km = km_dst;
-	gc->n_gc = n_g, gc->n_a = n_a;
-	KCALLOC(km_dst, gc->gc, n_g);
-	KMALLOC(km_dst, gc->a, n_a);
 
 	// core loop
-	tmp = 0; s_tmp = n_tmp = m_tmp = 0;
-	for (i = k = 0, st = 0, n_a = 0; i < n_u; ++i) {
-		int32_t n_a0 = n_a, m = 0, nui = (int32_t)u[i];
+	n_llc0 = 0;
+	for (i = k = 0, st = 0, aux.n_a = 0; i < n_u; ++i) {
+		int32_t n_a0 = aux.n_a, m = 0, nui = (int32_t)u[i];
 		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
 		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score) {
 			uint32_t h = hash;
 
 			gc->gc[k].score = u[i]>>32;
-			gc->gc[k].off = s_tmp;
+			gc->gc[k].off = n_llc0;
 
 			for (j = 0; j < nui; ++j) {
 				const mg_lchain_t *p = &lc[st + j];
@@ -408,26 +413,19 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 			}
 			gc->gc[k].hash = kh_hash_uint32(h);
 
-			if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-			copy_lchain(&tmp[n_tmp++], &lc[st], &n_a, gc->a, a); // copy the first lchain
+			if (aux.n_llc == aux.m_llc) KEXPAND(aux.km, aux.llc, aux.m_llc);
+			copy_lchain(&aux.llc[aux.n_llc++], &lc[st], &aux.n_a, gc->a, a); // copy the first lchain
 
-			//fprintf(stderr, "===> %d <===\n", i);
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
 				if (!l1->inner_pre) { // bridging two segments
-					#if 0
-					tmp = bridge_shortk(km, g, l0, l1, tmp, &n_tmp, &m_tmp);
-					#else
-					int32_t done;
-					tmp = bridge_gwfa(km, g, es, qseq, kmer_size, gdp_max_ed, l0, l1, tmp, &n_tmp, &m_tmp, &done);
-					if (!done) tmp = bridge_shortk(km, g, l0, l1, tmp, &n_tmp, &m_tmp);
-					#endif
-					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-					copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
+					if (!bridge_gwfa(&aux, kmer_size, gdp_max_ed, l0, l1))
+						bridge_shortk(&aux, l0, l1);
+					if (aux.n_llc == aux.m_llc) KEXPAND(aux.km, aux.llc, aux.m_llc);
+					copy_lchain(&aux.llc[aux.n_llc++], l1, &aux.n_a, gc->a, a);
 				} else { // on one segment
-					#if 1
 					int32_t k;
-					mg_llchain_t *t = &tmp[n_tmp - 1];
+					mg_llchain_t *t = &aux.llc[aux.n_llc - 1];
 					assert(l0->v == l1->v);
 					for (k = 0; k < l1->cnt; ++k) {
 						const mg128_t *ak = &a[l1->off + k];
@@ -436,27 +434,23 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 					}
 					assert(k < l1->cnt);
 					t->cnt += l1->cnt - k, t->score += l1->score;
-					memcpy(&gc->a[n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
-					n_a += l1->cnt - k;
-					#else // don't use this block; for debugging only
-					if (n_tmp == m_tmp) KEXPAND(km, tmp, m_tmp);
-					copy_lchain(&tmp[n_tmp++], l1, &n_a, gc->a, a);
-					#endif
+					memcpy(&gc->a[aux.n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
+					aux.n_a += l1->cnt - k;
 				}
 			}
-			gc->gc[k].cnt = n_tmp - s_tmp;
-			gc->gc[k].n_anchor = n_a - n_a0;
-			++k, s_tmp = n_tmp;
+			gc->gc[k].cnt = aux.n_llc - n_llc0;
+			gc->gc[k].n_anchor = aux.n_a - n_a0;
+			++k, n_llc0 = aux.n_llc;
 		}
 		st += nui;
 	}
-	assert(n_a <= gc->n_a);
+	assert(aux.n_a <= gc->n_a);
 
-	gc->n_a = n_a;
-	gc->n_lc = n_tmp;
-	KMALLOC(km_dst, gc->lc, n_tmp);
-	memcpy(gc->lc, tmp, n_tmp * sizeof(mg_llchain_t));
-	kfree(km, tmp);
+	gc->n_a = aux.n_a;
+	gc->n_lc = aux.n_llc;
+	KMALLOC(km_dst, gc->lc, aux.n_llc);
+	memcpy(gc->lc, aux.llc, aux.n_llc * sizeof(mg_llchain_t));
+	kfree(km, aux.llc);
 
 	mg_gchain_extra(g, gc);
 	mg_gchain_sort_by_score(km, gc);
