@@ -296,6 +296,9 @@ void mg_gchain_extra(const gfa_t *g, mg_gchains_t *gs)
 	}
 }
 
+/*
+ * Generate graph chains
+ */
 typedef struct {
 	void *km;
 	const gfa_t *g;
@@ -366,47 +369,61 @@ static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max
 	return 1;
 }
 
-// TODO: if frequent malloc() is a concern, filter first and then generate gchains; or generate gchains in thread-local pool and then move to global malloc()
+static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1, const mg128_t *a)
+{
+	if (!l1->inner_pre) { // bridging two segments
+		if (!bridge_gwfa(aux, kmer_size, gdp_max_ed, l0, l1))
+			bridge_shortk(aux, l0, l1);
+		if (aux->n_llc == aux->m_llc) KEXPAND(aux->km, aux->llc, aux->m_llc);
+		copy_lchain(&aux->llc[aux->n_llc++], l1, &aux->n_a, gc->a, a);
+	} else { // on one segment
+		int32_t k;
+		mg_llchain_t *t = &aux->llc[aux->n_llc - 1];
+		assert(l0->v == l1->v);
+		for (k = 0; k < l1->cnt; ++k) {
+			const mg128_t *ak = &a[l1->off + k];
+			if ((int32_t)ak->x > l0->re && (int32_t)ak->y > l0->qe)
+				break;
+		}
+		assert(k < l1->cnt);
+		t->cnt += l1->cnt - k, t->score += l1->score;
+		memcpy(&gc->a[aux->n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
+		aux->n_a += l1->cnt - k;
+	}
+}
+
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t kmer_size, int32_t n_u, const uint64_t *u,
 							const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
 							int32_t gdp_max_ed, int32_t gdp_max_trim, int32_t max_occ, const char *qseq)
 {
 	mg_gchains_t *gc;
-	int32_t i, j, k, st, n_llc0;
+	int32_t i, j, k, st;
 	bridge_aux_t aux;
 
+	// preallocate gc->gc and gc->a
 	KCALLOC(km_dst, gc, 1);
-	memset(&aux, 0, sizeof(aux));
-	aux.km = km, aux.g = g, aux.es = es, aux.qseq = qseq;
-
-	{ // count the number of gchains and remaining anchors and then preallocate
-		int32_t n_a, n_g;
-		for (i = 0, st = 0, n_g = n_a = 0; i < n_u; ++i) {
-			int32_t m = 0, nui = (int32_t)u[i];
-			for (j = 0; j < nui; ++j) m += lc[st + j].cnt; // m is the number of anchors in this gchain
-			if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score)
-				++n_g, n_a += m;
-			st += nui;
-		}
-		if (n_g == 0) return gc;
-
-		gc->km = km_dst;
-		gc->n_gc = n_g, gc->n_a = n_a;
-		KCALLOC(km_dst, gc->gc, n_g);
-		KMALLOC(km_dst, gc->a, n_a);
+	for (i = 0, st = 0; i < n_u; ++i) {
+		int32_t m = 0, nui = (int32_t)u[i];
+		for (j = 0; j < nui; ++j) m += lc[st + j].cnt; // m is the number of anchors in this gchain
+		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score)
+			gc->n_gc++, gc->n_a += m;
+		st += nui;
 	}
+	if (gc->n_gc == 0) return gc;
+	gc->km = km_dst;
+	KCALLOC(km_dst, gc->gc, gc->n_gc);
+	KMALLOC(km_dst, gc->a, gc->n_a);
 
 	// core loop
-	n_llc0 = 0;
+	memset(&aux, 0, sizeof(aux));
+	aux.km = km, aux.g = g, aux.es = es, aux.qseq = qseq;
 	for (i = k = 0, st = 0, aux.n_a = 0; i < n_u; ++i) {
-		int32_t n_a0 = aux.n_a, m = 0, nui = (int32_t)u[i];
+		int32_t n_a0 = aux.n_a, n_llc0 = aux.n_llc, m = 0, nui = (int32_t)u[i];
 		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
 		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score) {
 			uint32_t h = hash;
-
 			gc->gc[k].score = u[i]>>32;
 			gc->gc[k].off = n_llc0;
-
 			for (j = 0; j < nui; ++j) {
 				const mg_lchain_t *p = &lc[st + j];
 				h += kh_hash_uint32(p->qs) + kh_hash_uint32(p->re) + kh_hash_uint32(p->v);
@@ -415,32 +432,14 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 
 			if (aux.n_llc == aux.m_llc) KEXPAND(aux.km, aux.llc, aux.m_llc);
 			copy_lchain(&aux.llc[aux.n_llc++], &lc[st], &aux.n_a, gc->a, a); // copy the first lchain
-
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
-				if (!l1->inner_pre) { // bridging two segments
-					if (!bridge_gwfa(&aux, kmer_size, gdp_max_ed, l0, l1))
-						bridge_shortk(&aux, l0, l1);
-					if (aux.n_llc == aux.m_llc) KEXPAND(aux.km, aux.llc, aux.m_llc);
-					copy_lchain(&aux.llc[aux.n_llc++], l1, &aux.n_a, gc->a, a);
-				} else { // on one segment
-					int32_t k;
-					mg_llchain_t *t = &aux.llc[aux.n_llc - 1];
-					assert(l0->v == l1->v);
-					for (k = 0; k < l1->cnt; ++k) {
-						const mg128_t *ak = &a[l1->off + k];
-						if ((int32_t)ak->x > l0->re && (int32_t)ak->y > l0->qe)
-							break;
-					}
-					assert(k < l1->cnt);
-					t->cnt += l1->cnt - k, t->score += l1->score;
-					memcpy(&gc->a[aux.n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
-					aux.n_a += l1->cnt - k;
-				}
+				bridge_lchains(gc, &aux, kmer_size, gdp_max_ed, l0, l1, a);
 			}
+
 			gc->gc[k].cnt = aux.n_llc - n_llc0;
 			gc->gc[k].n_anchor = aux.n_a - n_a0;
-			++k, n_llc0 = aux.n_llc;
+			++k;
 		}
 		st += nui;
 	}
