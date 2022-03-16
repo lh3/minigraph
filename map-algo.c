@@ -323,10 +323,8 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 				mg_lchain_t *p = &lc[i];
 				int32_t cnt = p->cnt, off = p->off;
 				mm_fix_bad_ends(a, opt->gdp_max_occ, opt->gdp_max_trim, &off, &cnt);
-				//printf("X\t%d\t%d\t%d\t%d\t%d\t%d\n", lc[i].qs, lc[i].qe, lc[i].off, lc[i].cnt, off, cnt);
-				if (i == 0) cnt += off - p->off, off = p->off;
-				else if (i == n_lc - 1) cnt += p->off + p->cnt - (off + cnt);
 				mm_fix_bad_ends2(a, p->score, opt->bw, 100, &off, &cnt);
+				//printf("X\t%d\t%d\t%d\t%d\t%d\t%d\n", p->qs, p->qe, p->off, p->cnt, off, cnt);
 				p->off = off, p->cnt = cnt;
 				if (cnt >= opt->min_lc_cnt) {
 					int32_t q_span = a[p->off].y>>32 & 0xff;

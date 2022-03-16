@@ -5,8 +5,8 @@
 void mg_idxopt_init(mg_idxopt_t *io)
 {
 	memset(io, 0, sizeof(mg_idxopt_t));
-	io->k = 15;
-	io->w = 10;
+	io->k = 17;
+	io->w = 11;
 	io->bucket_bits = 14;
 }
 
