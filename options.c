@@ -28,11 +28,11 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->mini_batch_size = 500000000;
 	mo->div = 0.1f;
 	mo->chn_pen_gap = 1.0f, mo->chn_pen_skip = 0.05f;
-	mo->min_lc_cnt = 2, mo->min_lc_score = 30;
-	mo->min_gc_cnt = 3, mo->min_gc_score = 50;
+	mo->min_lc_cnt = 5, mo->min_lc_score = 40;
+	mo->min_gc_cnt = 5, mo->min_gc_score = 50;
 	mo->gdp_max_ed = 1000;
 	mo->gdp_max_trim = 10;
-	mo->gdp_max_occ = 5;
+	mo->gdp_max_occ = 2;
 	mo->mask_level = 0.5f;
 	mo->sub_diff = 6;
 	mo->best_n = 5;
@@ -91,7 +91,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		mo->flag |= MG_M_RMQ;
 		mo->bw = 1000, mo->bw_long = 100000;
 		mo->max_gap = 10000, mo->max_gap_pre = 1000;
-		mo->min_lc_cnt = 3, mo->min_lc_score = 40;
+		mo->min_lc_cnt = 5, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;
 		mo->min_cov_mapq = 5;
 		mo->min_cov_blen = 100000;
@@ -137,12 +137,14 @@ void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go)
 {
 	float f[2];
 	int32_t q[2];
-	f[0] = 0.05f, f[1] = mo->occ_max1_frac;
+	f[0] = 0.1f, f[1] = mo->occ_max1_frac;
 	mg_idx_cal_quantile(gi, 2, f, q);
-	if (q[1] + 1 > mo->occ_max1)   mo->occ_max1   = q[1] + 1;
+	if (q[0] > mo->gdp_max_occ) mo->gdp_max_occ = q[0];
+	if (mo->gdp_max_occ > mo->occ_max1_cap) mo->gdp_max_occ = mo->occ_max1_cap;
+	if (q[1] > mo->occ_max1) mo->occ_max1 = q[1];
 	if (mo->occ_max1 > mo->occ_max1_cap) mo->occ_max1 = mo->occ_max1_cap;
 	if (mo->bw_long < mo->bw) mo->bw_long = mo->bw;
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_max1=%d; 95 percentile: %d\n", __func__,
-				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_max1, q[0]);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_max1=%d; gdp_max_occ=%d\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_max1, mo->gdp_max_occ);
 }

@@ -190,7 +190,20 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	return a;
 }
 
-static void mm_fix_bad_ends(const mg128_t *a, int32_t score, int bw, int min_match, int32_t *as, int32_t *cnt)
+static void mm_fix_bad_ends(const mg128_t *a, int32_t gdp_max_occ, int32_t gdp_max_trim, int32_t *as, int32_t *cnt)
+{
+	int32_t i, k, as0 = *as, cnt0 = *cnt;
+	for (i = as0 + cnt0 - 1, k = 0; k < gdp_max_trim && k < cnt0; ++k, --i)
+		if (a[i].y>>MG_SEED_OCC_SHIFT < gdp_max_occ)
+			break;
+	*cnt -= k;
+	for (i = as0, k = 0; k < *cnt && k < gdp_max_trim; ++i, ++k)
+		if (a[i].y>>MG_SEED_OCC_SHIFT <= gdp_max_occ)
+			break;
+	*as += k, *cnt -= k;
+}
+
+static void mm_fix_bad_ends2(const mg128_t *a, int32_t score, int bw, int min_match, int32_t *as, int32_t *cnt)
 {
 	int32_t i, l, m, as0 = *as, cnt0 = *cnt;
 	if (cnt0 < 3) return;
@@ -304,14 +317,30 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 
 	if (n_lc) {
 		lc = mg_lchain_gen(b->km, hash, qlen_sum, n_lc, u, a);
-		for (i = 0; i < n_lc; ++i) {
-			#if 0
-			int32_t cnt = lc[i].cnt;
-			mm_fix_bad_ends(a, lc[i].score, opt->bw, 100, &lc[i].off, &cnt);
-			lc[i].cnt = cnt;
-			#endif
-			mg_update_anchors(lc[i].cnt, &a[lc[i].off], n_mini_pos, mini_pos);
+		if (n_lc > 1) {
+			int32_t n_lc_new = 0;
+			for (i = 0; i < n_lc; ++i) {
+				mg_lchain_t *p = &lc[i];
+				int32_t cnt = p->cnt, off = p->off;
+				mm_fix_bad_ends(a, opt->gdp_max_occ, opt->gdp_max_trim, &off, &cnt);
+				//printf("X\t%d\t%d\t%d\t%d\t%d\t%d\n", lc[i].qs, lc[i].qe, lc[i].off, lc[i].cnt, off, cnt);
+				if (i == 0) cnt += off - p->off, off = p->off;
+				else if (i == n_lc - 1) cnt += p->off + p->cnt - (off + cnt);
+				mm_fix_bad_ends2(a, p->score, opt->bw, 100, &off, &cnt);
+				p->off = off, p->cnt = cnt;
+				if (cnt >= opt->min_lc_cnt) {
+					int32_t q_span = a[p->off].y>>32 & 0xff;
+					p->rs = (int32_t)a[p->off].x + 1 - q_span;
+					p->qs = (int32_t)a[p->off].y + 1 - q_span;
+					p->re = (int32_t)a[p->off + p->cnt - 1].x + 1;
+					p->qe = (int32_t)a[p->off + p->cnt - 1].y + 1;
+					lc[n_lc_new++] = *p;
+				}
+			}
+			n_lc = n_lc_new;
 		}
+		for (i = 0; i < n_lc; ++i)
+			mg_update_anchors(lc[i].cnt, &a[lc[i].off], n_mini_pos, mini_pos);
 	} else lc = 0;
 	kfree(b->km, mini_pos);
 	kfree(b->km, u);

@@ -355,7 +355,7 @@ static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max
 	z = gfa_ed_init(aux->km, aux->g, aux->es, qe - qs, &aux->qseq[qs], 0, v0, end0, gdp_max_ed/2, gdp_max_ed*2, 1);
 	gfa_ed_step(z, -1, v1, end1, gdp_max_ed, &r);
 	gfa_ed_destroy(z);
-	//fprintf(stderr, "qs=%d,qe=%d,v0=%c%s:%d:%d,v1=%c%s:%d,s=%d,nv=%d\n", qs, qe, "><"[v0&1], g->seg[v0>>1].name, end0, g->seg[v0>>1].len - end0 - 1, "><"[v1&1], g->seg[v1>>1].name, end1, r.s, r.nv);
+	//fprintf(stdout, "qs=%d,qe=%d,v0=%c%s:%d:%d,v1=%c%s:%d,s=%d,nv=%d\n", qs, qe, "><"[v0&1], aux->g->seg[v0>>1].name, end0, aux->g->seg[v0>>1].len - end0 - 1, "><"[v1&1], aux->g->seg[v1>>1].name, end1, r.s, r.nv);
 	if (r.s < 0) return 0;
 
 	for (j = 1; j < r.nv - 1; ++j) {
@@ -394,7 +394,7 @@ static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_siz
 
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t kmer_size, int32_t n_u, const uint64_t *u,
 							const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
-							int32_t gdp_max_ed, int32_t gdp_max_trim, int32_t max_occ, const char *qseq)
+							int32_t gdp_max_ed, int32_t gdp_max_trim, int32_t gdp_max_occ, const char *qseq)
 {
 	mg_gchains_t *gc;
 	int32_t i, j, k, st;
