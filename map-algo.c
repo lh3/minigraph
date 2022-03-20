@@ -203,7 +203,7 @@ static void mm_fix_bad_ends(const mg128_t *a, int32_t gdp_max_occ, int32_t gdp_m
 	*as += k, *cnt -= k;
 }
 
-static void mm_fix_bad_ends2(const mg128_t *a, int32_t score, int bw, int min_match, int32_t *as, int32_t *cnt)
+static void mm_fix_bad_ends_alt(const mg128_t *a, int32_t score, int bw, int min_match, int32_t *as, int32_t *cnt)
 {
 	int32_t i, l, m, as0 = *as, cnt0 = *cnt;
 	if (cnt0 < 3) return;
@@ -234,6 +234,98 @@ static void mm_fix_bad_ends2(const mg128_t *a, int32_t score, int bw, int min_ma
 		m += min < q_span? min : q_span;
 		if (l >= bw << 1 || (m >= min_match && m >= bw) || m >= score>>1) break;
 	}
+}
+
+static int *collect_long_gaps(void *km, int as1, int cnt1, mg128_t *a, int min_gap, int *n_)
+{
+	int i, n, *K;
+	*n_ = 0;
+	for (i = 1, n = 0; i < cnt1; ++i) { // count the number of gaps longer than min_gap
+		int gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
+		if (gap < -min_gap || gap > min_gap) ++n;
+	}
+	if (n <= 1) return 0;
+	K = (int*)kmalloc(km, n * sizeof(int));
+	for (i = 1, n = 0; i < cnt1; ++i) { // store the positions of long gaps
+		int gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
+		if (gap < -min_gap || gap > min_gap)
+			K[n++] = i;
+	}
+	*n_ = n;
+	return K;
+}
+
+static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mg128_t *a, int min_gap, int diff_thres, int max_ext_len, int max_ext_cnt)
+{
+	int max_st, max_en, n, i, k, max, *K;
+	K = collect_long_gaps(km, as1, cnt1, a, min_gap, &n);
+	if (K == 0) return;
+	max = 0, max_st = max_en = -1;
+	for (k = 0;; ++k) { // traverse long gaps
+		int gap, l, n_ins = 0, n_del = 0, qs, rs, max_diff = 0, max_diff_l = -1;
+		if (k == n || k >= max_en) {
+			if (max_en > 0)
+				for (i = K[max_st]; i < K[max_en]; ++i)
+					a[as1 + i].y |= MG_SEED_IGNORE;
+			max = 0, max_st = max_en = -1;
+			if (k == n) break;
+		}
+		i = K[k];
+		gap = ((int32_t)a[as1 + i].y - (int32_t)a[as1 + i - 1].y) - (int32_t)(a[as1 + i].x - a[as1 + i - 1].x);
+		if (gap > 0) n_ins += gap;
+		else n_del += -gap;
+		qs = (int32_t)a[as1 + i - 1].y;
+		rs = (int32_t)a[as1 + i - 1].x;
+		for (l = k + 1; l < n && l <= k + max_ext_cnt; ++l) {
+			int j = K[l], diff;
+			if ((int32_t)a[as1 + j].y - qs > max_ext_len || (int32_t)a[as1 + j].x - rs > max_ext_len) break;
+			gap = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (int32_t)(a[as1 + j].x - a[as1 + j - 1].x);
+			if (gap > 0) n_ins += gap;
+			else n_del += -gap;
+			diff = n_ins + n_del - abs(n_ins - n_del);
+			if (max_diff < diff)
+				max_diff = diff, max_diff_l = l;
+		}
+		if (max_diff > diff_thres && max_diff > max)
+			max = max_diff, max_st = k, max_en = max_diff_l;
+	}
+	kfree(km, K);
+}
+
+static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mg128_t *a, int min_gap, int max_ext)
+{
+	int n, k, *K;
+	K = collect_long_gaps(km, as1, cnt1, a, min_gap, &n);
+	if (K == 0) return;
+	for (k = 0; k < n;) {
+		int i = K[k], l;
+		int gap1 = ((int32_t)a[as1 + i].y - (int32_t)a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - (int32_t)a[as1 + i - 1].x);
+		int re1 = (int32_t)a[as1 + i].x;
+		int qe1 = (int32_t)a[as1 + i].y;
+		gap1 = gap1 > 0? gap1 : -gap1;
+		for (l = k + 1; l < n; ++l) {
+			int j = K[l], gap2, q_span_pre, rs2, qs2, m;
+			if ((int32_t)a[as1 + j].y - qe1 > max_ext || (int32_t)a[as1 + j].x - re1 > max_ext) break;
+			gap2 = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (int32_t)(a[as1 + j].x - a[as1 + j - 1].x);
+			q_span_pre = a[as1 + j - 1].y >> 32 & 0xff;
+			rs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
+			qs2 = (int32_t)a[as1 + j - 1].y + q_span_pre;
+			m = rs2 - re1 < qs2 - qe1? rs2 - re1 : qs2 - qe1;
+			gap2 = gap2 > 0? gap2 : -gap2;
+			if (m > gap1 + gap2) break;
+			re1 = (int32_t)a[as1 + j].x;
+			qe1 = (int32_t)a[as1 + j].y;
+			gap1 = gap2;
+		}
+		if (l > k + 1) {
+			int j, end = K[l - 1];
+			for (j = K[k]; j < end; ++j)
+				a[as1 + j].y |= MG_SEED_IGNORE;
+			a[as1 + end].y |= MG_SEED_FIXED;
+		}
+		k = l;
+	}
+	kfree(km, K);
 }
 
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, mg_gchains_t **gcs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
@@ -323,7 +415,9 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 				mg_lchain_t *p = &lc[i];
 				int32_t cnt = p->cnt, off = p->off;
 				mm_fix_bad_ends(a, opt->gdp_max_occ, opt->gdp_max_trim, &off, &cnt);
-				mm_fix_bad_ends2(a, p->score, opt->bw, 100, &off, &cnt);
+				mm_fix_bad_ends_alt(a, p->score, opt->bw, 100, &off, &cnt);
+				mm_filter_bad_seeds(b->km, off, cnt, a, 10, 40, opt->max_gap>>1, 10);
+				mm_filter_bad_seeds_alt(b->km, off, cnt, a, 30, opt->max_gap>>1);
 				//printf("X\t%d\t%d\t%d\t%d\t%d\t%d\n", p->qs, p->qe, p->off, p->cnt, off, cnt);
 				p->off = off, p->cnt = cnt;
 				if (cnt >= opt->min_lc_cnt) {
