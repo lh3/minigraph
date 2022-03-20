@@ -3,8 +3,8 @@ CFLAGS=		-g -Wall -Wc++-compat -std=c99 -O2
 CPPFLAGS=
 INCLUDES=
 OBJS=		kalloc.o kthread.o algo.o sys.o gfa-base.o gfa-io.o gfa-aug.o gfa-bbl.o gfa-ed.o \
-            sketch.o misc.o bseq.o options.o fastcmp.o shortk.o \
-			index.o lchain.o gchain1.o gcmisc.o map-algo.o cal_cov.o \
+            sketch.o misc.o bseq.o options.o fastcmp.o shortk.o lv89-semi-tb.o \
+			index.o lchain.o gchain1.o galign.o gcmisc.o map-algo.o cal_cov.o \
 			format.o gmap.o ksw2_extd2_sse.o ggsimple.o ggen.o asm-call.o
 PROG=		minigraph
 LIBS=		-lz -lpthread -lm
@@ -39,6 +39,7 @@ bseq.o: bseq.h kvec-km.h kalloc.h kseq.h
 cal_cov.o: mgpriv.h minigraph.h gfa.h gfa-priv.h algo.h kalloc.h
 fastcmp.o: mgpriv.h minigraph.h gfa.h algo.h kalloc.h ksw2.h
 format.o: kalloc.h mgpriv.h minigraph.h gfa.h
+galign.o: mgpriv.h minigraph.h gfa.h kalloc.h
 gchain1.o: mgpriv.h minigraph.h gfa.h ksort.h khashl.h kalloc.h gfa-priv.h
 gcmisc.o: mgpriv.h minigraph.h gfa.h kalloc.h
 gfa-aug.o: gfa-priv.h gfa.h ksort.h
@@ -57,6 +58,7 @@ kalloc.o: kalloc.h
 ksw2_extd2_sse.o: ksw2.h kalloc.h
 kthread.o: kthread.h
 lchain.o: mgpriv.h minigraph.h gfa.h kalloc.h krmq.h
+lv89-semi-tb.o: kalloc.h
 main.o: mgpriv.h minigraph.h gfa.h gfa-priv.h sys.h ketopt.h
 map-algo.o: kalloc.h mgpriv.h minigraph.h gfa.h khashl.h ksort.h
 misc.o: mgpriv.h minigraph.h gfa.h ksort.h

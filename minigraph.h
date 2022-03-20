@@ -39,6 +39,7 @@
 
 typedef struct { uint64_t x, y; } mg128_t;
 typedef struct { size_t n, m; mg128_t *a; } mg128_v;
+typedef struct { int32_t n, m; uint32_t *a; } mg32_v;
 
 typedef struct {
 	int w, k;

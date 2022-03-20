@@ -458,6 +458,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 
 	mg_gchain_extra(g, gc);
 	mg_gchain_sort_by_score(km, gc);
+	mg_gchain_cigar(km, g, es, qseq, gc);
 	return gc;
 }
 
