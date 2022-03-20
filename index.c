@@ -39,7 +39,7 @@ void mg_idx_destroy(mg_idx_t *gi)
 		}
 		free(gi->B);
 	}
-	gfa_edseq_destroy(gi->g->n_seg, gi->es);
+	gfa_edseq_destroy(gi->n_seg, gi->es);
 	free(gi);
 }
 
@@ -214,6 +214,7 @@ mg_idx_t *mg_index(gfa_t *g, const mg_idxopt_t *io, int n_threads, mg_mapopt_t *
 	gi = mg_index_core(g, io->k, io->w, io->bucket_bits, n_threads);
 	if (gi == 0) return 0;
 	gi->es = gfa_edseq_init(gi->g);
+	gi->n_seg = g->n_seg;
 	if (mg_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] indexed the graph\n", __func__,
 				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0));

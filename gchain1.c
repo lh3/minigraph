@@ -308,9 +308,9 @@ typedef struct {
 	mg_llchain_t *llc;
 } bridge_aux_t;
 
-static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old)
+static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n_a, mg128_t *a_new, const mg128_t *a_old, int32_t ed)
 {
-	q->cnt = p->cnt, q->v = p->v, q->score = p->score;
+	q->cnt = p->cnt, q->v = p->v, q->score = p->score, q->ed = ed;
 	memcpy(&a_new[*n_a], &a_old[p->off], q->cnt * sizeof(mg128_t));
 	q->off = *n_a;
 	(*n_a) += q->cnt;
@@ -338,17 +338,19 @@ static void bridge_shortk(bridge_aux_t *aux, const mg_lchain_t *l0, const mg_lch
 		q = &aux->llc[aux->n_llc++];
 		q->off = q->cnt = q->score = 0;
 		q->v = p[s].v^1; // when reversing a path, we also need to flip the orientation
+		q->ed = -1;
 	}
 	kfree(aux->km, p);
 }
 
-static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1)
+static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1, int32_t *ed)
 {
 	uint32_t v0 = l0->v, v1 = l1->v;
 	int32_t qs = l0->qe - kmer_size, qe = l1->qs + kmer_size, end0, end1, j;;
 	void *z;
 	gfa_edrst_t r;
 
+	*ed = -1;
 	end0 = l0->re - kmer_size;
 	end1 = l1->rs + kmer_size - 1;
 
@@ -364,18 +366,21 @@ static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max
 		q = &aux->llc[aux->n_llc++];
 		q->off = q->cnt = q->score = 0;
 		q->v = r.v[j];
+		q->ed = -1;
 	}
 	kfree(aux->km, r.v);
+	*ed = r.s;
 	return 1;
 }
 
 static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1, const mg128_t *a)
 {
 	if (!l1->inner_pre) { // bridging two segments
-		if (!bridge_gwfa(aux, kmer_size, gdp_max_ed, l0, l1))
+		int32_t ed = -1;
+		if (!bridge_gwfa(aux, kmer_size, gdp_max_ed, l0, l1, &ed))
 			bridge_shortk(aux, l0, l1);
 		if (aux->n_llc == aux->m_llc) KEXPAND(aux->km, aux->llc, aux->m_llc);
-		copy_lchain(&aux->llc[aux->n_llc++], l1, &aux->n_a, gc->a, a);
+		copy_lchain(&aux->llc[aux->n_llc++], l1, &aux->n_a, gc->a, a, ed);
 	} else { // on one segment
 		int32_t k;
 		mg_llchain_t *t = &aux->llc[aux->n_llc - 1];
@@ -431,7 +436,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 			gc->gc[k].hash = kh_hash_uint32(h);
 
 			if (aux.n_llc == aux.m_llc) KEXPAND(aux.km, aux.llc, aux.m_llc);
-			copy_lchain(&aux.llc[aux.n_llc++], &lc[st], &aux.n_a, gc->a, a); // copy the first lchain
+			copy_lchain(&aux.llc[aux.n_llc++], &lc[st], &aux.n_a, gc->a, a, -1); // copy the first lchain
 			for (j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
 				bridge_lchains(gc, &aux, kmer_size, gdp_max_ed, l0, l1, a);
