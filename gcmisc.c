@@ -12,8 +12,7 @@ void mg_gchain_restore_order(void *km, mg_gchains_t *gcs)
 	mg128_t *a;
 	KMALLOC(km, lc, gcs->n_lc);
 	KMALLOC(km, a, gcs->n_a);
-	n_a = n_lc = 0;
-	for (i = 0; i < gcs->n_gc; ++i) {
+	for (i = 0, n_a = n_lc = 0; i < gcs->n_gc; ++i) {
 		mg_gchain_t *gc = &gcs->gc[i];
 		assert(gc->cnt > 0);
 		memcpy(&lc[n_lc], &gcs->lc[gc->off], gc->cnt * sizeof(mg_llchain_t));
@@ -23,6 +22,16 @@ void mg_gchain_restore_order(void *km, mg_gchains_t *gcs)
 	memcpy(gcs->lc, lc, gcs->n_lc * sizeof(mg_llchain_t));
 	memcpy(gcs->a, a, gcs->n_a * sizeof(mg128_t));
 	kfree(km, lc); kfree(km, a);
+	for (i = 0, n_lc = 0; i < gcs->n_gc; ++i) {
+		mg_gchain_t *gc = &gcs->gc[i];
+		gc->off = n_lc;
+		n_lc += gc->cnt;
+	}
+	for (i = 0, n_a = 0; i < gcs->n_lc; ++i) {
+		mg_llchain_t *lc = &gcs->lc[i];
+		lc->off = n_a;
+		n_a += lc->cnt;
+	}
 }
 
 // recompute gcs->gc[].{off,n_anchor} and gcs->lc[].off, ASSUMING they are properly ordered (see mg_gchain_restore_order)

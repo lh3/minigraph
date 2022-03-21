@@ -25,7 +25,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 		mg_gchain_t *gc = &gt->gc[i];
 		int32_t l0 = gc->off;
 		int32_t off_a0 = gt->lc[l0].off;
-		int32_t j, j0 = 0, l;
+		int32_t j, j0 = 0, k, l;
 		cigar.n = 0;
 		//append_cigar1(km, &cigar, 7, gt->a[off_a0].y>>32&0xff);
 		for (j = 1; j < gc->n_anchor; ++j) {
@@ -39,16 +39,40 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 					break;
 			}
 			assert(l < gc->off + gc->cnt);
-			// do the alignment
-			if (l == l0) { // on the same vertex
+			assert((int32_t)q->x < g->seg[gt->lc[l0].v>>1].len);
+			// calculate the target sequence length
+			if (l == l0) {
 				l_seq = (int32_t)p->x - (int32_t)q->x;
-				if (l_seq + 1 > m_seq) {
-					m_seq = l_seq + 1;
-					kroundup32(m_seq);
-					KREALLOC(km, seq, m_seq);
-				}
-				memcpy(seq, &es[gt->lc[l].v].seq[(int32_t)q->x + 1], l_seq);
 			} else {
+				l_seq = g->seg[gt->lc[l0].v>>1].len - (int32_t)q->x - 1;
+				for (k = l0 + 1; k < l; ++k)
+					l_seq += es[gt->lc[k].v].len;
+				l_seq += (int32_t)p->x + 1;
+			}
+			if (l_seq + 1 > m_seq) {
+				m_seq = l_seq + 1;
+				kroundup32(m_seq);
+				KREALLOC(km, seq, m_seq);
+			}
+			// get the target sequence
+			if (l == l0) { // on the same vertex
+				memcpy(seq, &es[gt->lc[l0].v].seq[(int32_t)q->x + 1], l_seq);
+			} else {
+				uint32_t v = gt->lc[l0].v;
+				l_seq = g->seg[v>>1].len - (int32_t)q->x - 1;
+				memcpy(seq, &es[v].seq[(int32_t)q->x + 1], l_seq);
+				for (k = l0 + 1; k < l; ++k) {
+					v = gt->lc[k].v;
+					memcpy(&seq[l_seq], es[v].seq, es[v].len);
+					l_seq += es[v].len;
+				}
+				memcpy(&seq[l_seq], es[gt->lc[l].v].seq, (int32_t)p->x + 1);
+				l_seq += (int32_t)p->x + 1;
+				#if 0
+				printf("===> %d:%d [%d,%d) %d:%d <===\n", l0, l, (int32_t)q->y+1, (int32_t)p->y+1, l_seq, (int32_t)p->y - (int32_t)q->y);
+				for (k = 0; k < l_seq; ++k) putchar(seq[k]); putchar('\n');
+				for (k = 0; k < (int32_t)p->y - (int32_t)q->y; ++k) putchar(qseq[(int32_t)q->y + 1 + k]); putchar('\n');
+				#endif
 			}
 			j0 = j, l0 = l;
 		}
