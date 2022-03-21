@@ -28,6 +28,7 @@
 #define MG_M_WRITE_LCHAIN 0x800000
 #define MG_M_WRITE_MZ     0x1000000
 #define MG_M_SKIP_GCHECK  0x2000000
+#define MG_M_GWFA         0x4000000
 
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1
@@ -113,6 +114,11 @@ typedef struct {
 } mg_llchain_t;
 
 typedef struct {
+	int32_t n_cigar, mlen, blen, aplen;
+	uint32_t cigar[];
+} mg_cigar_t;
+
+typedef struct {
 	int32_t id, parent;
 	int32_t off, cnt;
 	int32_t n_anchor, score;
@@ -123,6 +129,7 @@ typedef struct {
 	uint32_t hash;
 	int32_t subsc, n_sub;
 	uint32_t mapq:8, flt:1, dummy:23;
+	mg_cigar_t *p;
 } mg_gchain_t;
 
 typedef struct {

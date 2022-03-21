@@ -131,7 +131,7 @@ static uint32_t *wf_traceback(void *km, int32_t t_end, const char *ts, int32_t q
 		while (i >= 0 && k >= 0 && qs[i] == ts[k])
 			--i, --k;
 		if (k0 - k > 0)	
-			wf_cigar_push(km, &cigar, 0, k0 - k);
+			wf_cigar_push(km, &cigar, 7, k0 - k);
 		if (i < 0 || k < 0) break;
 		if (s < 0) fprintf(stderr, "i=%d, k=%d, s=%d\n", i, k, tb->n);
 		assert(s >= 0);
@@ -162,13 +162,13 @@ static uint32_t *wf_traceback(void *km, int32_t t_end, const char *ts, int32_t q
 	return cigar.cigar;
 }
 
-uint32_t *lv_ed_semi_cigar(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t *score, int32_t *n_cigar)
+uint32_t *lv_ed_semi_cigar(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t *score, int32_t *t_endl, int32_t *n_cigar)
 {
 	int32_t s = 0, n = 1, t_end = -1, q_end = -1, i;
 	wf_diag_t *a;
 	uint32_t *cigar;
 	wf_tb_t tb = {0,0,0};
-	KMALLOC(km, a, tl + ql + 1);
+	KMALLOC(km, a, 2 * (tl + ql + 1));
 	a[0].d = 0, a[0].k = -1;
 	while (1) {
 		n = wf_step(km, &tb, tl, ts, ql, qs, n, a, &t_end, &q_end);
@@ -179,6 +179,6 @@ uint32_t *lv_ed_semi_cigar(void *km, int32_t tl, const char *ts, int32_t ql, con
 	cigar = wf_traceback(km, t_end, ts, q_end, qs, &tb, n_cigar);
 	for (i = 0; i < tb.n; ++i) kfree(km, tb.a[i].a);
 	kfree(km, tb.a);
-	*score = s;
+	*score = s, *t_endl = t_end + 1;
 	return cigar;
 }

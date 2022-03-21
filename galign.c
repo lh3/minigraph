@@ -16,6 +16,19 @@ static void append_cigar1(void *km, mg32_v *c, int32_t op, int32_t len)
 	}
 }
 
+static void append_cigar(void *km, mg32_v *c, int32_t n_cigar, const uint32_t *cigar)
+{
+	if (n_cigar == 0) return;
+	append_cigar1(km, c, cigar[0]&0xf, cigar[0]>>4);
+	if (c->n + n_cigar - 1 > c->m) {
+		c->m = c->n + n_cigar - 1;
+		kroundup32(c->m);
+		KREALLOC(km, c->a, c->m);
+	}
+	memcpy(&c->a[c->n], &cigar[1], sizeof(*cigar) * (n_cigar - 1));
+	c->n += n_cigar - 1;
+}
+
 void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt)
 {
 	int32_t i, l_seq = 0, m_seq = 0;
@@ -27,7 +40,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 		int32_t off_a0 = gt->lc[l0].off;
 		int32_t j, j0 = 0, k, l;
 		cigar.n = 0;
-		//append_cigar1(km, &cigar, 7, gt->a[off_a0].y>>32&0xff);
+		append_cigar1(km, &cigar, 7, gt->a[off_a0].y>>32&0xff);
 		for (j = 1; j < gc->n_anchor; ++j) {
 			const mg128_t *q, *p = &gt->a[off_a0 + j];
 			if ((p->y & MG_SEED_IGNORE) && j != gc->n_anchor - 1) continue;
@@ -74,8 +87,29 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 				for (k = 0; k < (int32_t)p->y - (int32_t)q->y; ++k) putchar(qseq[(int32_t)q->y + 1 + k]); putchar('\n');
 				#endif
 			}
+			{
+				int32_t t_endl, n_cigar, ed;
+				uint32_t *ci;
+				int32_t qlen = (int32_t)p->y - (int32_t)q->y;
+				const char *qs = &qseq[(int32_t)q->y + 1];
+				ci = lv_ed_semi_cigar(km, l_seq, seq, qlen, qs, &ed, &t_endl, &n_cigar);
+				append_cigar(km, &cigar, n_cigar, ci);
+				if (t_endl < l_seq) append_cigar1(km, &cigar, 2, l_seq - t_endl);
+				kfree(km, ci);
+			}
 			j0 = j, l0 = l;
+		}
+		// save the CIGAR to gt->gc[i]
+		gc->p = (mg_cigar_t*)kcalloc(gt->km, 1, cigar.n * 4 + sizeof(mg_cigar_t));
+		gc->p->n_cigar = cigar.n;
+		memcpy(gc->p->cigar, cigar.a, cigar.n * 4);
+		for (j = 0; j < gc->p->n_cigar; ++j) {
+			int32_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
+			if (op == 7) gc->p->mlen += len, gc->p->blen += len;
+			else gc->p->blen += len;
+			if (op != 1) gc->p->aplen += len;
 		}
 	}
 	kfree(km, seq);
+	kfree(km, cigar.a);
 }

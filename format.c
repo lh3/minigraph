@@ -173,8 +173,11 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 				mg_sprintf_lite(s, "%d\t%d", t->soff + p->ps, t->soff + p->pe);
 			}
 		} else mg_sprintf_lite(s, "\t%d\t%d\t%d", p->plen, p->ps, p->pe);
-		mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);
-		mg_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d\ts2:i:%d", p->id == p->parent? 'P' : 'S', p->n_anchor, p->score, p->subsc);
+		if (p->p) mg_sprintf_lite(s, "\t%d\t%d\t%d", p->p->mlen, p->p->blen, p->mapq);
+		else mg_sprintf_lite(s, "\t%d\t%d\t%d", p->mlen, p->blen, p->mapq);
+		mg_sprintf_lite(s, "\ttp:A:%c", p->id == p->parent? 'P' : 'S');
+		if (p->p) mg_sprintf_lite(s, "\tNM:i:%d", p->p->blen - p->p->mlen);
+		mg_sprintf_lite(s, "\tcm:i:%d\ts1:i:%d\ts2:i:%d", p->n_anchor, p->score, p->subsc);
 		if (p->div >= 0.0f && p->div <= 1.0f) {
 			char buf[16];
 			if (p->div == 0.0f) buf[0] = '0', buf[1] = 0;
@@ -184,6 +187,11 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 		if (n_seg > 1) {
 			mg_sprintf_lite(s, "\tql:B:i");
 			for (j = 0; j < n_seg; ++j) mg_sprintf_lite(s, ",%d", qlens[j]);
+		}
+		if (p->p) {
+			mg_sprintf_lite(s, "\tqc:Z:");
+			for (j = 0; j < p->p->n_cigar; ++j)
+				mg_sprintf_lite(s, "%d%c", p->p->cigar[j]>>4, "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
 		}
 		mg_sprintf_lite(s, "\n");
 		if ((mg_dbg_flag & MG_DBG_LCHAIN) || (flag & MG_M_WRITE_LCHAIN)) {

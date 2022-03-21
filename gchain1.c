@@ -465,7 +465,11 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 void mg_gchain_free(mg_gchains_t *gs)
 {
 	void *km;
+	int32_t i;
 	if (gs == 0) return;
 	km = gs->km;
-	kfree(km, gs->gc); kfree(km, gs->a); kfree(km, gs->lc); kfree(km, gs);
+	for (i = 0; i < gs->n_gc; ++i)
+		if (gs->gc[i].p) kfree(km, gs->gc[i].p);
+	kfree(km, gs->gc); kfree(km, gs->a); kfree(km, gs->lc);
+	kfree(km, gs);
 }

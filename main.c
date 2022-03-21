@@ -87,7 +87,7 @@ static inline void yes_or_no(uint64_t *flag_, uint64_t f, int long_idx, const ch
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:DS";
+	const char *opt_str = "x:k:w:t:r:m:n:g:K:o:p:N:Pq:d:l:f:U:M:F:j:L:DSc";
 	ketopt_t o = KETOPT_INIT;
 	mg_mapopt_t opt;
 	mg_idxopt_t ipt;
@@ -138,6 +138,7 @@ int main(int argc, char *argv[])
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 'L') gpt.min_var_len = atoi(o.arg);
 		else if (c == 'S') opt.flag |= MG_M_WRITE_LCHAIN;
+		else if (c == 'c') opt.flag |= MG_M_GWFA;
 		else if (c == 301) opt.flag |= MG_M_VERTEX_COOR;      // --vc
 		else if (c == 309) gpt.ggs_min_end_cnt = atoi(o.arg);  // --gg-min-end-cnt
 		else if (c == 310) gpt.ggs_min_end_frac = atof(o.arg); // --gg-min-end-frac
