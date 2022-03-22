@@ -98,7 +98,7 @@ int32_t mg_gchain1_dp(void *km, const gfa_t *g, int32_t *n_lc_, mg_lchain_t *lc,
 					  int32_t ref_bonus, float chn_pen_gap, float chn_pen_skip, float mask_level, const mg128_t *an, uint64_t **u_);
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t gen_cigar, int32_t n_u, const uint64_t *u,
 							const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
-							int32_t gdp_max_ed, const char *qseq);
+							int32_t gdp_max_ed, int32_t n_seg, const char *qseq);
 void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt);
 void mg_gchain_free(mg_gchains_t *gs);
 

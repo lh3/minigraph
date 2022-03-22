@@ -304,7 +304,7 @@ typedef struct {
 	const gfa_t *g;
 	const gfa_edseq_t *es;
 	const char *qseq;
-	int32_t n_llc, m_llc, n_a;
+	int32_t n_seg, n_llc, m_llc, n_a;
 	mg_llchain_t *llc;
 } bridge_aux_t;
 
@@ -377,7 +377,7 @@ static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_siz
 {
 	if (!l1->inner_pre) { // bridging two segments
 		int32_t ed = -1;
-		if (!bridge_gwfa(aux, kmer_size, gdp_max_ed, l0, l1, &ed))
+		if (aux->n_seg > 1 || !bridge_gwfa(aux, kmer_size, gdp_max_ed, l0, l1, &ed))
 			bridge_shortk(aux, l0, l1);
 		if (aux->n_llc == aux->m_llc) KEXPAND(aux->km, aux->llc, aux->m_llc);
 		copy_lchain(&aux->llc[aux->n_llc++], l1, &aux->n_a, gc->a, a, ed);
@@ -399,7 +399,7 @@ static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_siz
 
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t gen_cigar, int32_t n_u, const uint64_t *u,
 							const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
-							int32_t gdp_max_ed, const char *qseq)
+							int32_t gdp_max_ed, int32_t n_seg, const char *qseq)
 {
 	mg_gchains_t *gc;
 	int32_t i, j, k, st, kmer_size;
@@ -421,7 +421,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 
 	// core loop
 	memset(&aux, 0, sizeof(aux));
-	aux.km = km, aux.g = g, aux.es = es, aux.qseq = qseq;
+	aux.km = km, aux.g = g, aux.es = es, aux.n_seg = n_seg, aux.qseq = qseq;
 	kmer_size = gc->a[0].y>>32&0xff;
 	for (i = k = 0, st = 0, aux.n_a = 0; i < n_u; ++i) {
 		int32_t n_a0 = aux.n_a, n_llc0 = aux.n_llc, m = 0, nui = (int32_t)u[i];
