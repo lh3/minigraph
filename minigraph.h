@@ -28,7 +28,7 @@
 #define MG_M_WRITE_LCHAIN 0x800000
 #define MG_M_WRITE_MZ     0x1000000
 #define MG_M_SKIP_GCHECK  0x2000000
-#define MG_M_GWFA         0x4000000
+#define MG_M_CIGAR        0x4000000
 
 #define MG_G_NONE         0
 #define MG_G_GGSIMPLE     1
