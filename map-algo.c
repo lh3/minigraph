@@ -190,15 +190,15 @@ static mg128_t *collect_seed_hits(void *km, const mg_mapopt_t *opt, int max_occ,
 	return a;
 }
 
-static void mm_fix_bad_ends(const mg128_t *a, int32_t gdp_max_occ, int32_t gdp_max_trim, int32_t *as, int32_t *cnt)
+static void mm_fix_bad_ends(const mg128_t *a, int32_t lc_max_occ, int32_t lc_max_trim, int32_t *as, int32_t *cnt)
 {
 	int32_t i, k, as0 = *as, cnt0 = *cnt;
-	for (i = as0 + cnt0 - 1, k = 0; k < gdp_max_trim && k < cnt0; ++k, --i)
-		if (a[i].y>>MG_SEED_OCC_SHIFT < gdp_max_occ)
+	for (i = as0 + cnt0 - 1, k = 0; k < lc_max_trim && k < cnt0; ++k, --i)
+		if (a[i].y>>MG_SEED_OCC_SHIFT <= lc_max_occ)
 			break;
 	*cnt -= k;
-	for (i = as0, k = 0; k < *cnt && k < gdp_max_trim; ++i, ++k)
-		if (a[i].y>>MG_SEED_OCC_SHIFT <= gdp_max_occ)
+	for (i = as0, k = 0; k < *cnt && k < lc_max_trim; ++i, ++k)
+		if (a[i].y>>MG_SEED_OCC_SHIFT <= lc_max_occ)
 			break;
 	*as += k, *cnt -= k;
 }
@@ -414,7 +414,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 			for (i = 0; i < n_lc; ++i) {
 				mg_lchain_t *p = &lc[i];
 				int32_t cnt = p->cnt, off = p->off;
-				mm_fix_bad_ends(a, opt->gdp_max_occ, opt->gdp_max_trim, &off, &cnt);
+				mm_fix_bad_ends(a, opt->lc_max_occ, opt->lc_max_trim, &off, &cnt);
 				mm_fix_bad_ends_alt(a, p->score, opt->bw, 100, &off, &cnt);
 				mm_filter_bad_seeds(b->km, off, cnt, a, 10, 40, opt->max_gap>>1, 10);
 				mm_filter_bad_seeds_alt(b->km, off, cnt, a, 30, opt->max_gap>>1);

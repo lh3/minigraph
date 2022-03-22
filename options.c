@@ -31,8 +31,8 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->min_lc_cnt = 5, mo->min_lc_score = 40;
 	mo->min_gc_cnt = 5, mo->min_gc_score = 50;
 	mo->gdp_max_ed = 1000;
-	mo->gdp_max_trim = 10;
-	mo->gdp_max_occ = 2;
+	mo->lc_max_trim = 20;
+	mo->lc_max_occ = 2;
 	mo->mask_level = 0.5f;
 	mo->sub_diff = 6;
 	mo->best_n = 5;
@@ -139,12 +139,12 @@ void mg_opt_update(const mg_idx_t *gi, mg_mapopt_t *mo, mg_ggopt_t *go)
 	int32_t q[2];
 	f[0] = 0.1f, f[1] = mo->occ_max1_frac;
 	mg_idx_cal_quantile(gi, 2, f, q);
-	if (q[0] > mo->gdp_max_occ) mo->gdp_max_occ = q[0];
-	if (mo->gdp_max_occ > mo->occ_max1_cap) mo->gdp_max_occ = mo->occ_max1_cap;
+	if (q[0] > mo->lc_max_occ) mo->lc_max_occ = q[0];
+	if (mo->lc_max_occ > mo->occ_max1_cap) mo->lc_max_occ = mo->occ_max1_cap;
 	if (q[1] > mo->occ_max1) mo->occ_max1 = q[1];
 	if (mo->occ_max1 > mo->occ_max1_cap) mo->occ_max1 = mo->occ_max1_cap;
 	if (mo->bw_long < mo->bw) mo->bw_long = mo->bw;
 	if (mg_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_max1=%d; gdp_max_occ=%d\n", __func__,
-				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_max1, mo->gdp_max_occ);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] occ_max1=%d; lc_max_occ=%d\n", __func__,
+				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), mo->occ_max1, mo->lc_max_occ);
 }
