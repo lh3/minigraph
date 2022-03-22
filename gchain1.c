@@ -385,7 +385,7 @@ static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_siz
 		int32_t k;
 		mg_llchain_t *t = &aux->llc[aux->n_llc - 1];
 		assert(l0->v == l1->v);
-		for (k = 0; k < l1->cnt; ++k) {
+		for (k = 0; k < l1->cnt; ++k) { // FIXME: this part is made redundant by resolve_overlap()
 			const mg128_t *ak = &a[l1->off + k];
 			if ((int32_t)ak->x > l0->re && (int32_t)ak->y > l0->qe)
 				break;
@@ -397,8 +397,40 @@ static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_siz
 	}
 }
 
+static void resolve_overlap(mg_lchain_t *l0, mg_lchain_t *l1, const mg128_t *a)
+{
+	int32_t j, x, y, shift0, shift1;
+	// check the end of l0
+	x = (int32_t)a[l1->off].x;
+	y = (int32_t)a[l1->off].y;
+	for (j = l0->cnt - 1; j >= 0; --j)
+		if ((int32_t)a[l0->off + j].y <= y && (l0->v != l1->v || (int32_t)a[l0->off + j].x <= x))
+			break;
+	shift0 = l0->cnt - 1 - j;
+	assert(shift0 < l0->cnt);
+	// check the start of l1
+	x = (int32_t)a[l0->off + l0->cnt - 1].x;
+	y = (int32_t)a[l0->off + l0->cnt - 1].y;
+	for (j = 0; j < l1->cnt; ++j)
+		if ((int32_t)a[l1->off + j].y >= y && (l0->v != l1->v || (int32_t)a[l1->off + j].x >= x))
+			break;
+	shift1 = j;
+	assert(shift1 < l1->cnt);
+	// update
+	if (shift0 > 0) {
+		l0->cnt -= shift0;
+		l0->qe = (int32_t)a[l0->off + l0->cnt - 1].y + 1;
+		l0->re = (int32_t)a[l0->off + l0->cnt - 1].x + 1;
+	}
+	if (shift1 > 0) {
+		l1->off += shift1, l1->cnt -= shift1;
+		l1->qs = (int32_t)a[l1->off].y + 1 - (int32_t)(a[l1->off].y>>32&0xff);
+		l1->rs = (int32_t)a[l1->off].x + 1 - (int32_t)(a[l1->off].y>>32&0xff);
+	}
+}
+
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t gen_cigar, int32_t n_u, const uint64_t *u,
-							const mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
+							mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
 							int32_t gdp_max_ed, int32_t n_seg, const char *qseq)
 {
 	mg_gchains_t *gc;
@@ -422,7 +454,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 	// core loop
 	memset(&aux, 0, sizeof(aux));
 	aux.km = km, aux.g = g, aux.es = es, aux.n_seg = n_seg, aux.qseq = qseq;
-	kmer_size = gc->a[0].y>>32&0xff;
+	kmer_size = a[0].y>>32&0xff;
 	for (i = k = 0, st = 0, aux.n_a = 0; i < n_u; ++i) {
 		int32_t n_a0 = aux.n_a, n_llc0 = aux.n_llc, m = 0, nui = (int32_t)u[i];
 		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
@@ -435,6 +467,9 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 				h += kh_hash_uint32(p->qs) + kh_hash_uint32(p->re) + kh_hash_uint32(p->v);
 			}
 			gc->gc[k].hash = kh_hash_uint32(h);
+
+			for (j = 1; j < nui; ++j)
+				resolve_overlap(&lc[st + j - 1], &lc[st + j], a);
 
 			if (aux.n_llc == aux.m_llc) KEXPAND(aux.km, aux.llc, aux.m_llc);
 			copy_lchain(&aux.llc[aux.n_llc++], &lc[st], &aux.n_a, gc->a, a, -1); // copy the first lchain

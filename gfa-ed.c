@@ -561,6 +561,7 @@ void *gfa_ed_init(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, c
 	z->buf.ht = gwf_map64_init2(km);
 	kv_resize(gwf_trace_t, km, z->buf.t, 16);
 	KCALLOC(km, z->a, 1);
+	assert(off0 >= 0);
 	z->a[0].vd = gwf_gen_vd(v0, -off0), z->a[0].k = off0 - 1, z->a[0].xo = 0;
 	if (z->traceback) z->a[0].t = gwf_trace_push(km, &z->buf.t, -1, -1, z->buf.ht);
 	z->n_a = 1;
