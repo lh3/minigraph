@@ -88,13 +88,15 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 				#endif
 			}
 			{
-				int32_t t_endl, n_cigar, ed;
+				int32_t t_endl, q_endl, n_cigar, ed;
 				uint32_t *ci;
 				int32_t qlen = (int32_t)p->y - (int32_t)q->y;
 				const char *qs = &qseq[(int32_t)q->y + 1];
-				ci = lv_ed_semi_cigar(km, l_seq, seq, qlen, qs, &ed, &t_endl, &n_cigar);
+				ci = lv_ed_semi_cigar(km, l_seq, seq, qlen, qs, &ed, &t_endl, &q_endl, &n_cigar);
 				append_cigar(km, &cigar, n_cigar, ci);
+				assert(q_endl == qlen || t_endl == l_seq);
 				if (t_endl < l_seq) append_cigar1(km, &cigar, 2, l_seq - t_endl);
+				else if (q_endl < qlen) append_cigar1(km, &cigar, 1, qlen - q_endl);
 				kfree(km, ci);
 			}
 			j0 = j, l0 = l;
@@ -103,12 +105,14 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 		gc->p = (mg_cigar_t*)kcalloc(gt->km, 1, cigar.n * 4 + sizeof(mg_cigar_t));
 		gc->p->n_cigar = cigar.n;
 		memcpy(gc->p->cigar, cigar.a, cigar.n * 4);
-		for (j = 0; j < gc->p->n_cigar; ++j) {
+		for (j = 0, l = 0; j < gc->p->n_cigar; ++j) {
 			int32_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
 			if (op == 7) gc->p->mlen += len, gc->p->blen += len;
 			else gc->p->blen += len;
 			if (op != 1) gc->p->aplen += len;
+			if (op != 2) l += len;
 		}
+		assert(l == gc->qe - gc->qs && gc->p->aplen == gc->pe - gc->ps);
 	}
 	kfree(km, seq);
 	kfree(km, cigar.a);

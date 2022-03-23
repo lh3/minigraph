@@ -151,8 +151,8 @@ static uint32_t *wf_traceback(void *km, int32_t t_end, const char *ts, int32_t q
 		}
 		--s;
 	}
-	if (i > 0) wf_cigar_push(km, &cigar, 1, i);
-	else if (k > 0) wf_cigar_push(km, &cigar, 2, k);
+	if (i >= 0) wf_cigar_push(km, &cigar, 1, i+1);
+	else if (k >= 0) wf_cigar_push(km, &cigar, 2, k+1);
 	for (i = 0; i < cigar.n>>1; ++i) {
 		uint32_t t = cigar.cigar[i];
 		cigar.cigar[i] = cigar.cigar[cigar.n - i - 1];
@@ -162,7 +162,7 @@ static uint32_t *wf_traceback(void *km, int32_t t_end, const char *ts, int32_t q
 	return cigar.cigar;
 }
 
-uint32_t *lv_ed_semi_cigar(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t *score, int32_t *t_endl, int32_t *n_cigar)
+uint32_t *lv_ed_semi_cigar(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t *score, int32_t *t_endl, int32_t *q_endl, int32_t *n_cigar)
 {
 	int32_t s = 0, n = 1, t_end = -1, q_end = -1, i;
 	wf_diag_t *a;
@@ -179,6 +179,6 @@ uint32_t *lv_ed_semi_cigar(void *km, int32_t tl, const char *ts, int32_t ql, con
 	cigar = wf_traceback(km, t_end, ts, q_end, qs, &tb, n_cigar);
 	for (i = 0; i < tb.n; ++i) kfree(km, tb.a[i].a);
 	kfree(km, tb.a);
-	*score = s, *t_endl = t_end + 1;
+	*score = s, *t_endl = t_end + 1, *q_endl = q_end + 1;
 	return cigar;
 }

@@ -102,7 +102,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt);
 void mg_gchain_free(mg_gchains_t *gs);
 
-uint32_t *lv_ed_semi_cigar(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t *score, int32_t *t_endl, int32_t *n_cigar);
+uint32_t *lv_ed_semi_cigar(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t *score, int32_t *t_endl, int32_t *q_endl, int32_t *n_cigar);
 
 void mg_gchain_restore_order(void *km, mg_gchains_t *gcs);
 void mg_gchain_restore_offset(mg_gchains_t *gcs);

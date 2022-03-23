@@ -83,10 +83,9 @@ void mg_cov_asm(const gfa_t *g, int32_t n_seq, mg_gchains_t *const *gcs, int32_t
 	// fill sintv[]
 	KCALLOC(km, cnt_link, g->n_arc);
 	for (t = 0; t < n_seq; ++t) {
-		int32_t a_off = 0;
 		const mg_gchains_t *gt = gcs[t];
 		if (gt == 0 || gt->n_gc == 0) continue;
-		for (i = 0; i < gt->n_gc; a_off += gt->gc[i++].n_anchor) {
+		for (i = 0; i < gt->n_gc;) {
 			const mg_gchain_t *gc = &gt->gc[i];
 			if (gc->mapq < min_mapq || gc->blen < min_blen) continue;
 			// count segment coverage
