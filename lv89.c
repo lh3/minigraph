@@ -7,7 +7,7 @@
 
 typedef struct {
 	int32_t d;
-	int32_t k:30, p:2;
+	int32_t k, p;
 } wf_diag_t;
 
 typedef struct {
@@ -25,20 +25,20 @@ static void wf_tb_add(void *km, wf_tb_t *tb, int32_t m)
 	wf_tb1_t *p;
 	if (tb->n == tb->m) {
 		tb->m = tb->m + (tb->m>>1) + 4;
-		KREALLOC(km, tb->a, tb->m);
+		tb->a = (wf_tb1_t*)krealloc(km, tb->a, tb->m * sizeof(*tb->a));
 	}
 	p = &tb->a[tb->n++];
 	p->n = m;
-	KCALLOC(km, p->a, (m + 31) >> 5);
+	p->a = (uint64_t*)kcalloc(km, (m + 31) / 32, sizeof(uint64_t));
 }
 
-static int32_t wf_step(void *km, wf_tb_t *tb, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t n, wf_diag_t *a)
+static int32_t wf_step(void *km, wf_tb_t *tb, int32_t is_ext, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t n, wf_diag_t *a, int32_t *t_end, int32_t *q_end)
 {
 	int32_t j, st = 0, en = n + 2;
-	wf_tb1_t *q;
 	wf_diag_t *b = a + n + 2; // temporary array
 
 	// wfa_extend
+	*t_end = *q_end = -1;
 	for (j = 0; j < n; ++j) {
 		wf_diag_t *p = &a[j];
 		int32_t k = p->k, max_k;
@@ -60,8 +60,12 @@ static int32_t wf_step(void *km, wf_tb_t *tb, int32_t tl, const char *ts, int32_
 		else if (k + 7 >= max_k)
 			while (k < max_k && *(ts_ + k) == *(qs_ + k)) // use this for generic CPUs. It is slightly faster than the unoptimized version
 				++k;
-		if (k + p->d == ql - 1 && k == tl - 1)
-			return -1;
+		if (k + p->d == ql - 1 || k == tl - 1) {
+			if (is_ext || (k + p->d == ql - 1 && k == tl - 1)) {
+				*t_end = k, *q_end = k + p->d;
+				return -1;
+			}
+		}
 		p->k = k;
 	}
 
@@ -72,13 +76,22 @@ static int32_t wf_step(void *km, wf_tb_t *tb, int32_t tl, const char *ts, int32_
 	b[1].d = a[0].d;
 	b[1].p =  n == 1 || a[0].k > a[1].k? 0 : 1;
 	b[1].k = (n == 1 || a[0].k > a[1].k? a[0].k : a[1].k) + 1;
-	for (j = 1; j < n - 1; ++j) {
-		int32_t k = a[j-1].k, p = -1;
-		p = k > a[j+1].k + 1? p : 1;
-		k = k > a[j+1].k + 1? k : a[j+1].k + 1;
-		p = k > a[j].k + 1? p : 0;
-		k = k > a[j].k + 1? k : a[j].k + 1;
-		b[j+1].d = a[j].d, b[j+1].k = k, b[j+1].p = p;
+	if (tb) {
+		for (j = 1; j < n - 1; ++j) {
+			int32_t k = a[j-1].k, p = -1;
+			p = k > a[j+1].k + 1? p : 1;
+			k = k > a[j+1].k + 1? k : a[j+1].k + 1;
+			p = k > a[j].k + 1? p : 0;
+			k = k > a[j].k + 1? k : a[j].k + 1;
+			b[j+1].d = a[j].d, b[j+1].k = k, b[j+1].p = p;
+		}
+	} else {
+		for (j = 1; j < n - 1; ++j) {
+			int32_t k = a[j-1].k;
+			k = k > a[j+1].k + 1? k : a[j+1].k + 1;
+			k = k > a[j].k + 1? k : a[j].k + 1;
+			b[j+1].d = a[j].d, b[j+1].k = k;
+		}
 	}
 	if (n >= 2) {
 		b[n].d = a[n-1].d;
@@ -91,11 +104,14 @@ static int32_t wf_step(void *km, wf_tb_t *tb, int32_t tl, const char *ts, int32_
 
 	if (b[0].d <= -tl) ++st;
 	if (b[n+1].d >= ql) --en;
-	wf_tb_add(km, tb, en - st);
-	q = &tb->a[tb->n - 1];
-	q->d0 = b[st].d;
-	for (j = 0; j < en - st; ++j)
-		q->a[j>>5] |= (uint64_t)(b[j+st].p + 1) << (j&0x1f)*2;
+	if (tb) {
+		wf_tb1_t *q;
+		wf_tb_add(km, tb, n + 2);
+		q = &tb->a[tb->n - 1];
+		q->d0 = b[st].d;
+		for (j = 0; j < en - st; ++j)
+			q->a[j>>5] |= (uint64_t)(b[j+st].p + 1) << (j&0x1f)*2;
+	}
 	memcpy(a, &b[st], (en - st) * sizeof(*a));
 	return en - st;
 }
@@ -112,7 +128,7 @@ static void wf_cigar_push(void *km, wf_cigar_t *c, int32_t op, int32_t len)
 	} else {
 		if (c->n == c->m) {
 			c->m = c->m + (c->m>>1) + 4;
-			KREALLOC(km, c->cigar, c->m);
+			c->cigar = (uint32_t*)krealloc(km, c->cigar, c->m * sizeof(*c->cigar));
 		}
 		c->cigar[c->n++] = len<<4 | op;
 	}
@@ -129,7 +145,6 @@ static uint32_t *wf_traceback(void *km, int32_t t_end, const char *ts, int32_t q
 		if (k0 - k > 0)	
 			wf_cigar_push(km, &cigar, 7, k0 - k);
 		if (i < 0 || k < 0) break;
-		if (s < 0) fprintf(stderr, "i=%d, k=%d, s=%d\n", i, k, tb->n);
 		assert(s >= 0);
 		j = i - k - tb->a[s].d0;
 		assert(j < tb->a[s].n);
@@ -146,8 +161,8 @@ static uint32_t *wf_traceback(void *km, int32_t t_end, const char *ts, int32_t q
 		}
 		--s;
 	}
-	if (i >= 0) wf_cigar_push(km, &cigar, 1, i+1);
-	else if (k >= 0) wf_cigar_push(km, &cigar, 2, k+1);
+	if (i >= 0) wf_cigar_push(km, &cigar, 1, i + 1);
+	else if (k >= 0) wf_cigar_push(km, &cigar, 2, k + 1);
 	for (i = 0; i < cigar.n>>1; ++i) {
 		uint32_t t = cigar.cigar[i];
 		cigar.cigar[i] = cigar.cigar[cigar.n - i - 1];
@@ -157,23 +172,25 @@ static uint32_t *wf_traceback(void *km, int32_t t_end, const char *ts, int32_t q
 	return cigar.cigar;
 }
 
-uint32_t *lv_ed_global_cigar(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t *score, int32_t *n_cigar)
+uint32_t *lv_ed_unified(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t is_ext, int32_t *score, int32_t *t_endl, int32_t *q_endl, int32_t *n_cigar)
 {
-	int32_t s = 0, n = 1, i;
+	int32_t s = 0, n = 1, t_end = -1, q_end = -1, i;
 	wf_diag_t *a;
-	uint32_t *cigar;
+	uint32_t *cigar = 0;
 	wf_tb_t tb = {0,0,0};
-	KMALLOC(km, a, 2 * (tl + ql + 2));
+	a = (wf_diag_t*)kmalloc(km, 2 * (tl + ql + 2) * sizeof(*a)); // without CIGAR, this would be all the memory needed
 	a[0].d = 0, a[0].k = -1;
 	while (1) {
-		n = wf_step(km, &tb, tl, ts, ql, qs, n, a);
+		n = wf_step(km, n_cigar? &tb : 0, is_ext, tl, ts, ql, qs, n, a, &t_end, &q_end);
 		if (n < 0) break;
 		++s;
 	}
 	kfree(km, a);
-	cigar = wf_traceback(km, tl - 1, ts, ql - 1, qs, &tb, n_cigar);
-	for (i = 0; i < tb.n; ++i) kfree(km, tb.a[i].a);
-	kfree(km, tb.a);
-	*score = s;
+	if (n_cigar) { // generate CIGAR
+		cigar = wf_traceback(km, t_end, ts, q_end, qs, &tb, n_cigar);
+		for (i = 0; i < tb.n; ++i) kfree(km, tb.a[i].a);
+		kfree(km, tb.a);
+	}
+	*score = s, *t_endl = t_end + 1, *q_endl = q_end + 1;
 	return cigar;
 }
