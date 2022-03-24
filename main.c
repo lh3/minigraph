@@ -56,6 +56,7 @@ static ko_longopt_t long_options[] = {
 	{ "dbg-shortk",   ko_no_argument,       405 },
 	{ "dbg-gc1",      ko_no_argument,       406 },
 	{ "dbg-lc-prof",  ko_no_argument,       407 },
+	{ "dbg-ed",       ko_no_argument,       408 },
 	{ 0, 0, 0 }
 };
 
@@ -166,6 +167,7 @@ int main(int argc, char *argv[])
 		else if (c == 405) mg_dbg_flag |= MG_DBG_SHORTK;      // --dbg-shortk
 		else if (c == 406) mg_dbg_flag |= MG_DBG_GC1;         // --dbg-gc1
 		else if (c == 407) mg_dbg_flag |= MG_DBG_LC_PROF;     // --dbg-lc-prof
+		else if (c == 408) mg_dbg_flag |= MG_DBG_ED;          // --dbg-ed
 		else if (c == 'U') {
 			opt.occ_max1 = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.occ_max1_cap = strtol(s + 1, &s, 10);

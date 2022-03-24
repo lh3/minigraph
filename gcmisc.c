@@ -156,7 +156,10 @@ void mg_gchain_drop_flt(void *km, mg_gchains_t *gcs)
 	for (i = 0, n_gc = 0; i < gcs->n_gc; ++i) {
 		mg_gchain_t *r = &gcs->gc[i];
 		o2n[i] = -1;
-		if (r->flt || r->cnt == 0) continue;
+		if (r->flt || r->cnt == 0) {
+			kfree(gcs->km, r->p);
+			continue;
+		}
 		o2n[i] = n_gc++;
 	}
 	n_gc = n_lc = n_a = 0;
