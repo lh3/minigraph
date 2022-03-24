@@ -394,7 +394,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 
 	if (opt->bw_long > opt->bw && (opt->flag & (MG_M_SPLICE|MG_M_SR)) == 0 && n_segs == 1 && n_lc > 1) { // re-chain/long-join for long sequences
 		int32_t st = (int32_t)a[0].y, en = (int32_t)a[(int32_t)u[0] - 1].y;
-		if (qlen_sum - (en - st) > opt->rmq_rescue_size || en - st > qlen_sum * opt->rmq_rescue_ratio) {
+		if (qlen_sum - (en - st) > opt->rmq_rescue_size || qlen_sum - (en - st) > qlen_sum * opt->rmq_rescue_ratio) {
 			int32_t i;
 			for (i = 0, n_a = 0; i < n_lc; ++i) n_a += (int32_t)u[i];
 			kfree(b->km, u);
