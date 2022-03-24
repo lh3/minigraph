@@ -3,7 +3,7 @@ CFLAGS=		-g -Wall -Wc++-compat -std=c99 -O2
 CPPFLAGS=
 INCLUDES=
 OBJS=		kalloc.o kthread.o algo.o sys.o gfa-base.o gfa-io.o gfa-aug.o gfa-bbl.o gfa-ed.o \
-            sketch.o misc.o bseq.o options.o fastcmp.o shortk.o lv89-semi-tb.o \
+            sketch.o misc.o bseq.o options.o fastcmp.o shortk.o lv89-full-tb.o \
 			index.o lchain.o gchain1.o galign.o gcmisc.o map-algo.o cal_cov.o \
 			format.o gmap.o ksw2_extd2_sse.o ggsimple.o ggen.o asm-call.o
 PROG=		minigraph
@@ -58,7 +58,7 @@ kalloc.o: kalloc.h
 ksw2_extd2_sse.o: ksw2.h kalloc.h
 kthread.o: kthread.h
 lchain.o: mgpriv.h minigraph.h gfa.h kalloc.h krmq.h
-lv89-semi-tb.o: kalloc.h
+lv89-full-tb.o: kalloc.h
 main.o: mgpriv.h minigraph.h gfa.h gfa-priv.h sys.h ketopt.h
 map-algo.o: kalloc.h mgpriv.h minigraph.h gfa.h khashl.h ksort.h
 misc.o: mgpriv.h minigraph.h gfa.h ksort.h

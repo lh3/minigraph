@@ -88,15 +88,12 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 				#endif
 			}
 			{
-				int32_t t_endl, q_endl, n_cigar, ed;
+				int32_t n_cigar, ed;
 				uint32_t *ci;
 				int32_t qlen = (int32_t)p->y - (int32_t)q->y;
 				const char *qs = &qseq[(int32_t)q->y + 1];
-				ci = lv_ed_semi_cigar(km, l_seq, seq, qlen, qs, &ed, &t_endl, &q_endl, &n_cigar);
+				ci = lv_ed_global_cigar(km, l_seq, seq, qlen, qs, &ed, &n_cigar);
 				append_cigar(km, &cigar, n_cigar, ci);
-				assert(q_endl == qlen || t_endl == l_seq);
-				if (t_endl < l_seq) append_cigar1(km, &cigar, 2, l_seq - t_endl);
-				else if (q_endl < qlen) append_cigar1(km, &cigar, 1, qlen - q_endl);
 				kfree(km, ci);
 			}
 			j0 = j, l0 = l;
