@@ -178,6 +178,7 @@ uint32_t *lv_ed_unified(void *km, int32_t tl, const char *ts, int32_t ql, const 
 	wf_diag_t *a;
 	uint32_t *cigar = 0;
 	wf_tb_t tb = {0,0,0};
+	assert(ql > 0 && tl > 0);
 	a = (wf_diag_t*)kmalloc(km, 2 * (tl + ql + 2) * sizeof(*a)); // without CIGAR, this would be all the memory needed
 	a[0].d = 0, a[0].k = -1;
 	while (1) {

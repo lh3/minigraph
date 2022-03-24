@@ -89,15 +89,16 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 			}
 			{
 				int32_t n_cigar, ed, qlen = (int32_t)p->y - (int32_t)q->y, t_endl, q_endl;
-				uint32_t *ci;
 				const char *qs = &qseq[(int32_t)q->y + 1];
-				if ((mg_dbg_flag & MG_DBG_ED) && qlen + l_seq >= 100000)
-					fprintf(stderr, "XX\t%d\t%d\t%d\t%d\n", (int32_t)q->y + 1, (int32_t)p->y + 1, l_seq, qlen);
-				ci = lv_ed_unified(km, l_seq, seq, qlen, qs, 0, &ed, &t_endl, &q_endl, &n_cigar);
-				if ((mg_dbg_flag & MG_DBG_ED) && ed >= 1000)
-					fprintf(stderr, "D2\t%d\t%d\t%d\t%d\t%d\n", (int32_t)q->y + 1, (int32_t)p->y + 1, l_seq, qlen, ed);
-				append_cigar(km, &cigar, n_cigar, ci);
-				kfree(km, ci);
+				assert(l_seq > 0 || qlen > 0);
+				if (l_seq == 0) append_cigar1(km, &cigar, 1, qlen);
+				else if (qlen == 0) append_cigar1(km, &cigar, 2, l_seq);
+				else {
+					uint32_t *ci;
+					ci = lv_ed_unified(km, l_seq, seq, qlen, qs, 0, &ed, &t_endl, &q_endl, &n_cigar);
+					append_cigar(km, &cigar, n_cigar, ci);
+					kfree(km, ci);
+				}
 			}
 			j0 = j, l0 = l;
 		}

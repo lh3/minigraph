@@ -429,7 +429,7 @@ static void resolve_overlap(mg_lchain_t *l0, mg_lchain_t *l1, const mg128_t *a)
 	}
 }
 
-mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t gen_cigar, int32_t n_u, const uint64_t *u,
+mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t n_u, const uint64_t *u,
 							mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
 							int32_t gdp_max_ed, int32_t n_seg, const char *qseq)
 {
@@ -494,7 +494,6 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 
 	mg_gchain_extra(g, gc);
 	mg_gchain_sort_by_score(km, gc);
-	if (gen_cigar) mg_gchain_cigar(km, g, es, qseq, gc);
 	return gc;
 }
 

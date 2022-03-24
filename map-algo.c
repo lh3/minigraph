@@ -447,10 +447,8 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	}
 	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, opt->bw_long, opt->bw_long, opt->bw_long, opt->max_gc_skip, opt->ref_bonus,
 						 chn_pen_gap, chn_pen_skip, opt->mask_level, a, &u);
-	gcs[0] = mg_gchain_gen(0, b->km, gi->g, gi->es, !!(opt->flag&MG_M_CIGAR), n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score,
-						   opt->gdp_max_ed, n_segs, seq_cat);
+	gcs[0] = mg_gchain_gen(0, b->km, gi->g, gi->es, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score, opt->gdp_max_ed, n_segs, seq_cat);
 	gcs[0]->rep_len = rep_len;
-	kfree(b->km, seq_cat);
 	kfree(b->km, a);
 	kfree(b->km, lc);
 	kfree(b->km, u);
@@ -459,6 +457,9 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	mg_gchain_flt_sub(opt->pri_ratio, gi->k * 2, opt->best_n, gcs[0]->n_gc, gcs[0]->gc);
 	mg_gchain_drop_flt(b->km, gcs[0]);
 	mg_gchain_set_mapq(b->km, gcs[0], qlen_sum, mv.n, opt->min_gc_score);
+	if ((opt->flag&MG_M_CIGAR) && n_segs == 1)
+		mg_gchain_cigar(b->km, gi->g, gi->es, seq_cat, gcs[0]);
+	kfree(b->km, seq_cat);
 
 	if (b->km) {
 		km_stat(b->km, &kmst);
