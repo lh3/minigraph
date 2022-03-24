@@ -88,9 +88,8 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 				#endif
 			}
 			{
-				int32_t n_cigar, ed;
+				int32_t n_cigar, ed, qlen = (int32_t)p->y - (int32_t)q->y;
 				uint32_t *ci;
-				int32_t qlen = (int32_t)p->y - (int32_t)q->y;
 				const char *qs = &qseq[(int32_t)q->y + 1];
 				ci = lv_ed_global_cigar(km, l_seq, seq, qlen, qs, &ed, &n_cigar);
 				append_cigar(km, &cigar, n_cigar, ci);

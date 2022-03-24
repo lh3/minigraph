@@ -163,7 +163,7 @@ uint32_t *lv_ed_global_cigar(void *km, int32_t tl, const char *ts, int32_t ql, c
 	wf_diag_t *a;
 	uint32_t *cigar;
 	wf_tb_t tb = {0,0,0};
-	KMALLOC(km, a, 2 * (tl + ql + 1));
+	KMALLOC(km, a, 2 * (tl + ql + 2));
 	a[0].d = 0, a[0].k = -1;
 	while (1) {
 		n = wf_step(km, &tb, tl, ts, ql, qs, n, a);
