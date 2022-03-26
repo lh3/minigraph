@@ -88,7 +88,10 @@ int mg_ggen_aug(gfa_t *g, int32_t n_fn, const char **fn, const mg_idxopt_t *ipt,
 		maprst_t *r;
 		if ((gi = mg_index(g, ipt, n_threads, &opt)) == 0) return -1;
 		r = ggen_map(gi, &opt, fn[i], n_threads);
-		mg_ggsimple_ed(0, go, g, r->n_seq, r->seq, r->gcs);
+		if (opt0->flag & MG_M_CIGAR)
+			mg_ggsimple_ed(0, go, g, r->n_seq, r->seq, r->gcs);
+		else
+			mg_ggsimple(0, go, g, r->n_seq, r->seq, r->gcs);
 		mg_free_maprst(r);
 		mg_idx_destroy(gi);
 	}
