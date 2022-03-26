@@ -63,14 +63,21 @@ int32_t mg_gc_index(void *km, int min_mapq, int min_map_len, int min_depth_len, 
 				const mg_llchain_t *lc = &gt->lc[gc->off + j];
 				int32_t rs, re, tmp;
 				if (lc->cnt > 0) { // compute start and end on the forward strand on the segment
-					const mg128_t *q = &gt->a[lc->off];
-					rs = (int32_t)q->x + 1 - (int32_t)(q->y>>32&0xff);
-					q = &gt->a[lc->off + lc->cnt - 1];
-					re = (int32_t)q->x;
-					assert(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len);
-					sum_alen += re - rs, sum_acnt += (q->x>>32) - (gt->a[lc->off].x>>32) + 1;
-					if (lc->v&1)
-						tmp = rs, rs = g->seg[lc->v>>1].len - re, re = g->seg[lc->v>>1].len - tmp;
+					const mg128_t *q;
+					if (gc->p) {
+						rs = 0, re = g->seg[lc->v>>1].len;
+						if (j == 0) rs = gc->p->ss;
+						else if (j == gc->cnt - 1) re = gc->p->ee;
+					} else {
+						q = &gt->a[lc->off];
+						rs = (int32_t)q->x + 1 - (int32_t)(q->y>>32&0xff);
+						q = &gt->a[lc->off + lc->cnt - 1];
+						re = (int32_t)q->x;
+						assert(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len);
+						sum_alen += re - rs, sum_acnt += (q->x>>32) - (gt->a[lc->off].x>>32) + 1;
+						if (lc->v&1)
+							tmp = rs, rs = g->seg[lc->v>>1].len - re, re = g->seg[lc->v>>1].len - tmp;
+					}
 				} else rs = 0, re = g->seg[lc->v>>1].len;
 				// save the interval
 				p = &sintv[soff[lc->v>>1] + scnt[lc->v>>1]];
@@ -316,8 +323,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
  **********************/
 
 typedef struct {
-	uint32_t v;
-	int32_t vo, qo, len, op;
+	int32_t lc, vo, qo, po, len, op;
 } ed_intv_t;
 
 static int32_t gg_count_intv(const gfa_t *g, const mg_gchains_t *gt, int32_t i)
@@ -351,14 +357,13 @@ static void gg_write_intv(const gfa_t *g, const mg_gchains_t *gt, int32_t i, ed_
 		if (op == 2 || op == 7 || op == 8) {
 			while (x + rl > g->seg[gt->lc[l].v>>1].len) {
 				p = &intv[n++];
-				p->v = gt->lc[l].v, p->vo = x, p->qo = y, p->len = g->seg[p->v>>1].len - x, p->op = op;
+				p->lc = l, p->vo = x, p->qo = y, p->po = pl, p->len = g->seg[gt->lc[l].v>>1].len - x, p->op = op;
 				if (op == 7 || op == 8) y += p->len;
-				rl -= p->len;
-				pl += p->len, ++l, x = 0;
+				rl -= p->len, pl += p->len, ++l, x = 0;
 			}
 		}
 		p = &intv[n++];
-		p->v = gt->lc[l].v, p->vo = x, p->qo = y, p->len = rl, p->op = op;
+		p->lc = l, p->vo = x, p->qo = y, p->po = pl, p->len = rl, p->op = op;
 		if (op == 7 || op == 8) x += rl, y += rl, pl += rl;
 		else if (op == 1) y += rl;
 		else if (op == 2) x += rl, pl += rl;
@@ -368,7 +373,7 @@ static void gg_write_intv(const gfa_t *g, const mg_gchains_t *gt, int32_t i, ed_
 
 void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
-	int32_t t, i, j, *soff, *qoff, max_acnt, m_ovlp = 0, *ovlp = 0, n_ins = 0, m_ins, n_inv;
+	int32_t t, i, *soff, *qoff, max_acnt, m_ovlp = 0, *ovlp = 0, n_ins = 0, m_ins, n_inv;
 	int32_t l_pseq, m_pseq;
 	mg_intv_t *sintv, *qintv;
 	double a_dens;
@@ -386,7 +391,7 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 		const mg_gchains_t *gt = gcs[t];
 		for (i = 0; i < gt->n_gc; ++i) {
 			const mg_gchain_t *gc = &gt->gc[i];
-			int32_t n_ss, n_intv, *sc;
+			int32_t j, n_ss, n_intv, *sc;
 			ed_intv_t *intv;
 			mg_msseg_t *ss;
 			if (gc->id != gc->parent) continue;
@@ -395,46 +400,34 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 
 			n_intv = gg_count_intv(g, gt, i);
 			KCALLOC(km, intv, n_intv);
-			KCALLOC(km, sc, n_intv);
 			gg_write_intv(g, gt, i, intv);
-			kfree(km, intv);
+			KCALLOC(km, sc, n_intv);
+			for (j = 0; j < n_intv; ++j)
+				sc[j] = intv[j].op == 7? -intv[j].len : intv[j].len * 4;
+			ss = mg_mss_all(0, n_intv, sc, opt->min_var_len, 0, &n_ss);
 
 			// get regions to insert
-			#if 0
-			ss = mg_mss_all(0, gc->n_anchor - 1, sc, 10, 0, &n_ss);
-			off_a = gt->lc[gc->off].off;
 			for (j = 0; j < n_ss; ++j) {
-				const mg128_t *p, *q;
-				int32_t st, en, ls, le, span, pd, k, n_ovlp, min_len, is_inv = 0;
+				int32_t st, en, pd, k, n_ovlp, min_len, is_inv = 0;
 				gfa_ins_t I;
+				ed_intv_t *is, *ie;
 
 				// find the initial positions
-				min_len = opt->ggs_min_end_cnt > 0? opt->ggs_min_end_cnt : 0;
-				if (min_len < ss[j].sc * opt->ggs_min_end_frac) min_len = ss[j].sc * opt->ggs_min_end_frac;
-				if (ss[j].st <= min_len || ss[j].en >= gc->n_anchor - 1 - min_len) continue; // too close to ends
-				st = ss[j].st, en = ss[j].en;
-				q = &gt->a[off_a + st];
-				p = &gt->a[off_a + en];
-				span = p->y>>32&0xff;
+				st = ss[j].st, en = ss[j].en; // this is a CLOSED interval
+				assert(st < en);
+				is = &intv[st], ie = &intv[en - 1];
+				assert(is->op != 7 && ie->op != 7);
 				I.ctg = t;
-				ls = (int32_t)meta[st], le = (int32_t)meta[en]; // first and last lchain; CLOSED interval
-				assert(ls <= le);
-				I.v[0] = gt->lc[ls].v;
-				I.v[1] = gt->lc[le].v;
-				I.voff[0] = (int32_t)q->x + 1 - span;
-				I.voff[1] = (int32_t)p->x + 1;
-				I.coff[0] = (int32_t)q->y + 1 - span;
-				I.coff[1] = (int32_t)p->y + 1;
+				I.v[0] = gt->lc[is->lc].v;
+				I.v[1] = gt->lc[ie->lc].v;
+				I.voff[0] = is->vo;
+				I.voff[1] = ie->vo + (ie->op != 1? ie->len : 0);
+				I.coff[0] = is->qo;
+				I.coff[1] = ie->qo + (ie->op != 2? ie->len : 0);
 				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
 				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
-				for (k = st, pd = span; k < en; ++k)
-					pd += meta[k]>>32;
 
-				if (I.coff[0] > I.coff[1]) {
-					if (mg_verbose >= 2 && pd + (I.coff[0] - I.coff[1]) >= opt->min_var_len)
-						fprintf(stderr, "[W::%s] query overlap on gchain %d: [%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d]\n", __func__, t, "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0]);
-					continue; // such overlap can't be properly resolved
-				}
+				pd = ie->po + (ie->op != 1? ie->len : 0) - is->po;
 				pd -= gfa_ins_adj(g, opt->ggs_shrink_pen, &I, seq[t].seq);
 
 				min_len = pd > I.coff[1] - I.coff[0]? pd : I.coff[1] - I.coff[0];
@@ -451,20 +444,20 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 				n_ovlp = mg_intv_overlap(km, qoff[t+1] - qoff[t], &qintv[qoff[t]], I.coff[0], I.coff[1], &ovlp, &m_ovlp); // test overlapping on the query
 				if (n_ovlp == 0) fprintf(stderr, "[W::%s] query interval %s:%d-%d is not covered\n", __func__, seq[t].name, I.coff[0], I.coff[1]);
 				if (n_ovlp != 1) continue;
-				for (k = ls; k <= le; ++k) { // find other mappings overlapping with the insert on the graph
+				for (k = is->lc; k <= ie->lc; ++k) { // find other mappings overlapping with the insert on the graph
 					uint32_t v = gt->lc[k].v, len = g->seg[v>>1].len;
 					int32_t s = 0, e = len, tmp;
-					if (k == ls) s = (int32_t)gt->a[off_a+st].x + 1 - (int32_t)(gt->a[off_a+st].y>>32&0xff);
-					if (k == le) e = (int32_t)gt->a[off_a+en].x + 1;
+					if (k == is->lc) s = is->vo;
+					if (k == ie->lc) e = ie->vo + (ie->op != 1? ie->len : 0);
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
 					n_ovlp = mg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &sintv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
-					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %s:%d-%d is not covered\n", __func__, g->seg[v>>1].name, s, e); // this should be an assert()
+					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %c%s:%d-%d is not covered\n", __func__, "><"[v&1], g->seg[v>>1].name, s, e); // this should be an assert()
 					if (n_ovlp != 1) break;
 				}
-				if (k <= le) continue;
+				if (k <= ie->lc) continue;
 				if (pd - (I.coff[1] - I.coff[0]) < opt->min_var_len && (I.coff[1] - I.coff[0]) - pd < opt->min_var_len) { // if length difference > min_var_len, just insert
 					int32_t qd = I.coff[1] - I.coff[0], mlen, blen, score;
-					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
+					l_pseq = mg_path2seq(km, g, gt, is->lc, ie->lc, I.voff, &pseq, &m_pseq);
 					score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
 									 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
 					if (score > 0) {
@@ -479,7 +472,7 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 				}
 				if (mg_dbg_flag & MG_DBG_INSERT) {
 					int32_t mlen, blen, score, qd = I.coff[1] - I.coff[0];
-					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
+					l_pseq = mg_path2seq(km, g, gt, is->lc, ie->lc, I.voff, &pseq, &m_pseq);
 					fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d] inv:%d\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0], is_inv);
 					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
 					fwrite(&seq[t].seq[I.coff[0]], 1, qd, stderr);
@@ -517,7 +510,7 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 				}
 			}
 			kfree(0, ss); // this is allocated from malloc() inside mg_mss_all()
-			#endif
+			kfree(km, intv);
 			kfree(km, sc);
 		}
 	}

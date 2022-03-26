@@ -114,7 +114,7 @@ typedef struct {
 } mg_llchain_t;
 
 typedef struct {
-	int32_t n_cigar, mlen, blen, aplen;
+	int32_t n_cigar, mlen, blen, aplen, ss, ee; // ss: start on the start vertex; ee: end on the end vertex
 	uint32_t cigar[];
 } mg_cigar_t;
 
