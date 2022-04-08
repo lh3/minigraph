@@ -39,7 +39,7 @@ bseq.o: bseq.h kvec-km.h kalloc.h kseq.h
 cal_cov.o: mgpriv.h minigraph.h gfa.h gfa-priv.h algo.h kalloc.h
 fastcmp.o: mgpriv.h minigraph.h gfa.h algo.h kalloc.h ksw2.h
 format.o: kalloc.h mgpriv.h minigraph.h gfa.h
-galign.o: mgpriv.h minigraph.h gfa.h kalloc.h
+galign.o: mgpriv.h minigraph.h gfa.h kalloc.h miniwfa.h
 gchain1.o: mgpriv.h minigraph.h gfa.h ksort.h khashl.h kalloc.h gfa-priv.h
 gcmisc.o: mgpriv.h minigraph.h gfa.h kalloc.h
 gfa-aug.o: gfa-priv.h gfa.h ksort.h
@@ -50,7 +50,7 @@ gfa-io.o: kstring.h gfa-priv.h gfa.h kseq.h
 ggen.o: kthread.h kalloc.h sys.h bseq.h ggen.h minigraph.h gfa.h mgpriv.h
 ggen.o: gfa-priv.h
 ggsimple.o: mgpriv.h minigraph.h gfa.h gfa-priv.h kalloc.h bseq.h algo.h
-ggsimple.o: sys.h ggen.h
+ggsimple.o: sys.h ggen.h kvec-km.h
 gmap.o: kthread.h kalloc.h bseq.h sys.h mgpriv.h minigraph.h gfa.h gfa-priv.h
 index.o: mgpriv.h minigraph.h gfa.h khashl.h kalloc.h kthread.h kvec-km.h
 index.o: sys.h
@@ -61,6 +61,7 @@ lchain.o: mgpriv.h minigraph.h gfa.h kalloc.h krmq.h
 lv89.o: kalloc.h
 main.o: mgpriv.h minigraph.h gfa.h gfa-priv.h sys.h ketopt.h
 map-algo.o: kalloc.h mgpriv.h minigraph.h gfa.h khashl.h ksort.h
+miniwfa.o: miniwfa.h kalloc.h
 misc.o: mgpriv.h minigraph.h gfa.h ksort.h
 options.o: mgpriv.h minigraph.h gfa.h sys.h
 shortk.o: mgpriv.h minigraph.h gfa.h ksort.h kavl.h algo.h khashl.h kalloc.h
