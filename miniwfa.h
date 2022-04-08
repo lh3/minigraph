@@ -36,6 +36,7 @@ typedef struct {
 	int32_t flag;
 	int32_t x, o1, e1, o2, e2;
 	int32_t step;
+	int32_t s_stop;
 } mwf_opt_t;
 
 typedef struct {

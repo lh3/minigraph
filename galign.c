@@ -109,8 +109,12 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 					mwf_rst_t rst;
 					mwf_opt_init(&opt);
 					opt.flag |= MWF_F_CIGAR;
-					//opt.step = 5000;
+					opt.s_stop = 5000;
 					mwf_wfa(km2, &opt, l_seq, seq, qlen, qs, &rst);
+					if (rst.s < 0) {
+						opt.s_stop = 0, opt.step = 5000;
+						mwf_wfa(km2, &opt, l_seq, seq, qlen, qs, &rst);
+					}
 					append_cigar(km, &cigar, rst.n_cigar, rst.cigar);
 					kfree(km2, rst.cigar);
 					#endif
