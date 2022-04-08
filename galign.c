@@ -2,6 +2,7 @@
 #include <string.h>
 #include "mgpriv.h"
 #include "kalloc.h"
+#include "miniwfa.h"
 
 static void append_cigar1(void *km, mg32_v *c, int32_t op, int32_t len)
 {
@@ -33,7 +34,9 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 {
 	int32_t i, l_seq = 0, m_seq = 0;
 	char *seq = 0;
+	void *km2;
 	mg32_v cigar = {0,0,0};
+	km2 = km_init2(km, 8008192);
 	for (i = 0; i < gt->n_gc; ++i) {
 		mg_gchain_t *gc = &gt->gc[i];
 		int32_t l0 = gc->off;
@@ -88,16 +91,33 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 				#endif
 			}
 			{
-				int32_t n_cigar, ed, qlen = (int32_t)p->y - (int32_t)q->y, t_endl, q_endl;
+				int32_t qlen = (int32_t)p->y - (int32_t)q->y;
 				const char *qs = &qseq[(int32_t)q->y + 1];
 				assert(l_seq > 0 || qlen > 0);
 				if (l_seq == 0) append_cigar1(km, &cigar, 1, qlen);
 				else if (qlen == 0) append_cigar1(km, &cigar, 2, l_seq);
+				else if (l_seq == qlen && qlen <= (q->y>>32&0xff)) append_cigar1(km, &cigar, 7, qlen);
 				else {
+					#if 0
+					int32_t n_cigar, ed, t_endl, q_endl;
 					uint32_t *ci;
-					ci = lv_ed_unified(km, l_seq, seq, qlen, qs, 0, &ed, &t_endl, &q_endl, &n_cigar);
+					ci = lv_ed_unified(km2, l_seq, seq, qlen, qs, 0, &ed, &t_endl, &q_endl, &n_cigar);
 					append_cigar(km, &cigar, n_cigar, ci);
-					kfree(km, ci);
+					kfree(km2, ci);
+					#else
+					mwf_opt_t opt;
+					mwf_rst_t rst;
+					mwf_opt_init(&opt);
+					opt.flag |= MWF_F_CIGAR;
+					//opt.step = 5000;
+					mwf_wfa(km2, &opt, l_seq, seq, qlen, qs, &rst);
+					append_cigar(km, &cigar, rst.n_cigar, rst.cigar);
+					kfree(km2, rst.cigar);
+					#endif
+					if (l_seq > 5000 && qlen > 5000) {
+						km_destroy(km2);
+						km2 = km_init2(km, 8008192);
+					}
 				}
 			}
 			j0 = j, l0 = l;
@@ -118,6 +138,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 		assert(l == gc->qe - gc->qs && gc->p->aplen == gc->pe - gc->ps);
 		if (mg_dbg_flag & MG_DBG_ED) fprintf(stderr, "NC\t%d\n", cigar.n);
 	}
+	km_destroy(km2);
 	kfree(km, seq);
 	kfree(km, cigar.a);
 }

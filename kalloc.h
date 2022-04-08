@@ -25,6 +25,10 @@ void km_stat(const void *_km, km_stat_t *s);
 }
 #endif
 
+#define Kmalloc(km, type, cnt)       ((type*)kmalloc((km), (cnt) * sizeof(type)))
+#define Kcalloc(km, type, cnt)       ((type*)kcalloc((km), (cnt), sizeof(type)))
+#define Krealloc(km, type, ptr, cnt) ((type*)krealloc((km), (ptr), (cnt) * sizeof(type)))
+
 #define KMALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))kmalloc((km), (len) * sizeof(*(ptr))))
 #define KCALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))kcalloc((km), (len), sizeof(*(ptr))))
 #define KREALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))krealloc((km), (ptr), (len) * sizeof(*(ptr))))
@@ -42,7 +46,6 @@ void km_stat(const void *_km, km_stat_t *s);
 #endif
 #endif /* klib_unused */
 
-// adapted from klist.h
 #define KALLOC_POOL_INIT2(SCOPE, name, kmptype_t) \
 	typedef struct { \
 		size_t cnt, n, max; \
