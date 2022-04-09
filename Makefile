@@ -1,5 +1,5 @@
 CC=			gcc
-CFLAGS=		-g -Wall -Wc++-compat -std=c99 -O2
+CFLAGS=		-g -Wall -Wc++-compat -std=c99 -msse4 -O3
 CPPFLAGS=
 INCLUDES=
 OBJS=		kalloc.o kthread.o algo.o sys.o gfa-base.o gfa-io.o gfa-aug.o gfa-bbl.o gfa-ed.o \
