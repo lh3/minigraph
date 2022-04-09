@@ -117,11 +117,11 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 					}
 					append_cigar(km, &cigar, rst.n_cigar, rst.cigar);
 					kfree(km2, rst.cigar);
-					#endif
-					if (l_seq > 5000 && qlen > 5000) {
+					if (rst.s > 5000) {
 						km_destroy(km2);
 						km2 = km_init2(km, 8008192);
 					}
+					#endif
 				}
 			}
 			j0 = j, l0 = l;

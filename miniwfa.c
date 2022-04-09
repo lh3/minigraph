@@ -136,7 +136,7 @@ static inline wf_slice_t *wf_stripe_get(wf_stripe_t *wf, int32_t x)
 }
 
 typedef struct {
-	int32_t max_s, d;
+	int32_t s, d;
 } wf_chkpt_t;
 
 /*
@@ -377,7 +377,7 @@ static void mwf_wfa_core(void *km, const mwf_opt_t *opt, int32_t tl, const char 
 			stopped = 1;
 			break;
 		}
-		if (is_tb && seg && sid < n_seg && seg[sid].max_s == wf->s + 1) {
+		if (is_tb && seg && sid < n_seg && seg[sid].s == wf->s) {
 			assert(seg[sid].d >= wf->lo && seg[sid].d <= wf->hi);
 			wf->lo = wf->hi = seg[sid].d;
 			++sid;
@@ -505,7 +505,7 @@ static wf_chkpt_t *wf_traceback_seg(void *km, wf_sss_t *sss, int32_t last, int32
 			m += (int32_t)p->intv[k];
 		}
 		assert(k < p->n_intv);
-		seg[j].max_s = p->max_s - (p->n_intv - k - 1);
+		seg[j].s = p->max_s - (p->n_intv - k - 1);
 		seg[j].d = (int32_t)(p->intv[k]>>32) + (last - m) / 5;
 		last = p->x[last];
 	}
