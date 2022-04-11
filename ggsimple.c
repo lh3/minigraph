@@ -404,7 +404,7 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 			KCALLOC(km, sc, n_intv);
 			for (j = 0; j < n_intv; ++j)
 				sc[j] = intv[j].op == 7? -intv[j].len : intv[j].len * 4;
-			ss = mg_mss_all(0, n_intv, sc, opt->min_var_len, 0, &n_ss);
+			ss = mg_mss_all(0, n_intv, sc, opt->min_var_len * 2, opt->min_var_len * 2, &n_ss);
 
 			// get regions to insert
 			for (j = 0; j < n_ss; ++j) {
