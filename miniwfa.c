@@ -135,6 +135,38 @@ static inline wf_slice_t *wf_stripe_get(wf_stripe_t *wf, int32_t x)
 	return &wf->a[y];
 }
 
+static inline int good_diag(int32_t d, int32_t k, int32_t tl, int32_t ql)
+{
+	return ((k >= -1 && k < tl) && (d + k >= -1 && d + k < ql));
+}
+
+static void wf_stripe_shrink(wf_stripe_t *wf, int32_t tl, int32_t ql)
+{
+	int32_t j, d, lo, hi;
+	for (j = 0, lo = wf->hi; j < wf->n; ++j) {
+		wf_slice_t *p = &wf->a[(wf->top + 1 + j) % wf->n];
+		for (d = wf->lo; d <= wf->hi; ++d) {
+			if (d < p->lo || d > p->hi) continue;
+			if (good_diag(d, p->H[d], tl, ql)) break;
+			if (good_diag(d, p->E1[d], tl, ql) || good_diag(d, p->F1[d], tl, ql)) break;
+			if (good_diag(d, p->E2[d], tl, ql) || good_diag(d, p->F2[d], tl, ql)) break;
+		}
+		lo = lo < d? lo : d;
+	}
+	wf->lo = lo;
+	for (j = 0, hi = wf->lo; j < wf->n; ++j) {
+		wf_slice_t *p = &wf->a[(wf->top + 1 + j) % wf->n];
+		for (d = wf->hi; d >= wf->lo; --d) {
+			if (d < p->lo || d > p->hi) continue;
+			if (good_diag(d, p->H[d], tl, ql)) break;
+			if (good_diag(d, p->E1[d], tl, ql) || good_diag(d, p->F1[d], tl, ql)) break;
+			if (good_diag(d, p->E2[d], tl, ql) || good_diag(d, p->F2[d], tl, ql)) break;
+		}
+		hi = hi > d? hi : d;
+	}
+	wf->hi = hi;
+}
+
 typedef struct {
 	int32_t s, d;
 } wf_chkpt_t;
@@ -385,6 +417,7 @@ static void mwf_wfa_core(void *km, const mwf_opt_t *opt, int32_t tl, const char 
 		lo = wf->lo > -tl? wf->lo - 1 : -tl;
 		hi = wf->hi <  ql? wf->hi + 1 :  ql;
 		wf_next_basic(km, km_tb, opt, wf, is_tb? &tb : 0, lo, hi);
+		if ((wf->s&0xff) == 0) wf_stripe_shrink(wf, tl, ql);
 	}
 	r->s = stopped? -1 : wf->s;
 	if (km && (opt->flag&MWF_F_DEBUG)) {
@@ -548,6 +581,7 @@ wf_chkpt_t *mwf_wfa_seg(void *km, const mwf_opt_t *opt, int32_t tl, const char *
 		if ((wf->s + 1) % opt->step == 0)
 			wf_snapshot(km, &sss, sf);
 		wf_next_seg(km, opt, xbuf, wf, sf, lo, hi);
+		if ((wf->s&0xff) == 0) wf_stripe_shrink(wf, tl, ql);
 	}
 	seg = wf_traceback_seg(km, &sss, last, &n_seg);
 	if (km && (opt->flag&MWF_F_DEBUG)) {
