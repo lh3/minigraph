@@ -30,7 +30,7 @@ static void append_cigar(void *km, mg32_v *c, int32_t n_cigar, const uint32_t *c
 	c->n += n_cigar - 1;
 }
 
-void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt)
+void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt, const char *qname)
 {
 	int32_t i, l_seq = 0, m_seq = 0;
 	char *seq = 0;
@@ -121,6 +121,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 						km_destroy(km2);
 						km2 = km_init2(km, 8008192);
 					}
+					if (rst.s > 50000) fprintf(stderr, "XL\t%s\t%d\t%d\t%d\t%d\n", qname, (int32_t)q->y + 1, (int32_t)p->y + 1, l_seq, rst.s);
 					#endif
 				}
 			}
