@@ -135,36 +135,38 @@ static inline wf_slice_t *wf_stripe_get(wf_stripe_t *wf, int32_t x)
 	return &wf->a[y];
 }
 
-static inline int good_diag(int32_t d, int32_t k, int32_t tl, int32_t ql)
+static inline int good_diag(int32_t d, int32_t k, int32_t tl, int32_t ql) // check if (d,k) falls within the DP matrix
 {
 	return ((k >= -1 && k < tl) && (d + k >= -1 && d + k < ql));
 }
 
 static void wf_stripe_shrink(wf_stripe_t *wf, int32_t tl, int32_t ql)
 {
-	int32_t j, d, lo, hi;
-	for (j = 0, lo = wf->hi; j < wf->n; ++j) {
-		wf_slice_t *p = &wf->a[(wf->top + 1 + j) % wf->n];
-		for (d = wf->lo; d <= wf->hi; ++d) {
+	int32_t j, d;
+	for (d = wf->lo; d <= wf->hi; ++d) {
+		for (j = 0; j < wf->n; ++j) {
+			wf_slice_t *p = &wf->a[(wf->top + 1 + j) % wf->n];
 			if (d < p->lo || d > p->hi) continue;
 			if (good_diag(d, p->H[d], tl, ql)) break;
 			if (good_diag(d, p->E1[d], tl, ql) || good_diag(d, p->F1[d], tl, ql)) break;
 			if (good_diag(d, p->E2[d], tl, ql) || good_diag(d, p->F2[d], tl, ql)) break;
 		}
-		lo = lo < d? lo : d;
+		if (j < wf->n) break; // stop when we see a "good diagonal" in the stripe
 	}
-	wf->lo = lo;
-	for (j = 0, hi = wf->lo; j < wf->n; ++j) {
-		wf_slice_t *p = &wf->a[(wf->top + 1 + j) % wf->n];
-		for (d = wf->hi; d >= wf->lo; --d) {
+	assert(d <= wf->hi); // should never happen
+	wf->lo = d;
+	for (d = wf->hi; d >= wf->lo; --d) {
+		for (j = 0; j < wf->n; ++j) {
+			wf_slice_t *p = &wf->a[(wf->top + 1 + j) % wf->n];
 			if (d < p->lo || d > p->hi) continue;
 			if (good_diag(d, p->H[d], tl, ql)) break;
 			if (good_diag(d, p->E1[d], tl, ql) || good_diag(d, p->F1[d], tl, ql)) break;
 			if (good_diag(d, p->E2[d], tl, ql) || good_diag(d, p->F2[d], tl, ql)) break;
 		}
-		hi = hi > d? hi : d;
+		if (j < wf->n) break;
 	}
-	wf->hi = hi;
+	assert(d >= wf->lo);
+	wf->hi = d;
 }
 
 typedef struct {
