@@ -81,7 +81,6 @@ const uint64_t *mg_idx_get(const mg_idx_t *gi, uint64_t minier, int *n);
 void mg_idx_cal_quantile(const mg_idx_t *gi, int32_t m, float f[], int32_t q[]);
 
 int32_t mg_anchor2mlen(void *km, int32_t k, int32_t n_b, uint64_t *b, int32_t *st_high, int32_t *en_high);
-int32_t mg_fastcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, int32_t k, int32_t max_occ);
 int32_t mg_nwcmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, const int8_t mat[25], int8_t gapo, int8_t gape, int8_t gapo2, int8_t gape2,
 				 int32_t bw, int32_t *mlen_, int32_t *blen_);
 
