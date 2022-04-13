@@ -67,7 +67,11 @@ int32_t mg_gc_index(void *km, int min_mapq, int min_map_len, int min_depth_len, 
 					if (gc->p) {
 						rs = 0, re = g->seg[lc->v>>1].len;
 						if (j == 0) rs = gc->p->ss;
-						else if (j == gc->cnt - 1) re = gc->p->ee;
+						if (j == gc->cnt - 1) re = gc->p->ee;
+						if (lc->v&1) {
+							int32_t t, l = g->seg[lc->v>>1].len;
+							t = l - rs - 1, rs = l - re - 1, re = t;
+						}
 					} else {
 						q = &gt->a[lc->off];
 						rs = (int32_t)q->x + 1 - (int32_t)(q->y>>32&0xff);
@@ -80,6 +84,7 @@ int32_t mg_gc_index(void *km, int min_mapq, int min_map_len, int min_depth_len, 
 					}
 				} else rs = 0, re = g->seg[lc->v>>1].len;
 				// save the interval
+				//fprintf(stderr, "%d\t%d\t%d\t%d\n", t, i, rs, re);
 				p = &sintv[soff[lc->v>>1] + scnt[lc->v>>1]];
 				++scnt[lc->v>>1];
 				p->st = rs, p->en = re, p->rev = lc->v&1, p->far = -1, p->i = -1;
@@ -233,7 +238,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					if (k == le) e = (int32_t)gt->a[off_a+en].x + 1;
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
 					n_ovlp = mg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &sintv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
-					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %s:%d-%d is not covered\n", __func__, g->seg[v>>1].name, s, e); // this should be an assert()
+					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %s:%d-%d is not covered by %s:%d-%d\n", __func__, g->seg[v>>1].name, s, e, seq[t].name, I.coff[0], I.coff[1]); // this should be an assert()
 					if (n_ovlp != 1) break;
 				}
 				if (k <= le) continue;
@@ -451,7 +456,7 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 					if (k == ie->lc) e = ie->vo + (ie->op != 1? ie->len : 0);
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
 					n_ovlp = mg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &sintv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
-					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %c%s:%d-%d is not covered\n", __func__, "><"[v&1], g->seg[v>>1].name, s, e); // this should be an assert()
+					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %c%s:%d-%d is not covered by %s:%d-%d\n", __func__, "><"[v&1], g->seg[v>>1].name, s, e, seq[t].name, I.coff[0], I.coff[1]); // this should be an assert()
 					if (n_ovlp != 1) break;
 				}
 				if (k <= ie->lc) continue;
