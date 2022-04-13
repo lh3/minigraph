@@ -98,13 +98,6 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 				else if (qlen == 0) append_cigar1(km, &cigar, 2, l_seq);
 				else if (l_seq == qlen && qlen <= (q->y>>32&0xff)) append_cigar1(km, &cigar, 7, qlen);
 				else {
-					#if 0
-					int32_t n_cigar, ed, t_endl, q_endl;
-					uint32_t *ci;
-					ci = lv_ed_unified(km2, l_seq, seq, qlen, qs, 0, &ed, &t_endl, &q_endl, &n_cigar);
-					append_cigar(km, &cigar, n_cigar, ci);
-					kfree(km2, ci);
-					#else
 					mwf_opt_t opt;
 					mwf_rst_t rst;
 					mwf_opt_init(&opt);
@@ -117,12 +110,11 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 					}
 					append_cigar(km, &cigar, rst.n_cigar, rst.cigar);
 					kfree(km2, rst.cigar);
-					if (rst.s > 5000) {
+					if (rst.s > 5000 && tl > 5000 && ql > 5000) {
 						km_destroy(km2);
 						km2 = km_init2(km, 8008192);
 					}
-					if (rst.s > 50000) fprintf(stderr, "XL\t%s\t%d\t%d\t%d\t%d\n", qname, (int32_t)q->y + 1, (int32_t)p->y + 1, l_seq, rst.s);
-					#endif
+					//if (rst.s > 50000 && tl > 50000 && ql > 50000) fprintf(stderr, "XL\t%s\t%d\t%d\t%d\t%d\n", qname, (int32_t)q->y + 1, (int32_t)p->y + 1, l_seq, rst.s);
 				}
 			}
 			j0 = j, l0 = l;
