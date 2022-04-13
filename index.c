@@ -210,7 +210,14 @@ mg_idx_t *mg_index_core(gfa_t *g, int k, int w, int b, int n_threads)
 
 mg_idx_t *mg_index(gfa_t *g, const mg_idxopt_t *io, int n_threads, mg_mapopt_t *mo)
 {
+	int32_t i, j;
 	mg_idx_t *gi;
+	for (i = 0; i < g->n_seg; ++i) { // uppercase
+		gfa_seg_t *s = &g->seg[i];
+		for (j = 0; j < s->len; ++j)
+			if (s->seq[j] >= 'a' && s->seq[j] <= 'z')
+				s->seq[j] -= 32;
+	}
 	gi = mg_index_core(g, io->k, io->w, io->bucket_bits, n_threads);
 	if (gi == 0) return 0;
 	gi->es = gfa_edseq_init(gi->g);
