@@ -3,6 +3,7 @@
 #include "kalloc.h"
 #define __STDC_LIMIT_MACROS
 #include "algo.h"
+#include "miniwfa.h"
 
 /************************
  * Max-scoring segments *
@@ -167,4 +168,27 @@ int32_t mg_intv_overlap(void *km, int32_t n_a, const mg_intv_t *a, int32_t st, i
 	}
 	*b_ = b, *m_b_ = m_b;
 	return n;
+}
+
+/********************
+ * Global alignment *
+ ********************/
+
+int32_t mg_wfa_cmp(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, int32_t max_pen, int32_t *mlen, int32_t *blen)
+{
+	mwf_opt_t opt;
+	mwf_rst_t r;
+	int32_t i;
+	mwf_opt_init(&opt);
+	opt.s_stop = max_pen;
+	opt.flag |= MWF_F_CIGAR;
+	mwf_wfa(km, &opt, l1, s1, l2, s2, &r);
+	*mlen = *blen = 0;
+	for (i = 0; i < r.n_cigar; ++i) {
+		int32_t op = r.cigar[i]&0xf, len = r.cigar[i]>>4;
+		*blen += len;
+		if (op == 7) *mlen += len;
+	}
+	kfree(km, r.cigar);
+	return r.s < 0? -(l1 + l2) : (l1 + l2) / 2 - r.s;
 }

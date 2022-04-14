@@ -3,9 +3,9 @@ CFLAGS=		-g -Wall -Wc++-compat -std=c99 -msse4 -O3
 CPPFLAGS=
 INCLUDES=
 OBJS=		kalloc.o kthread.o algo.o sys.o gfa-base.o gfa-io.o gfa-aug.o gfa-bbl.o gfa-ed.o \
-            sketch.o misc.o bseq.o options.o fastcmp.o shortk.o miniwfa.o \
+            sketch.o misc.o bseq.o options.o shortk.o miniwfa.o \
 			index.o lchain.o gchain1.o galign.o gcmisc.o map-algo.o cal_cov.o \
-			format.o gmap.o ksw2_extd2_sse.o ggsimple.o ggen.o asm-call.o
+			format.o gmap.o ggsimple.o ggen.o asm-call.o
 PROG=		minigraph
 LIBS=		-lz -lpthread -lm
 
@@ -33,11 +33,10 @@ depend:
 
 # DO NOT DELETE
 
-algo.o: kalloc.h algo.h kvec-km.h ksort.h
+algo.o: kalloc.h algo.h miniwfa.h kvec-km.h ksort.h
 asm-call.o: mgpriv.h minigraph.h gfa.h ggen.h bseq.h gfa-priv.h algo.h
 bseq.o: bseq.h kvec-km.h kalloc.h kseq.h
 cal_cov.o: mgpriv.h minigraph.h gfa.h gfa-priv.h algo.h kalloc.h
-fastcmp.o: mgpriv.h minigraph.h gfa.h algo.h kalloc.h ksw2.h
 format.o: kalloc.h mgpriv.h minigraph.h gfa.h
 galign.o: mgpriv.h minigraph.h gfa.h kalloc.h miniwfa.h
 gchain1.o: mgpriv.h minigraph.h gfa.h ksort.h khashl.h kalloc.h gfa-priv.h
@@ -55,7 +54,6 @@ gmap.o: kthread.h kalloc.h bseq.h sys.h mgpriv.h minigraph.h gfa.h gfa-priv.h
 index.o: mgpriv.h minigraph.h gfa.h khashl.h kalloc.h kthread.h kvec-km.h
 index.o: sys.h
 kalloc.o: kalloc.h
-ksw2_extd2_sse.o: ksw2.h kalloc.h
 kthread.o: kthread.h
 lchain.o: mgpriv.h minigraph.h gfa.h kalloc.h krmq.h
 main.o: mgpriv.h minigraph.h gfa.h gfa-priv.h sys.h ketopt.h

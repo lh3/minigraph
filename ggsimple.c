@@ -245,15 +245,13 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 				if (pd - (I.coff[1] - I.coff[0]) < opt->min_var_len && (I.coff[1] - I.coff[0]) - pd < opt->min_var_len) { // if length difference > min_var_len, just insert
 					int32_t qd = I.coff[1] - I.coff[0], mlen, blen, score;
 					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
-					score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
-									 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+					score = mg_wfa_cmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 5000, &mlen, &blen);
 					if (score > 0) {
 						if (mlen > blen * opt->ggs_max_iden) continue; // make sure k-mer identity is small enough
 						if (blen - mlen < opt->min_var_len * opt->ggs_max_iden) continue;
 					} else if (!(opt->flag & MG_G_NO_INV)) {
 						mg_revcomp_seq(l_pseq, pseq);
-						score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
-										 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+						score = mg_wfa_cmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 5000, &mlen, &blen);
 						if (score > 0 && mlen > blen * opt->ggs_min_inv_iden) is_inv = 1;
 					}
 				}
@@ -264,8 +262,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
 					fwrite(&seq[t].seq[I.coff[0]], 1, qd, stderr);
 					if (pd - qd < opt->min_var_len && qd - pd < opt->min_var_len) {
-						score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
-										 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+						score = mg_wfa_cmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 5000, &mlen, &blen);
 					} else score = -1, mlen = 0, blen = pd > qd? pd : qd;
 					fprintf(stderr, "\nIS\t%d==%d\tnwcmp:%d\tmlen:%d\tblen:%d\n", pd, l_pseq, score, mlen, blen);
 				}
@@ -460,17 +457,15 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 				}
 				if (k <= ie->lc) continue;
 				if (pd - (I.coff[1] - I.coff[0]) < opt->min_var_len && (I.coff[1] - I.coff[0]) - pd < opt->min_var_len) { // if length difference > min_var_len, just insert
-					int32_t qd = I.coff[1] - I.coff[0], mlen, blen, score;
+					int32_t qd = I.coff[1] - I.coff[0], mlen, blen, score = 0;
 					l_pseq = mg_path2seq(km, g, gt, is->lc, ie->lc, I.voff, &pseq, &m_pseq);
-					score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
-									 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+					score = mg_wfa_cmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 5000, &mlen, &blen);
 					if (score > 0) {
 						if (mlen > blen * opt->ggs_max_iden) continue; // make sure k-mer identity is small enough
 						if (blen - mlen < opt->min_var_len * opt->ggs_max_iden) continue;
 					} else if (!(opt->flag & MG_G_NO_INV)) {
 						mg_revcomp_seq(l_pseq, pseq);
-						score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
-										 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+						score = mg_wfa_cmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 5000, &mlen, &blen);
 						if (score > 0 && mlen > blen * opt->ggs_min_inv_iden) is_inv = 1;
 					}
 				}
@@ -481,8 +476,7 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
 					fwrite(&seq[t].seq[I.coff[0]], 1, qd, stderr);
 					if (pd - qd < opt->min_var_len && qd - pd < opt->min_var_len) {
-						score = mg_nwcmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], opt->scmat, opt->gapo, opt->gape, opt->gapo2, opt->gape2,
-										 opt->min_var_len + (opt->min_var_len>>2), &mlen, &blen);
+						score = mg_wfa_cmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 5000, &mlen, &blen);
 					} else score = -1, mlen = 0, blen = pd > qd? pd : qd;
 					fprintf(stderr, "\nIS\t%d==%d\tnwcmp:%d\tmlen:%d\tblen:%d\n", pd, l_pseq, score, mlen, blen);
 					//if (I.voff[0] == 2305301) { for (k = st; k < en; ++k) fprintf(stderr, "%d%c", intv[k].len, "MIDNSHP=XB"[intv[k].op]); fprintf(stderr, "\n"); }
