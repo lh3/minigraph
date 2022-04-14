@@ -70,7 +70,7 @@ int32_t mg_gc_index(void *km, int min_mapq, int min_map_len, int min_depth_len, 
 						if (j == gc->cnt - 1) re = gc->p->ee;
 						if (lc->v&1) {
 							int32_t t, l = g->seg[lc->v>>1].len;
-							t = l - rs - 1, rs = l - re - 1, re = t;
+							t = l - rs, rs = l - re, re = t;
 						}
 					} else {
 						q = &gt->a[lc->off];
