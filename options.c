@@ -44,20 +44,6 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->cap_kalloc = 1000000000;
 }
 
-void mg_ggopt_gen_sc_mat(int8_t mat[25], int32_t a, int32_t b)
-{
-	int i, j, m = 5;
-	a = a < 0? -a : a;
-	b = b > 0? -b : b;
-	for (i = 0; i < m - 1; ++i) {
-		for (j = 0; j < m - 1; ++j)
-			mat[i * m + j] = i == j? a : b;
-		mat[i * m + m - 1] = -1;
-	}
-	for (j = 0; j < m; ++j)
-		mat[(m - 1) * m + j] = -1;
-}
-
 void mg_ggopt_init(mg_ggopt_t *go)
 {
 	memset(go, 0, sizeof(mg_ggopt_t));
@@ -72,9 +58,6 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->ggs_shrink_pen = 9;
 	go->ggs_min_end_cnt = 10;
 	go->ggs_min_end_frac = 0.1f;
-	mg_ggopt_gen_sc_mat(go->scmat, 2, -4);
-	go->gapo = 4, go->gapo2 = 24;
-	go->gape = 2, go->gape2 = 1;
 	go->ggs_max_iden = 0.80f;
 	go->ggs_min_inv_iden = 0.95f;
 }

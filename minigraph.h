@@ -87,7 +87,6 @@ typedef struct {
 	int ggs_min_end_cnt;
 	float ggs_min_end_frac;
 	// scoring for SW check
-	int8_t scmat[25], gapo, gape, gapo2, gape2;
 	float ggs_max_iden, ggs_min_inv_iden;
 } mg_ggopt_t;
 
