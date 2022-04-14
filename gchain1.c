@@ -407,7 +407,6 @@ static void resolve_overlap(mg_lchain_t *l0, mg_lchain_t *l1, const mg128_t *a)
 		if ((int32_t)a[l0->off + j].y <= y && (l0->v != l1->v || (int32_t)a[l0->off + j].x <= x))
 			break;
 	shift0 = l0->cnt - 1 - j;
-	assert(shift0 < l0->cnt);
 	// check the start of l1
 	x = (int32_t)a[l0->off + l0->cnt - 1].x;
 	y = (int32_t)a[l0->off + l0->cnt - 1].y;
@@ -415,18 +414,21 @@ static void resolve_overlap(mg_lchain_t *l0, mg_lchain_t *l1, const mg128_t *a)
 		if ((int32_t)a[l1->off + j].y >= y && (l0->v != l1->v || (int32_t)a[l1->off + j].x >= x))
 			break;
 	shift1 = j;
-	assert(shift1 < l1->cnt);
+	assert(shift1 < l1->cnt); // this should never happen, or it is a bug
 	// update
 	if (shift0 > 0) {
 		l0->cnt -= shift0;
-		l0->qe = (int32_t)a[l0->off + l0->cnt - 1].y + 1;
-		l0->re = (int32_t)a[l0->off + l0->cnt - 1].x + 1;
+		if (l0->cnt) { // l0->cnt may be 0 as the start of l0 may be changed and go into l1
+			l0->qe = (int32_t)a[l0->off + l0->cnt - 1].y + 1;
+			l0->re = (int32_t)a[l0->off + l0->cnt - 1].x + 1;
+		}
 	}
 	if (shift1 > 0) {
 		l1->off += shift1, l1->cnt -= shift1;
 		l1->qs = (int32_t)a[l1->off].y + 1 - (int32_t)(a[l1->off].y>>32&0xff);
 		l1->rs = (int32_t)a[l1->off].x + 1 - (int32_t)(a[l1->off].y>>32&0xff);
 	}
+	if (l0->cnt == 0) l0->qs = l0->qe = l1->qs, l0->rs = l0->re = l1->rs; // this line should have no effect
 }
 
 mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t n_u, const uint64_t *u,
@@ -460,6 +462,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 		for (j = 0; j < nui; ++j) m += lc[st + j].cnt;
 		if (m >= min_gc_cnt && u[i]>>32 >= min_gc_score) {
 			uint32_t h = hash;
+			int32_t j0;
 			gc->gc[k].score = u[i]>>32;
 			gc->gc[k].off = n_llc0;
 			for (j = 0; j < nui; ++j) {
@@ -473,9 +476,12 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 
 			if (aux.n_llc == aux.m_llc) KEXPAND(aux.km, aux.llc, aux.m_llc);
 			copy_lchain(&aux.llc[aux.n_llc++], &lc[st], &aux.n_a, gc->a, a, -1); // copy the first lchain
-			for (j = 1; j < nui; ++j) {
-				const mg_lchain_t *l0 = &lc[st + j - 1], *l1 = &lc[st + j];
-				bridge_lchains(gc, &aux, kmer_size, gdp_max_ed, l0, l1, a);
+			for (j0 = 0, j = 1; j < nui; ++j) {
+				const mg_lchain_t *l0 = &lc[st + j0], *l1 = &lc[st + j];
+				if (l1->cnt > 0) {
+					bridge_lchains(gc, &aux, kmer_size, gdp_max_ed, l0, l1, a);
+					j0 = j;
+				}
 			}
 
 			gc->gc[k].cnt = aux.n_llc - n_llc0;
