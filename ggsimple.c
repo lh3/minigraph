@@ -451,6 +451,10 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 					if (k == is->lc) s = is->vo;
 					if (k == ie->lc) e = ie->vo + (ie->op != 1? ie->len : 0);
 					if (v&1) tmp = s, s = len - e, e = len - tmp;
+					if (s == e) {
+						if (s == 0) ++e;
+						else --s;
+					}
 					n_ovlp = mg_intv_overlap(km, soff[(v>>1)+1] - soff[v>>1], &sintv[soff[v>>1]], s, e, &ovlp, &m_ovlp);
 					if (n_ovlp == 0) fprintf(stderr, "[W::%s] graph interval %c%s:%d-%d is not covered by %s:%d-%d\n", __func__, "><"[v&1], g->seg[v>>1].name, s, e, seq[t].name, I.coff[0], I.coff[1]); // this should be an assert()
 					if (n_ovlp != 1) break;
