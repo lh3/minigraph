@@ -11,8 +11,8 @@
 void mwf_opt_init(mwf_opt_t *opt)
 {
 	memset(opt, 0, sizeof(*opt));
-	opt->x  = 4; // corresponding SW score: m=1, x=3, o1=3, e1=3/2, o2=15, e2=1/2
-	opt->o1 = 3, opt->e1 = 2;
+	opt->x  = 4; // corresponding SW score: m=1, x=3, o1=4, e1=3/2, o2=15, e2=1/2
+	opt->o1 = 4, opt->e1 = 2;
 	opt->o2 = 15, opt->e2 = 1;
 }
 
