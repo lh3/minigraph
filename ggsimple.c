@@ -167,7 +167,6 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
 					double t = 1. / (1.01 - opt->ggs_max_iden);
 					if (t > 10.) t = 10.;
 					s = (int32_t)(ed * t - min_d);
-					//fprintf(stderr, "XX\t%d\t%d\t%d\n", pd, qd, ed);
 				} else if (pd > qd) {
 					double x = qd * a_dens;
 					x = x > c? x : c;
@@ -324,7 +323,7 @@ void mg_ggsimple(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const
  **********************/
 
 typedef struct {
-	int32_t lc, vo, qo, po, len, op;
+	int32_t lc, vo, qo, po, len, op, sc;
 } ed_intv_t;
 
 static int32_t gg_count_intv(const gfa_t *g, const mg_gchains_t *gt, int32_t i)
@@ -372,7 +371,19 @@ static void gg_write_intv(const gfa_t *g, const mg_gchains_t *gt, int32_t i, ed_
 	assert(y == gc->qe && pl == gc->pe - gc->ps);
 }
 
-void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
+static void gg_score_intv(int32_t n_intv, ed_intv_t *intv)
+{
+	int32_t j;
+	for (j = 0; j < n_intv; ++j) {
+		int32_t s;
+		if (intv[j].op == 7)
+			s = intv[j].len >= 10? -intv[j].len : 0;
+		else s = intv[j].len;
+		intv[j].sc = s;
+	}
+}
+
+void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
 	int32_t t, i, *soff, *qoff, max_acnt, m_ovlp = 0, *ovlp = 0, n_ins = 0, m_ins, n_inv;
 	int32_t l_pseq, m_pseq;
@@ -402,10 +413,10 @@ void mg_ggsimple_ed(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, co
 			n_intv = gg_count_intv(g, gt, i);
 			KCALLOC(km, intv, n_intv);
 			gg_write_intv(g, gt, i, intv);
+			gg_score_intv(n_intv, intv);
 			KCALLOC(km, sc, n_intv);
-			for (j = 0; j < n_intv; ++j)
-				sc[j] = intv[j].op == 7? -intv[j].len : intv[j].len * 4;
-			ss = mg_mss_all(0, n_intv, sc, opt->min_var_len * 2, opt->min_var_len * 2, &n_ss);
+			for (j = 0; j < n_intv; ++j) sc[j] = intv[j].sc;
+			ss = mg_mss_all(0, n_intv, sc, opt->min_var_len, 500, &n_ss);
 
 			// get regions to insert
 			for (j = 0; j < n_ss; ++j) {
