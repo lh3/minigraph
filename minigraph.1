@@ -1,4 +1,4 @@
-.TH minigraph 1 "21 February 2022" "minigraph-0.16 (r436)" "Bioinformatics tools"
+.TH minigraph 1 "17 April 2022" "minigraph-0.16-dirty (r506)" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -10,6 +10,7 @@ minigraph - sequence-to-graph mapping and incremental sequence graph generation
 .B minigraph
 .RB [ -x
 .IR preset ]
+.RB [ -c ]
 .RB [ -t
 .IR nThreads ]
 .I graph.gfa
@@ -23,6 +24,7 @@ minigraph - sequence-to-graph mapping and incremental sequence graph generation
 .RS 4
 .B minigraph
 .B -x ggs
+.RB [ -c ]
 .RB [ -t
 .IR nThreads ]
 .I initGraph.gfa
@@ -43,12 +45,15 @@ graph with long query subsequences.
 .SS Indexing options
 .TP 10
 .BI -k \ INT
-Minimizer k-mer length [15]
+Minimizer k-mer length [17]
 .TP
 .BI -w \ INT
-Minimizer window size [10]. A minimizer is the smallest k-mer in a window of w
+Minimizer window size [11]. A minimizer is the smallest k-mer in a window of w
 consecutive k-mers.
 .SS Mapping options
+.TP 10
+.BI -c
+Perform base alignment; recommended for graph generation
 .TP 10
 .BI -U \ INT1 [, INT2 ]
 Choose the minimizer occurrence threshold within this interval [50,250]

@@ -212,6 +212,8 @@ int main(int argc, char *argv[])
 	}
 	if (mg_opt_check(&ipt, &opt, &gpt) < 0)
 		return 1;
+	if (gpt.algo == MG_G_GGSIMPLE && !(opt.flag&MG_M_CIGAR))
+		fprintf(stderr, "[WARNING]\033[1;31m it is recommended to add -c for graph generation\033[0m\n");
 
 	if (argc == o.ind || fp_help == stdout) {
 		fprintf(fp_help, "Usage: minigraph [options] <target.gfa> <query.fa> [...]\n");
@@ -220,6 +222,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minizer window size [%d]\n", ipt.w);
 		fprintf(fp_help, "  Mapping:\n");
+		fprintf(fp_help, "    -c           perform base alignment; recommened for graph generation\n");
 		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.occ_max1_frac);
 		fprintf(fp_help, "    -U INT[,INT] choose the minimizer occurrence threshold within this interval [%d,%d]\n", opt.occ_max1, opt.occ_max1_cap);
 		fprintf(fp_help, "    -j FLOAT     expected sequence divergence [%g]\n", opt.div);
