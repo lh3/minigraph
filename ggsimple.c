@@ -383,6 +383,22 @@ static void gg_score_intv(int32_t n_intv, ed_intv_t *intv)
 	}
 }
 
+static void gg_merge_seg(const ed_intv_t *intv, int32_t n_ss, mg_msseg_t *ss)
+{
+	int32_t j0, j;
+	for (j0 = 0, j = 1; j < n_ss; ++j) {
+		mg_msseg_t *s0 = &ss[j0], *s1 = &ss[j];
+		int32_t i, mid = 0;
+		for (i = s0->en + 1; i < s1->st; ++i)
+			mid += intv[i].sc;
+		//fprintf(stderr, "XX\t%d\t%d\t%d\t%d\t%d\t%d\n", j, s0->sc, mid, s1->sc, s0->en+1, s1->st);
+		if (-mid < s0->sc * 0.2 && -mid < s1->sc * 0.2) { // FIXME: mid is sometimes 0
+			s0->en = s1->en, s0->sc += s1->sc + mid;
+			s1->st = s1->en, s1->sc = 0;
+		} else j0 = j;
+	}
+}
+
 void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq, const mg_bseq1_t *seq, mg_gchains_t *const* gcs)
 {
 	int32_t t, i, *soff, *qoff, max_acnt, m_ovlp = 0, *ovlp = 0, n_ins = 0, m_ins, n_inv;
@@ -416,7 +432,8 @@ void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq,
 			gg_score_intv(n_intv, intv);
 			KCALLOC(km, sc, n_intv);
 			for (j = 0; j < n_intv; ++j) sc[j] = intv[j].sc;
-			ss = mg_mss_all(0, n_intv, sc, opt->min_var_len, 500, &n_ss);
+			ss = mg_mss_all(0, n_intv, sc, opt->min_var_len, 2 * opt->min_var_len, &n_ss);
+			gg_merge_seg(intv, n_ss, ss);
 
 			// get regions to insert
 			for (j = 0; j < n_ss; ++j) {
@@ -426,7 +443,7 @@ void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq,
 
 				// find the initial positions
 				st = ss[j].st, en = ss[j].en; // this is a CLOSED interval
-				assert(st < en);
+				if (st == en) continue;
 				is = &intv[st], ie = &intv[en - 1];
 				assert(is->op != 7 && ie->op != 7);
 				I.ctg = t;
