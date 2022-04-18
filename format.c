@@ -97,7 +97,7 @@ void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_lchain_t *
 
 void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t n_seg, const int32_t *qlens, const char *qname, uint64_t flag, void *km)
 {
-	int32_t i, j, qlen;
+	int32_t i, j, qlen, rev_sign = 0;
 	s->l = 0;
 	for (i = 0, qlen = 0; i < n_seg; ++i) qlen += qlens[i];
 	if ((gs == 0 || gs->n_gc == 0) && (flag&MG_M_SHOW_UNMAP)) {
@@ -167,6 +167,7 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			const gfa_sseq_t *ps = &g->sseq[t->snid];
 			mg_sprintf_lite(s, "%s\t%d\t", ps->name, ps->max);
 			if (rev) {
+				rev_sign = 1;
 				s->s[sign_pos] = '-';
 				mg_sprintf_lite(s, "%d\t%d", t->soff + (p->plen - p->pe), t->soff + (p->plen - p->ps));
 			} else {
@@ -189,9 +190,13 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			for (j = 0; j < n_seg; ++j) mg_sprintf_lite(s, ",%d", qlens[j]);
 		}
 		if (p->p) {
-			mg_sprintf_lite(s, "\tqc:Z:");
-			for (j = 0; j < p->p->n_cigar; ++j)
-				mg_sprintf_lite(s, "%d%c", p->p->cigar[j]>>4, "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
+			mg_sprintf_lite(s, "\tcg:Z:");
+			if (rev_sign)
+				for (j = p->p->n_cigar - 1; j >= 0; --j)
+					mg_sprintf_lite(s, "%d%c", p->p->cigar[j]>>4, "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
+			else
+				for (j = 0; j < p->p->n_cigar; ++j)
+					mg_sprintf_lite(s, "%d%c", p->p->cigar[j]>>4, "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
 		}
 		mg_sprintf_lite(s, "\n");
 		if ((mg_dbg_flag & MG_DBG_LCHAIN) || (flag & MG_M_WRITE_LCHAIN)) {
