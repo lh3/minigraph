@@ -114,7 +114,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 						km_destroy(km2);
 						km2 = km_init2(km, 8008192);
 					}
-					//if (rst.s > 50000 && tl > 50000 && ql > 50000) fprintf(stderr, "XL\t%s\t%d\t%d\t%d\t%d\n", qname, (int32_t)q->y + 1, (int32_t)p->y + 1, l_seq, rst.s);
+					//if (l_seq > 5000 && qlen > 5000) fprintf(stderr, "XL\t%d\t%s\t%d\t%d\t%d\t%d\t%d\n", i, qname, (int32_t)q->y + 1, (int32_t)p->y + 1, (int32_t)p->y - (int32_t)q->y, l_seq, rst.s);
 				}
 			}
 			j0 = j, l0 = l;

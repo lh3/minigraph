@@ -77,11 +77,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		else s->seq = mg_bseq_read(p->fp[0], p->mini_batch_size, with_qual, with_comment, frag_mode, &s->n_seq);
 		if (s->seq) {
 			s->p = p;
-			for (i = 0; i < s->n_seq; ++i) {
-				mg_bseq1_t *t = &s->seq[i];
-				for (j = 0; j < t->l_seq; ++j)
-					t->seq[j] = t->seq[j] < 'a' || t->seq[j] > 'z'? t->seq[j] : t->seq[j] - 32;
-			}
+			for (i = 0; i < s->n_seq; ++i)
+				mg_toupper(s->seq[i].l_seq, s->seq[i].seq);
 			for (i = 0; i < s->n_seq; ++i)
 				s->seq[i].rid = p->n_processed++;
 			s->buf = (mg_tbuf_t**)calloc(p->n_threads, sizeof(mg_tbuf_t*));

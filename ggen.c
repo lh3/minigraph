@@ -52,7 +52,10 @@ static maprst_t *ggen_map(const mg_idx_t *gi, const mg_mapopt_t *opt, const char
 	if (mg_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] loaded file \"%s\"\n", __func__,
 				realtime() - mg_realtime0, cputime() / (realtime() - mg_realtime0), fn);
-	for (i = 0; i < r->n_seq; ++i) r->seq[i].rid = i;
+	for (i = 0; i < r->n_seq; ++i) {
+		r->seq[i].rid = i;
+		mg_toupper(r->seq[i].l_seq, r->seq[i].seq);
+	}
 	KCALLOC(0, r->gcs, r->n_seq);
 
 	s.gi = gi, s.opt = opt, s.r = r;

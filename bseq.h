@@ -42,6 +42,13 @@ static inline int32_t mg_qname_same(const char *s1, const char *s2)
 	return (l1 == l2 && strncmp(s1, s2, l1) == 0);
 }
 
+static inline void mg_toupper(int32_t len, char *seq)
+{
+	int32_t j;
+	for (j = 0; j < len; ++j)
+		seq[j] = seq[j] < 'a' || seq[j] > 'z'? seq[j] : seq[j] - 32;
+}
+
 static inline void mg_revcomp_seq(int32_t len, char *seq)
 {
 	int32_t i;
