@@ -247,11 +247,11 @@ int32_t gfa_ins_filter(const gfa_t *g, int32_t n_ins, gfa_ins_t *ins) // filter 
 			if (side == (0<<1|0) || side == (vlen<<1|1))
 				break;
 		}
-		if (k != 2) continue;
-		if (check_multi(g, p)) {
+		if (k != 2 || check_multi(g, p)) { // multi-link may happen due to inconsistency between graph chaining and WFA alignment 
 			if (gfa_verbose >= 2)
-				fprintf(stderr, "[W::%s] multi-link between %c%s and %c%s derived from the %d-th query\n", __func__,
-						"><"[p->v[0]&1], g->seg[p->v[0]>>1].name, "><"[p->v[1]&1], g->seg[p->v[1]>>1].name, p->ctg);
+				fprintf(stderr, "[W::%s] %s between %c%s and %c%s derived from the %d-th query at %d-%d\n",
+						__func__, k != 2? "impossible insert" : "multi-link",
+						"><"[p->v[0]&1], g->seg[p->v[0]>>1].name, "><"[p->v[1]&1], g->seg[p->v[1]>>1].name, p->ctg, p->coff[0], p->coff[1]);
 			continue;
 		}
 		ins[n++] = ins[i];
