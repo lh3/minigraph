@@ -437,7 +437,7 @@ void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq,
 
 			// get regions to insert
 			for (j = 0; j < n_ss; ++j) {
-				int32_t st, en, pd, k, n_ovlp, min_len, is_inv = 0;
+				int32_t st, en, pd, k, n_ovlp, min_len, is_inv = 0, ls, le;
 				gfa_ins_t I;
 				ed_intv_t *is, *ie;
 
@@ -446,15 +446,28 @@ void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq,
 				if (st == en) continue;
 				is = &intv[st], ie = &intv[en - 1];
 				assert(is->op != 7 && ie->op != 7);
+
+				ls = is->lc, le = ie->lc;
 				I.ctg = t;
-				I.v[0] = gt->lc[is->lc].v;
-				I.v[1] = gt->lc[ie->lc].v;
+				I.v[0] = gt->lc[ls].v;
+				I.v[1] = gt->lc[le].v;
 				I.voff[0] = is->vo;
 				I.voff[1] = ie->vo + (ie->op != 1? ie->len : 0);
 				I.coff[0] = is->qo;
 				I.coff[1] = ie->qo + (ie->op != 2? ie->len : 0);
 				assert(I.voff[0] <= g->seg[I.v[0]>>1].len);
 				assert(I.voff[1] <= g->seg[I.v[1]>>1].len);
+
+				if (I.voff[0] == 0) { // if an insert starts at pos 0, make it start at the end of the previous vertex in the chain
+					assert(ls - 1 >= gc->off);
+					I.v[0] = gt->lc[--ls].v;
+					I.voff[0] = g->seg[I.v[0]>>1].len;
+				}
+				if (I.voff[1] == g->seg[I.v[1]>>1].len) { // if an insert ends at the end of the vertex, make it end at the beginning of the next vertex
+					assert(le + 1 < gc->off + gc->cnt);
+					I.v[1] = gt->lc[++le].v;
+					I.voff[1] = 0;
+				}
 
 				pd = ie->po + (ie->op != 1? ie->len : 0) - is->po;
 				pd -= gfa_ins_adj(g, opt->ggs_shrink_pen, &I, seq[t].seq);
@@ -490,7 +503,7 @@ void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq,
 				if (k <= ie->lc) continue;
 				if (pd - (I.coff[1] - I.coff[0]) < opt->min_var_len && (I.coff[1] - I.coff[0]) - pd < opt->min_var_len) { // if length difference > min_var_len, just insert
 					int32_t qd = I.coff[1] - I.coff[0], mlen, blen, score = 0;
-					l_pseq = mg_path2seq(km, g, gt, is->lc, ie->lc, I.voff, &pseq, &m_pseq);
+					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
 					score = mg_wfa_cmp(km, l_pseq, pseq, qd, &seq[t].seq[I.coff[0]], 5000, &mlen, &blen);
 					if (score > 0) {
 						if (mlen > blen * opt->ggs_max_iden) continue; // make sure k-mer identity is small enough
@@ -503,7 +516,7 @@ void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq,
 				}
 				if (mg_dbg_flag & MG_DBG_INSERT) {
 					int32_t mlen, blen, score, qd = I.coff[1] - I.coff[0];
-					l_pseq = mg_path2seq(km, g, gt, is->lc, ie->lc, I.voff, &pseq, &m_pseq);
+					l_pseq = mg_path2seq(km, g, gt, ls, le, I.voff, &pseq, &m_pseq);
 					fprintf(stderr, "IN\t[%c%s:%d,%c%s:%d|%d] <=> %s:[%d,%d|%d] inv:%d\n", "><"[I.v[0]&1], g->seg[I.v[0]>>1].name, I.voff[0], "><"[I.v[1]&1], g->seg[I.v[1]>>1].name, I.voff[1], pd, seq[t].name, I.coff[0], I.coff[1], I.coff[1] - I.coff[0], is_inv);
 					fprintf(stderr, "IP\t%s\nIQ\t", pseq);
 					fwrite(&seq[t].seq[I.coff[0]], 1, qd, stderr);
