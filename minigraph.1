@@ -76,9 +76,10 @@ Stop chain enlongation if there are no minimizers within
 .IR INT -bp
 [10k]. K/k/M/m suffixes are recognized.
 .TP
-.BI -r \ NUM
-Bandwidth used in chaining [2k]. This option approximately controls the maximum
-gap size.
+.BI -r \ NUM1 [, NUM2 ]
+Bandwidth for the two rounds of chaining [500,20k].
+.I NUM2
+also controls bandwidth for graph chaining.
 .TP
 .BI -n \ INT1 [, INT2 ]
 Drop graph chains consisting of
@@ -270,12 +271,13 @@ Paired-end mapping is not supported.
 .B asm
 Mapping long contigs or high-quality CCS reads
 .RB ( -k19
-.B -w10 -j.01 -g100k -r100k --max-gap-pre=10k -n5,3 -m1000,40 -K4g --max-lc-skip=50 --max-gc-skip=50 --min-cov-mapq=5
+.B -w10 -j.01 -g10k -r1k,100k -n5,5 -m1000,40 -K4g --max-lc-skip=50 --max-gc-skip=50 --min-cov-mapq=5
 .BR --min-cov-blen=100k ).
 .TP
 .B ggs
 Simple algorithm for incremental graph generation
 .RB ( -xasm
+.B -N0
 .BR --ggen=simple ).
 .RE
 .SS Miscellaneous options

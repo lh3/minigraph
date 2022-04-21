@@ -60,15 +60,21 @@ static ko_longopt_t long_options[] = {
 	{ 0, 0, 0 }
 };
 
-static inline int64_t mg_parse_num(const char *str)
+static inline int64_t mm_parse_num2(const char *str, char **q)
 {
 	double x;
 	char *p;
 	x = strtod(str, &p);
-	if (*p == 'G' || *p == 'g') x *= 1e9;
-	else if (*p == 'M' || *p == 'm') x *= 1e6;
-	else if (*p == 'K' || *p == 'k') x *= 1e3;
+	if (*p == 'G' || *p == 'g') x *= 1e9, ++p;
+	else if (*p == 'M' || *p == 'm') x *= 1e6, ++p;
+	else if (*p == 'K' || *p == 'k') x *= 1e3, ++p;
+	if (q) *q = p;
 	return (int64_t)(x + .499);
+}
+
+static inline int64_t mm_parse_num(const char *str)
+{
+	return mm_parse_num2(str, 0);
 }
 
 static inline void yes_or_no(uint64_t *flag_, uint64_t f, int long_idx, const char *arg, int yes_to_set)
@@ -124,18 +130,17 @@ int main(int argc, char *argv[])
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'f') opt.occ_max1_frac = atof(o.arg);
-		else if (c == 'r') opt.bw = mg_parse_num(o.arg);
-		else if (c == 'g') opt.max_gap = mg_parse_num(o.arg);
-		else if (c == 'F') opt.max_frag_len = mg_parse_num(o.arg);
-		else if (c == 'K') opt.mini_batch_size = mg_parse_num(o.arg);
+		else if (c == 'g') opt.max_gap = mm_parse_num(o.arg);
+		else if (c == 'F') opt.max_frag_len = mm_parse_num(o.arg);
+		else if (c == 'K') opt.mini_batch_size = mm_parse_num(o.arg);
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
-		else if (c == 'N') opt.best_n = mg_parse_num(o.arg);
+		else if (c == 'N') opt.best_n = mm_parse_num(o.arg);
 		else if (c == 'P') opt.flag |= MG_M_ALL_CHAINS;
 		else if (c == 'D') opt.flag |= MG_M_NO_DIAG;
 		else if (c == 'M') opt.mask_level = atof(o.arg);
 		else if (c == 'j') opt.div = atof(o.arg);
-		else if (c == 'l') gpt.min_map_len = mg_parse_num(o.arg);
-		else if (c == 'd') gpt.min_depth_len = mg_parse_num(o.arg);
+		else if (c == 'l') gpt.min_map_len = mm_parse_num(o.arg);
+		else if (c == 'd') gpt.min_depth_len = mm_parse_num(o.arg);
 		else if (c == 'q') gpt.min_mapq = atoi(o.arg);
 		else if (c == 'L') gpt.min_var_len = atoi(o.arg);
 		else if (c == 'S') opt.flag |= MG_M_WRITE_LCHAIN;
@@ -147,19 +152,19 @@ int main(int argc, char *argv[])
 		else if (c == 313) gpt.match_pen = atoi(o.arg);       // --gg-match-pen
 		else if (c == 314) opt.flag |= MG_M_FRAG_MODE | MG_M_FRAG_MERGE;       // --frag
 		else if (c == 315) opt.flag |= MG_M_CAL_COV | MG_M_SKIP_GCHECK, gpt.flag |= MG_G_CAL_COV; // --cov
-		else if (c == 316) opt.min_cov_blen = mg_parse_num(o.arg);             // --min-cov-blen
+		else if (c == 316) opt.min_cov_blen = mm_parse_num(o.arg);             // --min-cov-blen
 		else if (c == 317) opt.min_cov_mapq = atoi(o.arg);                     // --min-cov-mapq
 		else if (c == 318) opt.chn_pen_gap = atof(o.arg);     // --gap-pen
 		else if (c == 319) opt.ref_bonus = atoi(o.arg);       // --ref-bonus
-		else if (c == 320) opt.max_gap_pre = mg_parse_num(o.arg); // --max-gap-pre
+		else if (c == 320) opt.max_gap_pre = mm_parse_num(o.arg); // --max-gap-pre
 		else if (c == 321) opt.max_lc_skip = atoi(o.arg);     // --max-lc-skip
 		else if (c == 322) opt.max_gc_skip = atoi(o.arg);     // --max-gc-skip
-		else if (c == 323) opt.max_lc_iter = mg_parse_num(o.arg);  // --max-lc-iter
-		else if (c == 324) opt.rmq_size_cap = mg_parse_num(o.arg); // --max-rmq-size
+		else if (c == 323) opt.max_lc_iter = mm_parse_num(o.arg);  // --max-lc-iter
+		else if (c == 324) opt.rmq_size_cap = mm_parse_num(o.arg); // --max-rmq-size
 		else if (c == 326) opt.flag |= MG_M_WRITE_MZ | MG_M_WRITE_LCHAIN; // --write-mz
 		else if (c == 327) gpt.flag |= MG_G_CALL, opt.flag |= MG_M_SKIP_GCHECK; // --call
-		else if (c == 328) opt.cap_kalloc = mg_parse_num(o.arg); // --cap-kalloc
-		else if (c == 329) opt.gdp_max_ed = mg_parse_num(o.arg); // --gdp-max-ed
+		else if (c == 328) opt.cap_kalloc = mm_parse_num(o.arg); // --cap-kalloc
+		else if (c == 329) opt.gdp_max_ed = mm_parse_num(o.arg); // --gdp-max-ed
 		else if (c == 401) mg_dbg_flag |= MG_DBG_NO_KALLOC;   // --no-kalloc
 		else if (c == 402) mg_dbg_flag |= MG_DBG_QNAME;       // --dbg-qname
 		else if (c == 403) mg_dbg_flag |= MG_DBG_LCHAIN;      // --dbg-lchain
@@ -169,14 +174,17 @@ int main(int argc, char *argv[])
 		else if (c == 407) mg_dbg_flag |= MG_DBG_LC_PROF;     // --dbg-lc-prof
 		else if (c == 408) mg_dbg_flag |= MG_DBG_ED;          // --dbg-ed
 		else if (c == 'U') {
-			opt.occ_max1 = strtol(o.arg, &s, 10);
-			if (*s == ',') opt.occ_max1_cap = strtol(s + 1, &s, 10);
+			opt.occ_max1 = (int)mm_parse_num2(o.arg, &s);
+			if (*s == ',') opt.occ_max1_cap = (int)mm_parse_num2(s + 1, &s);
+		} else if (c == 'r') {
+			opt.bw = (int)mm_parse_num2(o.arg, &s);
+			if (*s == ',') opt.bw_long = (int)mm_parse_num2(s + 1, &s);
 		} else if (c == 'n') {
-			opt.min_gc_cnt = strtol(o.arg, &s, 10);
-			if (*s == ',') opt.min_lc_cnt = strtol(s + 1, &s, 10);
+			opt.min_gc_cnt = (int)mm_parse_num2(o.arg, &s);
+			if (*s == ',') opt.min_lc_cnt = (int)mm_parse_num2(s + 1, &s);
 		} else if (c == 'm') {
-			opt.min_gc_score = strtol(o.arg, &s, 10);
-			if (*s == ',') opt.min_lc_score = strtol(s + 1, &s, 10);
+			opt.min_gc_score = (int)mm_parse_num2(o.arg, &s);
+			if (*s == ',') opt.min_lc_score = (int)mm_parse_num2(s + 1, &s);
 		} else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
@@ -228,7 +236,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -j FLOAT     expected sequence divergence [%g]\n", opt.div);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(fp_help, "    -F NUM       max fragment length (effective with -xsr or in the fragment mode) [%d]\n", opt.max_frag_len);
-		fprintf(fp_help, "    -r NUM       bandwidth used in chaining [%d]\n", opt.bw);
+		fprintf(fp_help, "    -r NUM[,NUM] bandwidth for the two rounds of chaining [%d,%d]\n", opt.bw, opt.bw_long);
 		fprintf(fp_help, "    -n INT[,INT] minimal number of minimizers on a graph/linear chain [%d,%d]\n", opt.min_gc_cnt, opt.min_lc_cnt);
 		fprintf(fp_help, "    -m INT[,INT] minimal graph/linear chaining score [%d,%d]\n", opt.min_gc_score, opt.min_lc_score);
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
