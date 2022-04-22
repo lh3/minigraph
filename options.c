@@ -50,7 +50,7 @@ void mg_ggopt_init(mg_ggopt_t *go)
 	go->algo = MG_G_NONE;
 	go->flag |= MG_G_NO_QOVLP;
 	go->min_map_len = 100000;
-	go->min_depth_len = 10000;
+	go->min_depth_len = 20000;
 	go->min_mapq = 5;
 	go->min_var_len = 50;
 	go->match_pen = 10;
@@ -73,7 +73,7 @@ int mg_opt_set(const char *preset, mg_idxopt_t *io, mg_mapopt_t *mo, mg_ggopt_t 
 		io->k = 19, io->w = 10;
 		mo->flag |= MG_M_RMQ;
 		mo->occ_max1 = 10, mo->occ_max1_cap = 100;
-		mo->bw = 1000, mo->bw_long = 100000;
+		mo->bw = 1000, mo->bw_long = 150000;
 		mo->max_gap = 10000, mo->max_gap_pre = 1000;
 		mo->min_lc_cnt = 5, mo->min_lc_score = 40;
 		mo->min_gc_cnt = 5, mo->min_gc_score = 1000;

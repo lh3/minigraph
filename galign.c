@@ -114,7 +114,8 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 						km_destroy(km2);
 						km2 = km_init2(km, 8008192);
 					}
-					//if (l_seq > 5000 && qlen > 5000) fprintf(stderr, "XL\t%d\t%s\t%d\t%d\t%d\t%d\t%d\n", i, qname, (int32_t)q->y + 1, (int32_t)p->y + 1, (int32_t)p->y - (int32_t)q->y, l_seq, rst.s);
+					if ((mg_dbg_flag&MG_DBG_MINIWFA) && l_seq > 5000 && qlen > 5000 && rst.s >= 10000)
+						fprintf(stderr, "LW\t%d\t%s\t%d\t%d\t%d\t%d\n", i, qname, (int32_t)q->y + 1, (int32_t)p->y - (int32_t)q->y, l_seq, rst.s);
 				}
 			}
 			j0 = j, l0 = l;
@@ -133,7 +134,6 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 			if (op != 2) l += len;
 		}
 		assert(l == gc->qe - gc->qs && gc->p->aplen == gc->pe - gc->ps);
-		if (mg_dbg_flag & MG_DBG_ED) fprintf(stderr, "NC\t%d\n", cigar.n);
 	}
 	km_destroy(km2);
 	kfree(km, seq);
