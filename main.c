@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minizer window size [%d]\n", ipt.w);
 		fprintf(fp_help, "  Mapping:\n");
-		fprintf(fp_help, "    -c           perform base alignment; recommened for graph generation\n");
+		fprintf(fp_help, "    -c           perform base alignment; RECOMMENDED\n");
 		fprintf(fp_help, "    -f FLOAT     ignore top FLOAT fraction of repetitive minimizers [%g]\n", opt.occ_max1_frac);
 		fprintf(fp_help, "    -U INT[,INT] choose the minimizer occurrence threshold within this interval [%d,%d]\n", opt.occ_max1, opt.occ_max1_cap);
 		fprintf(fp_help, "    -j FLOAT     expected sequence divergence [%g]\n", opt.div);
@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "                 - lr: noisy long read mapping (the default)\n");
 		fprintf(fp_help, "                 - asm: asm-to-ref mapping\n");
 		fprintf(fp_help, "                 - sr: short reads\n");
-		fprintf(fp_help, "                 - ggs: simple algorithm for graph generation\n");
+		fprintf(fp_help, "                 - ggs: incremental graph generation\n");
 		return fp_help == stdout? 0 : 1;
 	}
 

@@ -136,8 +136,7 @@ piece multiple samples together.
 
 ### <a name="prebuilt"></a>Prebuilt graphs
 
-Prebuilt human graphs in the rGFA format can be found at
-`ftp://ftp.dfci.harvard.edu/pub/hli/minigraph`.
+Prebuilt human graphs in the rGFA format can be found [at Zenodo][human-zenodo].
 
 ### <a name="algo"></a>Algorithm overview
 
@@ -203,3 +202,4 @@ highlighted in bold. The description may help to tune minigraph parameters.
 [gfatools]: https://github.com/lh3/gfatools
 [bandage]: https://rrwick.github.io/Bandage/
 [gfaviz]: https://github.com/ggonnella/gfaviz
+[human-zenodo]: https://zenodo.org/record/6286522

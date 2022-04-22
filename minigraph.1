@@ -167,19 +167,22 @@ Call the graph path in each bubble and output in a BED-based format:
 Minimum mapping quality [5]
 .TP
 .BI -l \ NUM
-Minimum chain length to consider [50k]
+Minimum chain length to consider [100k]
 .TP
 .BI -d \ NUM
-Minimum chain length for depth calculation [10k]
+Minimum chain length for depth calculation [20k]
 .TP
 .BI -L \ INT
 Minimum insertion length [50]
 .TP
 .BI --gg-match-pen \ INT
 Penalty for a pair of matching anchors [5]. Larger value for more fragmented inserts.
+Effectively without
+.BR -c .
 .TP
 .BR --ins-qovlp = yes | no
-Forcefully resolve query overlaps [no]
+Forcefully resolve query overlaps [no]. Effective without
+.BR -c .
 .TP
 .BR --inv = yes | no
 Generate graphs with inversions or not [yes]
@@ -255,11 +258,7 @@ are:
 .RS
 .TP 8
 .B lr
-Mapping noisy long reads
-.RB ( -k15
-.B -w10 -j.1 -g5k -r2k
-.BR --min-cov-blen=1000 ).
-This is the same as the default setting.
+Mapping noisy long reads. This is the same as the default setting.
 .TP
 .B sr
 Mapping short single-end or paired-end reads
@@ -271,11 +270,11 @@ Paired-end mapping is not supported.
 .B asm
 Mapping long contigs or high-quality CCS reads
 .RB ( -k19
-.B -w10 -j.01 -g10k -r1k,100k -n5,5 -m1000,40 -K4g --max-lc-skip=50 --max-gc-skip=50 --min-cov-mapq=5
+.B -w10 -U10,100 -j.01 -g10k -r1k,150k -n5,5 -m1000,40 -K4g --max-lc-skip=50 --max-gc-skip=50 --min-cov-mapq=5
 .BR --min-cov-blen=100k ).
 .TP
 .B ggs
-Simple algorithm for incremental graph generation
+Incremental graph generation
 .RB ( -xasm
 .B -N0
 .BR --ggen=simple ).
@@ -331,6 +330,7 @@ s2	i	Chaining score of the best secondary chain
 dv	f	Approximate per-base sequence divergence
 cf	f	Avg. segment breadth of coverage and link use freq
 dc	f	Avg. segment depth of coverage and link use counts
+cg	Z	CIGAR string
 ql	B,i	Lengths of single-end reads
 .TE
 
@@ -342,13 +342,17 @@ many short segments (e.g. one generated from rare SNPs in large populations),
 minigraph will fail to map query sequences.
 .TP
 *
-When connecting colinear chains on graphs, minigraph doesn't take full
+When connecting colinear chains on graphs, minigraph doesn't always take full
 advantage of base sequences and may miss the optimal alignments.
 .TP
 *
 Minigraph only inserts segments contained in long graph chains. This
 conservative strategy helps to build relatively accurate graph, but may miss
 more complex events. Other strategies may be explored in future.
+.TP
+*
+Base alignment has only been evaluated for human. For more diverse genomes,
+the performance may need to be improved.
 
 .SH SEE ALSO
 .PP
