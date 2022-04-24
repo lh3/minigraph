@@ -1,6 +1,5 @@
 #include <math.h>
 #include <string.h>
-#include <x86intrin.h>
 #include "mgpriv.h"
 #include "ksort.h" // for radix sort
 #include "khashl.h" // for kh_hash_uint32()
@@ -347,7 +346,7 @@ static void bridge_shortk(bridge_aux_t *aux, const mg_lchain_t *l0, const mg_lch
 static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1, int32_t *ed)
 {
 	uint32_t v0 = l0->v, v1 = l1->v;
-	int32_t qs = l0->qe - kmer_size, qe = l1->qs + kmer_size, end0, end1, j;;
+	int32_t qs = l0->qe - kmer_size, qe = l1->qs + kmer_size, end0, end1, j;
 	void *z;
 	gfa_edopt_t opt;
 	gfa_edrst_t r;
@@ -358,14 +357,11 @@ static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max
 	end1 = l1->rs + kmer_size - 1;
 
 	gfa_edopt_init(&opt);
-	int64_t t = __rdtsc();
-	opt.traceback = 1, opt.max_chk = 1000, opt.bw_dyn = 100000, opt.max_lag = gdp_max_ed;
-	if (qs == 3969390 && qe == 4002732) { gfa_ed_dbg = 1; fprintf(stderr, "start\n"); }
+	opt.traceback = 1, opt.max_chk = 1000, opt.bw_dyn = 1000, opt.max_lag = gdp_max_ed/2;
+	opt.i_term = 500000000LL;
 	z = gfa_ed_init(aux->km, &opt, aux->g, aux->es, qe - qs, &aux->qseq[qs], v0, end0);
 	gfa_ed_step(z, v1, end1, gdp_max_ed, &r);
 	gfa_ed_destroy(z);
-	gfa_ed_dbg = 0;
-	if (r.s < 0 || r.s > 1000) fprintf(stderr, "X\t%d\t%ld\t%ld\t[%d,%d)\n", r.s, (long)(__rdtsc() - t), (long)r.n_iter, qs, qe);
 	//fprintf(stdout, "qs=%d,qe=%d,v0=%c%s:%d:%d,v1=%c%s:%d,s=%d,nv=%d\n", qs, qe, "><"[v0&1], aux->g->seg[v0>>1].name, end0, aux->g->seg[v0>>1].len - end0 - 1, "><"[v1&1], aux->g->seg[v1>>1].name, end1, r.s, r.nv);
 	if (r.s < 0) return 0;
 

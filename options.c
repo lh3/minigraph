@@ -30,7 +30,7 @@ void mg_mapopt_init(mg_mapopt_t *mo)
 	mo->chn_pen_gap = 1.0f, mo->chn_pen_skip = 0.05f;
 	mo->min_lc_cnt = 5, mo->min_lc_score = 40;
 	mo->min_gc_cnt = 5, mo->min_gc_score = 50;
-	mo->gdp_max_ed = 5000;
+	mo->gdp_max_ed = 10000;
 	mo->lc_max_trim = 50;
 	mo->lc_max_occ = 2;
 	mo->mask_level = 0.5f;

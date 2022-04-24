@@ -579,6 +579,7 @@ void gfa_ed_step(void *z_, uint32_t v1, int32_t off1, int32_t s_term, gfa_edrst_
 		if (r->end_off >= 0 || z->n_a == 0) break;
 		if (r->n_end > 0) break;
 		if (s_term >= 0 && z->s >= s_term) break;
+		if (z->opt->i_term > 0 && r->n_iter > z->opt->i_term) break;
 		++z->s;
 		if (gfa_ed_dbg >= 1) {
 			printf("[%s] dist=%d, n=%d, n_intv=%ld, n_tb=%ld\n", __func__, z->s, z->n_a, z->buf.intv.n, z->buf.t.n);

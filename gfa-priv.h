@@ -74,6 +74,7 @@ typedef struct {
 	int32_t traceback;
 	int32_t bw_dyn, max_lag, max_chk;
 	int32_t s_term;
+	int64_t i_term;
 } gfa_edopt_t;
 
 typedef struct {
