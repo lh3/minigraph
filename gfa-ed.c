@@ -14,6 +14,13 @@ int gfa_ed_dbg = 0;
  * Preparation *
  ***************/
 
+void gfa_edopt_init(gfa_edopt_t *opt)
+{
+	memset(opt, 0, sizeof(gfa_edopt_t));
+	opt->bw_dyn = opt->max_lag = opt->s_term = -1;
+	opt->max_chk = 1000;
+}
+
 gfa_edseq_t *gfa_edseq_init(const gfa_t *g)
 {
 	uint32_t i, n_vtx = gfa_n_vtx(g);
@@ -271,16 +278,26 @@ static int32_t gwf_dedup(gwf_edbuf_t *buf, int32_t n_a, gwf_diag_t *a)
 }
 
 // remove diagonals that lag far behind the furthest wavefront
-static int32_t gwf_prune(int32_t n_a, gwf_diag_t *a, uint32_t max_lag)
+static int32_t gwf_prune(int32_t n_a, gwf_diag_t *a, uint32_t max_lag, int32_t bw_dyn)
 {
-	int32_t i, j;
+	int32_t i, j, iq, dq, max_i = -1;
 	uint32_t max_x = 0;
+	gwf_diag_t *q;
 	for (i = 0; i < n_a; ++i)
-		max_x = max_x > a[i].xo>>1? max_x : a[i].xo>>1;
-	if (max_x <= max_lag) return n_a; // no filtering
-	for (i = j = 0; i < n_a; ++i)
-		if ((a[i].xo>>1) + max_lag >= max_x)
-			a[j++] = a[i];
+		if (a[i].xo>>1 > max_x)
+			max_x = a[i].xo>>1, max_i = i;
+	q = &a[max_i];
+	iq = (int32_t)q->vd - GWF_DIAG_SHIFT + q->k;
+	dq = (int32_t)(q->xo>>1) - iq - iq;
+	for (i = j = 0; i < n_a; ++i) {
+		gwf_diag_t *p = &a[i];
+		int32_t ip = (int32_t)p->vd - GWF_DIAG_SHIFT + p->k;
+		int32_t dp = (int32_t)(p->xo>>1) - ip - ip;
+		int32_t w = dp > dq? dp - dq : dq - dp;
+		if (bw_dyn >= 0 && w > bw_dyn) continue;
+		if ((p->xo>>1) + max_lag < max_x) continue;
+		a[j++] = *p;
+	}
 	return j;
 }
 
@@ -311,22 +328,8 @@ static inline int32_t gwf_extend1(int32_t d, int32_t k, int32_t vl, const char *
 	return k;
 }
 
-static inline void gwf_check_mark(const int32_t *qm, int32_t mark, int32_t len, int32_t d, uint32_t v, int32_t k, gfa_edrst_t *r)
-{
-	int32_t j, i = k + d - len;
-	for (j = 0; j < len; ++j)
-		if (qm[i + j] == mark)
-			break;
-	if (j < len && r->n_end + 1 < GFA_ED_MAX_END) {
-		r->end[r->n_end].v  = v;
-		r->end[r->n_end].vo = k - len + j;
-		r->end[r->n_end].qo = i + j;
-		r->n_end++;
-	}
-}
-
 // This is essentially Landau-Vishkin for linear sequences. The function speeds up alignment to long vertices. Not really necessary.
-static void gwf_ed_extend_batch(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, const int32_t *qm, int32_t mark, int32_t n, gwf_diag_t *a, gwf_diag_v *B,
+static void gwf_ed_extend_batch(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, int32_t n, gwf_diag_t *a, gwf_diag_v *B,
 								kdq_t(gwf_diag_t) *A, gwf_intv_v *tmp_intv, gfa_edrst_t *r)
 {
 	int32_t j, m;
@@ -343,9 +346,6 @@ static void gwf_ed_extend_batch(void *km, const gfa_t *g, const gfa_edseq_t *es,
 		a[j].xo += a[j].len << 2;
 		a[j].k = k;
 	}
-	if (qm)
-		for (j = 0; j < n; ++j)
-			gwf_check_mark(qm, mark, a[j].len, (int32_t)a[j].vd - GWF_DIAG_SHIFT, a[j].vd>>32, a[j].k, r);
 
 	// wfa_next
 	kv_resize(gwf_diag_t, km, *B, B->n + n + 2);
@@ -381,7 +381,7 @@ static void gwf_ed_extend_batch(void *km, const gfa_t *g, const gfa_edseq_t *es,
 	b[n+1].k  = a[n-1].k;
 
 	// drop out-of-bound cells
-	if (a[n-1].k == vl - 1) b[n+1].k = vl; // insertion to the end of a vertex is handled elsewhere
+	//if (a[n-1].k == vl - 1) b[n+1].k = vl; // insertion to the end of a vertex is handled elsewhere. FIXME: this line leads to wrong result for MHC-57 and MHC-HG002.2
 	for (j = 0; j < n; ++j) {
 		gwf_diag_t *p = &a[j];
 		if (p->k == vl - 1 || (int32_t)p->vd - GWF_DIAG_SHIFT + p->k == ql - 1)
@@ -402,9 +402,8 @@ static void gwf_ed_extend_batch(void *km, const gfa_t *g, const gfa_edseq_t *es,
 }
 
 // wfa_extend and wfa_next combined
-static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, const int32_t *qm, int32_t mark,
-								 uint32_t v1, int32_t off1, int32_t max_size, int32_t max_lag, int32_t traceback,
-								 int32_t *end_tb, int32_t *n_a_, gwf_diag_t *a, gfa_edrst_t *r)
+static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_edopt_t *opt, const gfa_t *g, const gfa_edseq_t *es, int32_t s, int32_t ql, const char *q,
+								 uint32_t v1, int32_t off1, int32_t *end_tb, int32_t *n_a_, gwf_diag_t *a, gfa_edrst_t *r)
 {
 	int32_t i, x, n = *n_a_, do_dedup = 1;
 	kdq_t(gwf_diag_t) *A;
@@ -426,7 +425,7 @@ static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_eds
 #else // optimized for long vertices.
 	for (x = 0, i = 1; i <= n; ++i) {
 		if (i == n || a[i].vd != a[i-1].vd + 1) {
-			gwf_ed_extend_batch(buf->km, g, es, ql, q, qm, mark, i - x, &a[x], &B, A, &buf->tmp, r);
+			gwf_ed_extend_batch(buf->km, g, es, ql, q, i - x, &a[x], &B, A, &buf->tmp, r);
 			x = i;
 		}
 	}
@@ -447,7 +446,6 @@ static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_eds
 		k = gwf_extend1(d, k, vl, es[v].seq, ql, q);
 		i = k + d; // query position
 		x0 = (t.xo >> 1) + ((k - t.k) << 1); // current anti diagonal
-		if (qm) gwf_check_mark(qm, mark, k - t.k, d, v, k, r);
 
 		if (k + 1 < vl && i + 1 < ql) { // the most common case: the wavefront is in the middle
 			int32_t push1 = 1, push2 = 1;
@@ -462,7 +460,7 @@ static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_eds
 			gwf_intv_t *p;
 			kv_pushp(gwf_intv_t, buf->km, buf->tmp, &p);
 			p->vd0 = gwf_gen_vd(v, d), p->vd1 = p->vd0 + 1;
-			if (traceback) tw = gwf_trace_push(buf->km, &buf->t, v, t.t, buf->ht);
+			if (opt->traceback) tw = gwf_trace_push(buf->km, &buf->t, v, t.t, buf->ht);
 			for (j = 0; j < nv; ++j) { // traverse $v's neighbors
 				uint32_t w = av[j].w; // $w is next to $v
 				int32_t ol = av[j].ow;
@@ -489,12 +487,13 @@ static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_eds
 			return 0;
 		} else if (k + 1 < vl) { // i + 1 == ql; reaching the end of the query but not the end of the vertex
 			gwf_diag_push(buf->km, &B, v, d-1, k+1, x0 + 1, ooo, t.t); // add an deletion; this *might* case a duplicate in corner cases
-		} else { // i + 1 == ql && k + 1 == g->len[v]; not reaching the last vertex $v1
+		} else if (v != v1) { // i + 1 == ql && k + 1 == g->len[v]; not reaching the last vertex $v1
 			int32_t nv = gfa_arc_n(g, v), j, tw = -1;
 			const gfa_arc_t *av = gfa_arc_a(g, v);
-			if (traceback) tw = gwf_trace_push(buf->km, &buf->t, v, t.t, buf->ht);
+			if (opt->traceback) tw = gwf_trace_push(buf->km, &buf->t, v, t.t, buf->ht);
 			for (j = 0; j < nv; ++j)
 				gwf_diag_push(buf->km, &B, av[j].w, i - av[j].ow, av[j].ow, x0 + 1, 1, tw); // deleting the first base on the next vertex
+		} else { // may come here when k>off1 (due to banding); do nothing in this case
 		}
 	}
 
@@ -502,7 +501,8 @@ static gwf_diag_t *gwf_ed_extend(gwf_edbuf_t *buf, const gfa_t *g, const gfa_eds
 	*n_a_ = n = B.n, b = B.a;
 
 	if (do_dedup) *n_a_ = n = gwf_dedup(buf, n, b);
-	if (max_lag > 0 && n > max_size) *n_a_ = n = gwf_prune(n, b, max_lag);
+	if (opt->max_lag > 0 && n > opt->max_chk && ((s+1)&0xf) == 0)
+		*n_a_ = n = gwf_prune(n, b, opt->max_lag, opt->bw_dyn);
 	return b;
 }
 
@@ -540,43 +540,45 @@ static void gwf_ed_print_intv(size_t n, gwf_intv_t *a) // for debugging only
 typedef struct {
 	const gfa_t *g;
 	const gfa_edseq_t *es;
-	int32_t ql, max_width, max_lag, traceback;
+	const gfa_edopt_t *opt;
+	int32_t ql;
 	const char *q;
-	const int32_t *qm;
 	gwf_edbuf_t buf;
 	int32_t s, n_a;
 	gwf_diag_t *a;
 	int32_t end_tb;
 } gfa_edbuf_t;
 
-void *gfa_ed_init(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, const int32_t *qm, uint32_t v0, int32_t off0, int32_t max_width, int32_t max_lag, int32_t traceback)
+void *gfa_ed_init(void *km, const gfa_edopt_t *opt, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v0, int32_t off0)
 {
 	gfa_edbuf_t *z;
 	KCALLOC(km, z, 1);
 	z->buf.km = km;
+	z->opt = opt;
 	z->g = g, z->es = es;
-	z->traceback = traceback, z->max_width = max_width, z->max_lag = max_lag;
-	z->ql = ql, z->q = q, z->qm = qm;
+	z->ql = ql, z->q = q;
 	z->buf.ha = gwf_set64_init2(km);
 	z->buf.ht = gwf_map64_init2(km);
 	kv_resize(gwf_trace_t, km, z->buf.t, 16);
 	KCALLOC(km, z->a, 1);
-	assert(off0 >= 0);
 	z->a[0].vd = gwf_gen_vd(v0, -off0), z->a[0].k = off0 - 1, z->a[0].xo = 0;
-	if (z->traceback) z->a[0].t = gwf_trace_push(km, &z->buf.t, -1, -1, z->buf.ht);
+	if (z->opt->traceback) z->a[0].t = gwf_trace_push(km, &z->buf.t, -1, -1, z->buf.ht);
 	z->n_a = 1;
 	return z;
 }
 
-void gfa_ed_step(void *z_, int32_t mark, uint32_t v1, int32_t off1, int32_t max_s, gfa_edrst_t *r)
+void gfa_ed_step(void *z_, uint32_t v1, int32_t off1, int32_t s_term, gfa_edrst_t *r)
 {
 	gfa_edbuf_t *z = (gfa_edbuf_t*)z_;
-	r->n_end = 0, r->nv = 0;
+	const gfa_edopt_t *opt = z->opt;
+	if (s_term < 0 && z->opt->s_term >= 0) s_term = z->opt->s_term;
+	r->n_end = 0, r->n_iter = 0;
 	while (z->n_a > 0) {
-		z->a = gwf_ed_extend(&z->buf, z->g, z->es, z->ql, z->q, z->qm, mark, v1, off1, z->max_width, z->max_lag, z->traceback, &z->end_tb, &z->n_a, z->a, r);
+		z->a = gwf_ed_extend(&z->buf, opt, z->g, z->es, z->s, z->ql, z->q, v1, off1, &z->end_tb, &z->n_a, z->a, r);
+		r->n_iter += z->n_a; // + z->buf.intv.n;
 		if (r->end_off >= 0 || z->n_a == 0) break;
 		if (r->n_end > 0) break;
-		if (max_s >= 0 && z->s >= max_s) break;
+		if (s_term >= 0 && z->s >= s_term) break;
 		++z->s;
 		if (gfa_ed_dbg >= 1) {
 			printf("[%s] dist=%d, n=%d, n_intv=%ld, n_tb=%ld\n", __func__, z->s, z->n_a, z->buf.intv.n, z->buf.t.n);
@@ -584,7 +586,7 @@ void gfa_ed_step(void *z_, int32_t mark, uint32_t v1, int32_t off1, int32_t max_
 			if (gfa_ed_dbg == 3) gwf_ed_print_intv(z->buf.intv.n, z->buf.intv.a);
 		}
 	}
-	if (z->traceback && r->end_off >= 0)
+	if (opt->traceback && r->end_off >= 0)
 		gwf_traceback(&z->buf, r->end_v, z->end_tb, r);
 	r->s = r->end_v != (uint32_t)-1? z->s : -1;
 }
@@ -604,12 +606,11 @@ void gfa_ed_destroy(void *z_)
 	kfree(km, z);
 }
 
-int32_t gfa_edit_dist(void *km, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v0, int32_t off0,
-					  int32_t max_width, int32_t max_lag, int32_t max_s, int32_t traceback, gfa_edrst_t *rst)
+int32_t gfa_edit_dist(void *km, const gfa_edopt_t *opt, const gfa_t *g, const gfa_edseq_t *es, int32_t ql, const char *q, uint32_t v0, int32_t off0, gfa_edrst_t *rst)
 {
 	void *z;
-	z = gfa_ed_init(km, g, es, ql, q, 0, v0, off0, max_width, max_lag, traceback);
-	gfa_ed_step(z, -1, (uint32_t)-1, -1, -1, rst);
+	z = gfa_ed_init(km, opt, g, es, ql, q, v0, off0);
+	gfa_ed_step(z, (uint32_t)-1, -1, -1, rst);
 	gfa_ed_destroy(z);
 	return rst->s;
 }
