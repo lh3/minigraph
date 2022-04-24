@@ -1,3 +1,26 @@
+Release 0.17-r5XX (24 April 2022)
+---------------------------------
+
+This release adds base alignment to minigraph. It represents the first major
+improvement to minigraph. Specifically, this release attempts to connect linear
+chains with the graph wavefront alignemnt algorithm (GWFA) and produces the
+final alignment with miniwfa under the 2-piece gap penalty. Graph generation
+also considers base alignment. This gives more accurate graph alignment and
+generally simpler graph topology. Note that minigraph still focuses on
+structural variations and does not generate base-level graphs. To endusers,
+minigraph remains similar feature wise.
+
+Notable changes:
+
+ * New feature: option `-c` for base alignment and graph generation. In the
+   alignment mode, the option adds the `cg:Z` CIGAR tag like minimap2. Graph
+   generation still works without `-c` but applying this option is generally
+   recommended now.
+
+(24 April 2022, r5XX)
+
+
+
 Release 0.16-r436 (21 February 2022)
 ------------------------------------
 
