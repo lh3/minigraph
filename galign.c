@@ -84,11 +84,6 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 				}
 				memcpy(&seq[l_seq], es[gt->lc[l].v].seq, (int32_t)p->x + 1);
 				l_seq += (int32_t)p->x + 1;
-				#if 0
-				printf("===> %d:%d [%d,%d) %d:%d <===\n", l0, l, (int32_t)q->y+1, (int32_t)p->y+1, l_seq, (int32_t)p->y - (int32_t)q->y);
-				for (k = 0; k < l_seq; ++k) putchar(seq[k]); putchar('\n');
-				for (k = 0; k < (int32_t)p->y - (int32_t)q->y; ++k) putchar(qseq[(int32_t)q->y + 1 + k]); putchar('\n');
-				#endif
 			}
 			{
 				int32_t qlen = (int32_t)p->y - (int32_t)q->y;
@@ -115,7 +110,14 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 						km2 = km_init2(km, 8008192);
 					}
 					if ((mg_dbg_flag&MG_DBG_MINIWFA) && l_seq > 5000 && qlen > 5000 && rst.s >= 10000)
-						fprintf(stderr, "LW\t%d\t%s\t%d\t%d\t%d\t%d\n", i, qname, (int32_t)q->y + 1, (int32_t)p->y - (int32_t)q->y, l_seq, rst.s);
+						fprintf(stderr, "WL\t%d\t%s\t%d\t%d\t%d\t%d\n", i, qname, (int32_t)q->y + 1, (int32_t)p->y - (int32_t)q->y, l_seq, rst.s);
+					if ((mg_dbg_flag&MG_DBG_MWF_SEQ) && l_seq > 5000 && qlen > 5000 && rst.s >= 10000) {
+						char *str;
+						str = Kmalloc(km, char, qlen + l_seq + strlen(qname) + 100);
+						k = sprintf(str, "WL\t%s\t%d\t%d\t%d\nWT\t%.*s\nWQ\t%.*s\n", qname, i, (int32_t)q->y + 1, rst.s, l_seq, seq, qlen, qs);
+						fwrite(str, 1, k, stderr);
+						kfree(km, str);
+					}
 				}
 			}
 			j0 = j, l0 = l;
