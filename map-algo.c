@@ -415,7 +415,6 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 							  chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
 		}
 	}
-	if (mg_dbg_flag & MG_DBG_QNAME) t = print_time(t, 2, qname);
 
 	b->frag_gap = max_chain_gap_ref;
 	kfree(b->km, mv.a);
