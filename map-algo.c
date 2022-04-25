@@ -4,6 +4,7 @@
 #include "kalloc.h"
 #include "mgpriv.h"
 #include "khashl.h"
+#include "sys.h"
 
 struct mg_tbuf_s {
 	void *km;
@@ -328,6 +329,14 @@ static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mg128_t *a, int
 	kfree(km, K);
 }
 
+static double print_time(double t0, int stage, const char *qname)
+{
+	double t;
+	t = realtime();
+	fprintf(stderr, "Q%d\t%s\t%.3f\n", stage, qname, t - t0);
+	return t;
+}
+
 void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **seqs, mg_gchains_t **gcs, mg_tbuf_t *b, const mg_mapopt_t *opt, const char *qname)
 {
 	int i, l, rep_len, qlen_sum, n_lc, n_gc, n_mini_pos;
@@ -342,6 +351,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	char *seq_cat;
 	km_stat_t kmst;
 	float tmp, chn_pen_gap, chn_pen_skip;
+	double t;
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
 		qlen_sum += qlens[i], gcs[i] = 0;
@@ -379,6 +389,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	chn_pen_gap = opt->chn_pen_gap * tmp;
 	chn_pen_skip = opt->chn_pen_skip * tmp;
 
+	if (mg_dbg_flag & MG_DBG_QNAME) t = realtime();
 	if (n_a == 0) {
 		if (a) kfree(b->km, a);
 		a = 0, n_lc = 0, u = 0;
@@ -391,6 +402,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 							 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_lc, &u, b->km);
 		}
 	}
+	if (mg_dbg_flag & MG_DBG_QNAME) t = print_time(t, 1, qname);
 
 	if (opt->bw_long > opt->bw && (opt->flag & (MG_M_SPLICE|MG_M_SR)) == 0 && n_segs == 1 && n_lc > 1) { // re-chain/long-join for long sequences
 		int32_t st = (int32_t)a[0].y, en = (int32_t)a[(int32_t)u[0] - 1].y;
@@ -403,6 +415,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 							  chn_pen_gap, chn_pen_skip, n_a, a, &n_lc, &u, b->km);
 		}
 	}
+	if (mg_dbg_flag & MG_DBG_QNAME) t = print_time(t, 2, qname);
 
 	b->frag_gap = max_chain_gap_ref;
 	kfree(b->km, mv.a);
@@ -436,6 +449,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	} else lc = 0;
 	kfree(b->km, mini_pos);
 	kfree(b->km, u);
+	if (mg_dbg_flag & MG_DBG_QNAME) t = print_time(t, 2, qname);
 
 	if (mg_dbg_flag & MG_DBG_LCHAIN)
 		mg_print_lchain(stdout, gi, n_lc, lc, a, qname);
@@ -447,7 +461,9 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	}
 	n_gc = mg_gchain1_dp(b->km, gi->g, &n_lc, lc, qlen_sum, opt->bw_long, opt->bw_long, opt->bw_long, opt->max_gc_skip, opt->ref_bonus,
 						 chn_pen_gap, chn_pen_skip, opt->mask_level, a, &u);
+	if (mg_dbg_flag & MG_DBG_QNAME) t = print_time(t, 3, qname);
 	gcs[0] = mg_gchain_gen(0, b->km, gi->g, gi->es, n_gc, u, lc, a, hash, opt->min_gc_cnt, opt->min_gc_score, opt->gdp_max_ed, n_segs, seq_cat);
+	if (mg_dbg_flag & MG_DBG_QNAME) t = print_time(t, 4, qname);
 	gcs[0]->rep_len = rep_len;
 	kfree(b->km, a);
 	kfree(b->km, lc);
@@ -460,6 +476,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	if ((opt->flag&MG_M_CIGAR) && n_segs == 1)
 		mg_gchain_cigar(b->km, gi->g, gi->es, seq_cat, gcs[0], qname);
 	kfree(b->km, seq_cat);
+	if (mg_dbg_flag & MG_DBG_QNAME) t = print_time(t, 5, qname);
 
 	if (b->km) {
 		km_stat(b->km, &kmst);
