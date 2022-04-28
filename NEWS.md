@@ -17,6 +17,9 @@ Notable changes:
    generation still works without `-c` but applying this option is generally
    recommended now.
 
+It should be noted that the base alignment is currently slow for species of
+high diversity. This will be addressed in the next couple of releases.
+
 (24 April 2022, r5XX)
 
 

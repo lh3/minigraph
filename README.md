@@ -10,8 +10,8 @@ cd minigraph && make
 ./minigraph test/MT.gfa test/MT-orangA.fa > out.gaf
 # Incremental graph generation (-l10k necessary for this toy example)
 ./minigraph -cxggs -l10k test/MT.gfa test/MT-chimp.fa test/MT-orangA.fa > out.gfa
-# Call per-sample path in each bubble/variation
-./minigraph -cxasm -l10k --call test/MT.gfa test/MT-orangA.fa > orangA.call.bed
+# Call per-sample path in each bubble/variation (-c not needed for this)
+./minigraph -xasm -l10k --call test/MT.gfa test/MT-orangA.fa > orangA.call.bed
 
 # The lossy FASTA representation (requring https://github.com/lh3/gfatools)
 gfatools gfa2fa -s out.gfa > out.fa
@@ -44,8 +44,8 @@ from the graph. The figure on the right briefly explains the procedure.
 Minigraph borrows ideas and code from [minimap2][minimap2]. It is fairly
 efficient and can construct a graph from 90 human assemblies in a couple of
 days using 24 CPU cores. Older versions of minigraph was unable to produce
-base alignment. The latest version can. **Please add option `-c` when doing
-alignment or generating graphs.**
+base alignment. The latest version can. **Please add option `-c` for graph
+generation** as it generally improves the quality of graphs.
 
 ## <a name="uguide"></a>Users' Guide
 
@@ -191,6 +191,8 @@ highlighted in bold. The description may help to tune minigraph parameters.
   of many short segments (e.g. one generated from rare SNPs in large
   populations), minigraph will fail to map query sequences.
 
+* The base alignment in the current version of minigraph is slow for species of
+  high diversity.
 
 
 [zlib]: http://zlib.net/
