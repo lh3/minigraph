@@ -1,4 +1,4 @@
-Release 0.17-r5XX (24 April 2022)
+Release 0.17-r524 (29 April 2022)
 ---------------------------------
 
 This release adds base alignment to minigraph. It represents the first major
@@ -20,7 +20,7 @@ Notable changes:
 It should be noted that the base alignment is currently slow for species of
 high diversity. This will be addressed in the next couple of releases.
 
-(24 April 2022, r5XX)
+(29 April 2022, r524)
 
 
 
