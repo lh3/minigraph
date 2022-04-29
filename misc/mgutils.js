@@ -911,6 +911,50 @@ function mg_cmd_bed2sql(args)
 	buf.destroy();
 }
 
+function mg_cmd_collate(args)
+{
+	var c, fn_anno = null;
+	while ((c = getopt(args, "a:")) != null) {
+		if (c == 'a') fn_anno = getopt.arg;
+	}
+	if (args.length - getopt.ind == 0) {
+		print("Usage: mgutils.js collate [-a <anno.bed>] <call1.bed> [<call2.bed> [...]]");
+		return;
+	}
+
+	var file, buf = new Bytes();
+	var anno = {};
+	if (fn_anno) {
+		file = new File(fn_anno);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var key = [t[0], t[1], t[2]].join("_");
+			anno[key] = t[11];
+		}
+		file.close();
+	}
+	var a = [];
+	for (var i = getopt.ind; i < args.length; ++i) {
+		var j = 0;
+		file = new File(args[i]);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			if (i == getopt.ind) {
+				var key = [t[0], t[1], t[2]].join("_");
+				var s = [t[0], t[1], t[2], t[3], t[4], anno[key]? anno[key] : "."];
+				a.push(s);
+			}
+			if (j >= a.length) throw Error("WRONG: i=" + i + ", j=" + j + " and a.length=" + a.length);
+			a[j++].push(t[5]);
+		}
+		file.close();
+	}
+	buf.destroy();
+
+	for (var j = 0; j < a.length; ++j)
+		print(a[j].join("\t"));
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -925,6 +969,7 @@ function main(args)
 		print("  paf2bl       blacklist regions from insert-to-ref alignment");
 		print("  anno         annotate short sequences");
 		print("  extractseg   extract a segment from GAF");
+		print("  collate      merge per-sample --call BED");
 		print("  bed2sql      generate SQL from --call BED");
 		//print("  subgaf       extract GAF overlapping with a region (BUGGY)");
 		//print("  sveval       evaluate SV accuracy");
@@ -941,7 +986,7 @@ function main(args)
 	else if (cmd == 'stableGaf') mg_cmd_stableGaf(args);
 	else if (cmd == 'bed2sql') mg_cmd_bed2sql(args);
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
-	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
+	else if (cmd == 'collate') mg_cmd_collate(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
