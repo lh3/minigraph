@@ -13,6 +13,7 @@ typedef struct {
 
 void *kmalloc(void *km, size_t size);
 void *krealloc(void *km, void *ptr, size_t size);
+void *krelocate(void *km, void *ap, size_t n_bytes);
 void *kcalloc(void *km, size_t count, size_t size);
 void kfree(void *km, void *ptr);
 
@@ -20,6 +21,7 @@ void *km_init(void);
 void *km_init2(void *km_par, size_t min_core_size);
 void km_destroy(void *km);
 void km_stat(const void *_km, km_stat_t *s);
+void km_stat_print(const void *km);
 
 #ifdef __cplusplus
 }

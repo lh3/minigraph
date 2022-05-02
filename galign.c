@@ -36,7 +36,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 	char *seq = 0;
 	void *km2;
 	mg32_v cigar = {0,0,0};
-	km2 = km_init2(km, 8008192);
+	km2 = km_init2(km, 0);
 	for (i = 0; i < gt->n_gc; ++i) {
 		mg_gchain_t *gc = &gt->gc[i];
 		int32_t l0 = gc->off;
@@ -97,17 +97,12 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 					mwf_rst_t rst;
 					mwf_opt_init(&opt);
 					opt.flag |= MWF_F_CIGAR;
-					opt.s_stop = 5000;
-					mwf_wfa(km2, &opt, l_seq, seq, qlen, qs, &rst);
-					if (rst.s < 0) {
-						opt.s_stop = 0, opt.step = 5000;
-						mwf_wfa(km2, &opt, l_seq, seq, qlen, qs, &rst);
-					}
+					mwf_wfa_auto(km2, &opt, l_seq, seq, qlen, qs, &rst);
 					append_cigar(km, &cigar, rst.n_cigar, rst.cigar);
 					kfree(km2, rst.cigar);
-					if (rst.s > 5000 && l_seq > 5000 && qlen > 5000) {
+					if (rst.s >= 10000 && l_seq > 5000 && qlen > 5000) {
 						km_destroy(km2);
-						km2 = km_init2(km, 8008192);
+						km2 = km_init2(km, 0);
 					}
 					if ((mg_dbg_flag&MG_DBG_MINIWFA) && l_seq > 5000 && qlen > 5000 && rst.s >= 10000)
 						fprintf(stderr, "WL\t%d\t%s\t%d\t%d\t%d\t%d\n", i, qname, (int32_t)q->y + 1, (int32_t)p->y - (int32_t)q->y, l_seq, rst.s);

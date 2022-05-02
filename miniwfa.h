@@ -29,14 +29,17 @@
 
 #include <stdint.h>
 
-#define MWF_F_CIGAR    0x1
-#define MWF_F_DEBUG    0x100
+#define MWF_F_CIGAR      0x1
+#define MWF_F_NO_KALLOC  0x2
+#define MWF_F_DEBUG      0x10000
 
 typedef struct {
-	int32_t flag;
-	int32_t x, o1, e1, o2, e2;
-	int32_t step;
-	int32_t s_stop;
+	int32_t flag; // bit flag; see MWF_F_* macros
+	int32_t x, o1, e1, o2, e2; // scoring
+	int32_t step; // distance between checkpoints in the low-memory mode
+	int32_t s_stop; // stop the alignment if score is higher than this
+	// chaining heuristics
+	int32_t max_occ, kmer, min_len;
 } mwf_opt_t;
 
 typedef struct {
@@ -59,6 +62,14 @@ void mwf_opt_init(mwf_opt_t *opt);
 /**
  * Align two sequences with WFA
  *
+ * mwf_wfa_exact() finds the optimal alignment without heuristics.
+ *
+ * mwf_wfa_chain() does chaining and closes gaps in the chain. This is a
+ * heuristic algorithm and may miss the optimal alignment.
+ *
+ * mwf_wfa_auto() calls mwf_wfa_exact() for penalty up to 5000. If fails,
+ * it invokes mwf_wfa_chain() with a step size of 5000.
+ *
  * @param km      kalloc handler. Set to NULL to use malloc.
  * @param opt     parameters
  * @param tl      target sequence length
@@ -67,7 +78,9 @@ void mwf_opt_init(mwf_opt_t *opt);
  * @param qs      query sequence
  * @param r       (out) results
  */
-void mwf_wfa(void *km, const mwf_opt_t *opt, int32_t tl, const char *ts, int32_t ql, const char *qs, mwf_rst_t *r);
+void mwf_wfa_exact(void *km, const mwf_opt_t *opt, int32_t tl, const char *ts, int32_t ql, const char *qs, mwf_rst_t *r);
+void mwf_wfa_chain(void *km, const mwf_opt_t *opt, int32_t tl, const char *ts, int32_t ql, const char *qs, mwf_rst_t *r);
+void mwf_wfa_auto(void *km, const mwf_opt_t *opt,  int32_t tl, const char *ts, int32_t ql, const char *qs, mwf_rst_t *r);
 
 // These functions are in "mwf-dbg.c". For debugging only.
 int32_t mwf_cigar2score(const mwf_opt_t *opt, int32_t n_cigar, const uint32_t *cigar, int32_t *tl, int32_t *ql);

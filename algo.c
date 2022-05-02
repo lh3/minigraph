@@ -182,7 +182,7 @@ int32_t mg_wfa_cmp(void *km, int32_t l1, const char *s1, int32_t l2, const char 
 	mwf_opt_init(&opt);
 	opt.s_stop = max_pen;
 	opt.flag |= MWF_F_CIGAR;
-	mwf_wfa(km, &opt, l1, s1, l2, s2, &r);
+	mwf_wfa_exact(km, &opt, l1, s1, l2, s2, &r);
 	*mlen = *blen = 0;
 	for (i = 0; i < r.n_cigar; ++i) {
 		int32_t op = r.cigar[i]&0xf, len = r.cigar[i]>>4;
