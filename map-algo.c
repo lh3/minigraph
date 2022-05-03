@@ -351,7 +351,7 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	char *seq_cat;
 	km_stat_t kmst;
 	float tmp, chn_pen_gap, chn_pen_skip;
-	double t;
+	double t = 0.0;
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
 		qlen_sum += qlens[i], gcs[i] = 0;

@@ -440,7 +440,7 @@ static void mwf_wfa_core(void *km, const mwf_opt_t *opt, int32_t tl, const char 
 	else km_destroy(km_st);
 	km_destroy(km_tb);
 	if (is_tb && !stopped)
-		r->cigar = krelocate(km, r->cigar, r->n_cigar * sizeof(*r->cigar));
+		r->cigar = (uint32_t*)krelocate(km, r->cigar, r->n_cigar * sizeof(*r->cigar));
 }
 
 /*
@@ -602,7 +602,7 @@ wf_chkpt_t *mwf_wfa_seg(void *km, const mwf_opt_t *opt, int32_t tl, const char *
 		kfree(km_st, xbuf);
 	} else km_destroy(km_st);
 
-	seg = krelocate(km, seg, n_seg * sizeof(*seg));
+	seg = (wf_chkpt_t*)krelocate(km, seg, n_seg * sizeof(*seg));
 	*n_seg_ = n_seg;
 	return seg;
 }
@@ -787,7 +787,7 @@ void mwf_wfa_chain(void *km, const mwf_opt_t *opt, int32_t tl, const char *ts, i
 	if (km_wfa == 0) kfree(km_wfa, a);
 	km_destroy(km_wfa);
 	r->n_cigar = c.n, r->cigar = c.cigar;
-	r->cigar = krelocate(km, r->cigar, r->n_cigar * sizeof(*r->cigar));
+	r->cigar = (uint32_t*)krelocate(km, r->cigar, r->n_cigar * sizeof(*r->cigar));
 }
 
 void mwf_wfa_auto(void *km, const mwf_opt_t *opt0, int32_t tl, const char *ts, int32_t ql, const char *qs, mwf_rst_t *r)

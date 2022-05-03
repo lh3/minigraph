@@ -350,7 +350,6 @@ static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max
 	void *z;
 	gfa_edopt_t opt;
 	gfa_edrst_t r;
-	extern int gfa_ed_dbg;
 
 	*ed = -1;
 	end0 = l0->re - kmer_size;
