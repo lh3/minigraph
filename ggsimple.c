@@ -63,28 +63,18 @@ int32_t mg_gc_index(void *km, int min_mapq, int min_map_len, int min_depth_len, 
 				const mg_llchain_t *lc = &gt->lc[gc->off + j];
 				int32_t rs, re, tmp;
 				if (lc->cnt > 0) { // compute start and end on the forward strand on the segment
-					const mg128_t *q;
-					if (gc->p) {
-						rs = 0, re = g->seg[lc->v>>1].len;
-						if (j == 0) rs = gc->p->ss;
-						if (j == gc->cnt - 1) re = gc->p->ee;
-						if (lc->v&1) {
-							int32_t t, l = g->seg[lc->v>>1].len;
-							t = l - rs, rs = l - re, re = t;
-						}
-					} else {
-						q = &gt->a[lc->off];
-						rs = (int32_t)q->x + 1 - (int32_t)(q->y>>32&0xff);
-						q = &gt->a[lc->off + lc->cnt - 1];
-						re = (int32_t)q->x;
-						assert(rs >= 0 && re > rs && re < g->seg[lc->v>>1].len);
-						sum_alen += re - rs, sum_acnt += (q->x>>32) - (gt->a[lc->off].x>>32) + 1;
-						if (lc->v&1)
-							tmp = rs, rs = g->seg[lc->v>>1].len - re, re = g->seg[lc->v>>1].len - tmp;
-					}
+					const mg128_t *qs = &gt->a[lc->off];
+					const mg128_t *qe = &gt->a[lc->off + lc->cnt - 1];
+					int32_t rs0 = (int32_t)qs->x + 1 - (int32_t)(qs->y>>32&0xff);
+					int32_t re0 = (int32_t)qe->x;
+					assert(rs0 >= 0 && re0 > rs0 && re0 < g->seg[lc->v>>1].len);
+					sum_alen += re0 - rs0, sum_acnt += (qe->x>>32) - (qs->x>>32) + 1;
+					rs = 0, re = g->seg[lc->v>>1].len;
+					if (j == 0) rs = gc->p? gc->p->ss : rs0;
+					if (j == gc->cnt - 1) re = gc->p? gc->p->ee : re0;
+					if (lc->v&1) // swap rs and re
+						tmp = rs, rs = g->seg[lc->v>>1].len - re, re = g->seg[lc->v>>1].len - tmp;
 				} else rs = 0, re = g->seg[lc->v>>1].len;
-				// save the interval
-				//fprintf(stderr, "%d\t%d\t%d\t%d\n", t, i, rs, re);
 				p = &sintv[soff[lc->v>>1] + scnt[lc->v>>1]];
 				++scnt[lc->v>>1];
 				p->st = rs, p->en = re, p->rev = lc->v&1, p->far = -1, p->i = -1;
