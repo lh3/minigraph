@@ -413,7 +413,7 @@ void mg_ggsimple_cigar(void *km, const mg_ggopt_t *opt, gfa_t *g, int32_t n_seq,
 			ed_intv_t *intv;
 			mg_msseg_t *ss;
 			if (gc->id != gc->parent) continue;
-			if (gc->blen < opt->min_map_len || gc->mapq < opt->min_mapq) continue;
+			if (gc->p == 0 || gc->blen < opt->min_map_len || gc->mapq < opt->min_mapq) continue;
 			assert(gc->cnt > 0);
 
 			n_intv = gg_count_intv(g, gt, i);
