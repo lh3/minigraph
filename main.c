@@ -220,8 +220,6 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	if (gpt.algo == MG_G_GGSIMPLE)
-		opt.min_wfa_blen = gpt.min_map_len, opt.min_wfa_mapq = gpt.min_mapq;
 	if (mg_opt_check(&ipt, &opt, &gpt) < 0)
 		return 1;
 	if (gpt.algo == MG_G_GGSIMPLE && !(opt.flag&MG_M_CIGAR))

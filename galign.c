@@ -30,7 +30,7 @@ static void append_cigar(void *km, mg32_v *c, int32_t n_cigar, const uint32_t *c
 	c->n += n_cigar - 1;
 }
 
-void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt, int32_t min_wfa_len, int32_t min_wfa_mapq, const char *qname)
+void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt, const char *qname)
 {
 	int32_t i, l_seq = 0, m_seq = 0;
 	char *seq = 0;
@@ -42,7 +42,6 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 		int32_t l0 = gc->off;
 		int32_t off_a0 = gt->lc[l0].off;
 		int32_t j, j0 = 0, k, l;
-		if (gc->blen < min_wfa_len || gc->mapq < min_wfa_mapq) continue;
 		cigar.n = 0;
 		append_cigar1(km, &cigar, 7, gt->a[off_a0].y>>32&0xff);
 		for (j = 1; j < gc->n_anchor; ++j) {
