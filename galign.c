@@ -101,12 +101,12 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 					mwf_wfa_auto(km2, &opt, l_seq, seq, qlen, qs, &rst);
 					append_cigar(km, &cigar, rst.n_cigar, rst.cigar);
 					kfree(km2, rst.cigar);
+					if ((mg_dbg_flag&MG_DBG_MINIWFA) && l_seq > 5000 && qlen > 5000 && rst.s >= 10000)
+						fprintf(stderr, "WL\t%s\t%d\t%d\t%d\t%d\t%d\n", qname, i, (int32_t)q->y + 1, (int32_t)p->y - (int32_t)q->y, l_seq, rst.s);
 					if (rst.s >= 10000 && l_seq > 5000 && qlen > 5000) {
 						km_destroy(km2);
 						km2 = km_init2(km, 0);
 					}
-					if ((mg_dbg_flag&MG_DBG_MINIWFA) && l_seq > 5000 && qlen > 5000 && rst.s >= 10000)
-						fprintf(stderr, "WL\t%d\t%s\t%d\t%d\t%d\t%d\n", i, qname, (int32_t)q->y + 1, (int32_t)p->y - (int32_t)q->y, l_seq, rst.s);
 					if ((mg_dbg_flag&MG_DBG_MWF_SEQ) && l_seq > 5000 && qlen > 5000 && rst.s >= 10000) {
 						char *str;
 						str = Kmalloc(km, char, qlen + l_seq + strlen(qname) + 100);

@@ -715,6 +715,34 @@ static uint64_t *mg_chain(void *km, int32_t l1, const char *s1, int32_t l2, cons
 	return b;
 }
 
+static double mwf_ksim(void *km, int32_t l1, const char *s1, int32_t l2, const char *s2, int32_t k)
+{
+	int32_t i, i0, j, n_a, n1 = 0, n2 = 0, t1 = 0, t2 = 0;
+	double p1, p2;
+	uint64_t *a;
+	if (l1 < k || l2 < k) return 0;
+	assert(k >= 2 && k <= 15);
+	KMALLOC(km, a, l1 + l2);
+	n_a = mg_fc_kmer(l1, s1, 0, k, a);
+	n_a += mg_fc_kmer(l2, s2, 1, k, &a[n_a]);
+	radix_sort_gfa64(a, a + n_a);
+	for (i0 = 0, i = 1; i <= n_a; ++i) {
+		if (i == n_a || a[i0]>>33 != a[i]>>33) {
+			int32_t m1, m2, min;
+			for (j = i0; j < i && (a[j]>>32&1) == 0; ++j) {}
+			m1 = j - i0, m2 = i - j;
+			min = m1 < m2? m1 : m2;
+			n1 += m1, n2 += m2;
+			if (m1 > 0 && m2 > 0)
+				t1 += min, t2 += min;
+			i0 = i;
+		}
+	}
+	kfree(km, a);
+	p1 = (double)t1 / n1, p2 = (double)t2 / n2;
+	return p1 > p2? p1 : p2;
+}
+
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
 static void wf_cigar_push(void *km, wf_cigar_t *c, int32_t n_cigar, const uint32_t *cigar)
@@ -769,12 +797,20 @@ void mwf_wfa_chain(void *km, const mwf_opt_t *opt, int32_t tl, const char *ts, i
 			if (opt->flag&MWF_F_CIGAR)
 				wf_cigar_push1(km, &c, 7, x1 - x0);
 		} else if (x0 < x1 && y0 < y1) {
-			mwf_rst_t q;
-			mwf_wfa_exact(km_wfa, opt, x1 - x0, &ts[x0], y1 - y0, &qs[y0], &q);
-			if (opt->flag&MWF_F_CIGAR)
-				wf_cigar_push(km, &c, q.n_cigar, q.cigar);
-			r->s += q.s;
-			kfree(km_wfa, q.cigar);
+			if (x1 - x0 >= 10000 && y1 - y0 >= 10000 && mwf_ksim(km, x1 - x0, &ts[x0], y1 - y0, &qs[y0], opt->kmer) < 0.02) {
+				if (opt->flag&MWF_F_CIGAR) {
+					wf_cigar_push1(km, &c, 2, x1 - x0);
+					wf_cigar_push1(km, &c, 1, y1 - y0);
+				}
+				r->s += opt->o2 * 2 + opt->e2 * ((x1 - x0) + (y1 - y0));
+			} else {
+				mwf_rst_t q;
+				mwf_wfa_exact(km_wfa, opt, x1 - x0, &ts[x0], y1 - y0, &qs[y0], &q);
+				if (opt->flag&MWF_F_CIGAR)
+					wf_cigar_push(km, &c, q.n_cigar, q.cigar);
+				r->s += q.s;
+				kfree(km_wfa, q.cigar);
+			}
 		} else if (x0 < x1) {
 			wf_cigar_push1(km, &c, 2, x1 - x0);
 			r->s += opt->o2 + (x1 - x0) * opt->e2 < opt->o1 + (x1 - x0) * opt->e1? opt->o2 + (x1 - x0) * opt->e2 : opt->o1 + (x1 - x0) * opt->e1;
