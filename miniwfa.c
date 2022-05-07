@@ -322,13 +322,13 @@ static void wf_next_basic(void *km, void *km_tb, const mwf_opt_t *opt, int32_t t
 		int32_t i;
 		for (i = 0; i < wf->n; ++i) {
 			wf_slice_t *p = &wf->a[(i + wf->top) % wf->n];
-			p->lo1 = p->hi1 = d_pinned;
+			if (d_pinned >= p->lo1 && d_pinned <= p->hi1)
+				p->lo1 = p->hi1 = d_pinned;
+			else if (d_pinned < p->lo1) p->hi1 = p->lo1;
+			else if (d_pinned > p->hi1) p->lo1 = p->hi1;
 		}
-		lo = d_pinned > -tl? d_pinned - 1 : -tl;
-		hi = d_pinned <  ql? d_pinned + 1 :  ql;
-	} else {
-		wf_next_intv(opt, wf, tl, ql, &lo, &hi);
 	}
+	wf_next_intv(opt, wf, tl, ql, &lo, &hi);
 	wf_next_prep(km, opt, wf, lo, hi, &H, &E1, &F1, &E2, &F2, &pHx, &pHo1, &pHo2, &pE1, &pF1, &pE2, &pF2);
 	if (tb) {
 		uint8_t *ax;

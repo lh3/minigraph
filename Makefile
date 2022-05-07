@@ -11,7 +11,7 @@ LIBS=		-lz -lpthread -lm
 
 ifneq ($(asan),)
 	CFLAGS+=-fsanitize=address
-	LIBS+=-fsanitize=address
+	LIBS+=-fsanitize=address -ldl
 endif
 
 .SUFFIXES:.c .o
