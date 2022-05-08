@@ -180,7 +180,7 @@ int32_t mg_wfa_cmp(void *km, int32_t l1, const char *s1, int32_t l2, const char 
 	mwf_rst_t r;
 	int32_t i;
 	mwf_opt_init(&opt);
-	opt.s_stop = max_pen;
+	opt.max_s = max_pen;
 	opt.flag |= MWF_F_CIGAR;
 	mwf_wfa_exact(km, &opt, l1, s1, l2, s2, &r);
 	*mlen = *blen = 0;

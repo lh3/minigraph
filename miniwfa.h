@@ -34,10 +34,11 @@
 #define MWF_F_DEBUG      0x10000
 
 typedef struct {
-	int32_t flag; // bit flag; see MWF_F_* macros
+	int32_t flag;     // bit flag; see MWF_F_* macros
 	int32_t x, o1, e1, o2, e2; // scoring
-	int32_t step; // distance between checkpoints in the low-memory mode
-	int32_t s_stop; // stop the alignment if score is higher than this
+	int32_t step;     // distance between checkpoints in the low-memory mode
+	int32_t max_s;    // stop the alignment if score is higher than this
+	int64_t max_iter;
 	// chaining heuristics
 	int32_t max_occ, kmer, min_len;
 } mwf_opt_t;
@@ -45,6 +46,7 @@ typedef struct {
 typedef struct {
 	int32_t s;       // score
 	int32_t n_cigar; // number of CIGAR operators
+	int64_t n_iter;
 	uint32_t *cigar; // CIGAR in the htslib packing: len<<4|op
 } mwf_rst_t;
 

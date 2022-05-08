@@ -67,12 +67,12 @@ static void wf_cigar_push1(void *km, wf_cigar_t *c, int32_t op, int32_t len)
 #define WF_NEG_INF (-0x40000000)
 
 typedef struct {
-	int32_t lo, hi, lo1, hi1;
+	int32_t lo, hi;
 	int32_t *mem, *H, *E1, *E2, *F1, *F2;
 } wf_slice_t;
 
 typedef struct {
-	int32_t s, top, n, max_pen;
+	int32_t s, top, n, max_pen, lo, hi;
 	wf_slice_t *a;
 } wf_stripe_t;
 
@@ -108,6 +108,7 @@ static wf_stripe_t *wf_stripe_init(void *km, int32_t max_pen)
 	wf->max_pen = max_pen;
 	wf->n = max_pen + 1;
 	wf->a = Kcalloc(km, wf_slice_t, wf->n);
+	wf->lo = wf->hi = 0;
 	for (i = 0; i < wf->n; ++i) {
 		wf_slice_t *f;
 		wf_stripe_add(km, wf, 0, 0);
@@ -133,6 +134,40 @@ static inline wf_slice_t *wf_stripe_get(const wf_stripe_t *wf, int32_t x)
 	int32_t y = wf->top - x;
 	if (y < 0) y += wf->n;
 	return &wf->a[y];
+}
+
+static inline int good_diag(int32_t d, int32_t k, int32_t tl, int32_t ql) // check if (d,k) falls within the DP matrix
+{
+	return ((k >= -1 && k < tl) && (d + k >= -1 && d + k < ql));
+}
+
+static void wf_stripe_shrink(wf_stripe_t *wf, int32_t tl, int32_t ql)
+{
+	int32_t j, d;
+	for (d = wf->lo; d <= wf->hi; ++d) {
+		for (j = 0; j < wf->n; ++j) {
+			wf_slice_t *p = &wf->a[(wf->top + 1 + j) % wf->n];
+			if (d < p->lo || d > p->hi) continue;
+			if (good_diag(d, p->H[d], tl, ql)) break;
+			if (good_diag(d, p->E1[d], tl, ql) || good_diag(d, p->F1[d], tl, ql)) break;
+			if (good_diag(d, p->E2[d], tl, ql) || good_diag(d, p->F2[d], tl, ql)) break;
+		}
+		if (j < wf->n) break; // stop when we see a "good diagonal" in the stripe
+	}
+	assert(d <= wf->hi); // should never happen
+	wf->lo = d;
+	for (d = wf->hi; d >= wf->lo; --d) {
+		for (j = 0; j < wf->n; ++j) {
+			wf_slice_t *p = &wf->a[(wf->top + 1 + j) % wf->n];
+			if (d < p->lo || d > p->hi) continue;
+			if (good_diag(d, p->H[d], tl, ql)) break;
+			if (good_diag(d, p->E1[d], tl, ql) || good_diag(d, p->F1[d], tl, ql)) break;
+			if (good_diag(d, p->E2[d], tl, ql) || good_diag(d, p->F2[d], tl, ql)) break;
+		}
+		if (j < wf->n) break;
+	}
+	assert(d >= wf->lo);
+	wf->hi = d;
 }
 
 typedef struct {
@@ -205,22 +240,6 @@ static inline int32_t wf_extend1_padded(const char *ts, const char *qs, int32_t 
 
 #define wf_max(a, b) ((a) >= (b)? (a) : (b))
 
-static void wf_next_intv(const mwf_opt_t *opt, const wf_stripe_t *wf, int32_t tl, int32_t ql, int32_t *lo, int32_t *hi)
-{
-	int32_t l, h;
-	const wf_slice_t *fx, *fo1, *fo2, *fe1, *fe2;
-	fx  = wf_stripe_get(wf, opt->x - 1);
-	fo1 = wf_stripe_get(wf, opt->o1 + opt->e1 - 1);
-	fo2 = wf_stripe_get(wf, opt->o2 + opt->e2 - 1);
-	fe1 = wf_stripe_get(wf, opt->e1 - 1);
-	fe2 = wf_stripe_get(wf, opt->e2 - 1);
-	l = fo1->lo1 < fo2->lo1? fo1->lo1 : fo2->lo1; l = l < fe1->lo1? l : fe1->lo1; l = l < fe2->lo1? l : fe2->lo1; l = l < fx->lo1? l : fx->lo1;
-	h = fo1->hi1 > fo2->hi1? fo1->hi1 : fo2->hi1; h = h > fe1->hi1? h : fe1->hi1; h = h > fe2->hi1? h : fe2->hi1; h = h > fx->hi1? h : fx->hi1;
-	l = l > -tl? l - 1 : -tl;
-	h = h <  ql? h + 1 :  ql;
-	*lo = l, *hi = h;
-}
-
 static void wf_next_prep(void *km, const mwf_opt_t *opt, wf_stripe_t *wf, int32_t lo, int32_t hi,
 						 int32_t **H, int32_t **E1, int32_t **F1, int32_t **E2, int32_t **F2,
 						 const int32_t **pHx, const int32_t **pHo1, const int32_t **pHo2,
@@ -288,47 +307,13 @@ static void wf_next_tb(int32_t lo, int32_t hi, int32_t *H, int32_t *E1, int32_t 
 	}
 }
 
-static inline int good_diag(int32_t d, int32_t k, int32_t tl, int32_t ql) // check if (d,k) falls within the DP matrix
-{
-	return ((k >= -1 && k < tl) && (d + k >= -1 && d + k < ql));
-}
-
-static inline int good_diag_slice(int32_t d, const wf_slice_t *p, int32_t tl, int32_t ql) // assuming p->lo <= d <= p->hi; otherwise segfault
-{
-	return good_diag(d, p->H[d], tl, ql) || good_diag(d, p->E1[d], tl, ql) || good_diag(d, p->E2[d], tl, ql) || good_diag(d, p->F1[d], tl, ql) || good_diag(d, p->F2[d], tl, ql);
-}
-
-static void wf_next_real_bound(wf_slice_t *f, int32_t tl, int32_t ql)
-{
-	int32_t d;
-	for (d = f->lo; d <= f->hi; ++d)
-		if (good_diag_slice(d, f, tl, ql))
-			break;
-	f->lo1 = d;
-	for (d = f->hi; d >= f->lo1; --d)
-		if (good_diag_slice(d, f, tl, ql))
-			break;
-	f->hi1 = d;
-}
-
 /*
  * Core algorithm
  */
-static void wf_next_basic(void *km, void *km_tb, const mwf_opt_t *opt, int32_t tl, int32_t ql, wf_stripe_t *wf, wf_tb_t *tb, int32_t d_pinned)
+static void wf_next_basic(void *km, void *km_tb, const mwf_opt_t *opt, wf_stripe_t *wf, wf_tb_t *tb, int32_t lo, int32_t hi)
 {
-	int32_t lo, hi, *H, *E1, *E2, *F1, *F2;
+	int32_t *H, *E1, *E2, *F1, *F2;
 	const int32_t *pHx, *pHo1, *pHo2, *pE1, *pE2, *pF1, *pF2;
-	if (d_pinned != INT32_MAX) {
-		int32_t i;
-		for (i = 0; i < wf->n; ++i) {
-			wf_slice_t *p = &wf->a[(i + wf->top) % wf->n];
-			if (d_pinned >= p->lo1 && d_pinned <= p->hi1)
-				p->lo1 = p->hi1 = d_pinned;
-			else if (d_pinned < p->lo1) p->hi1 = p->lo1;
-			else if (d_pinned > p->hi1) p->lo1 = p->hi1;
-		}
-	}
-	wf_next_intv(opt, wf, tl, ql, &lo, &hi);
 	wf_next_prep(km, opt, wf, lo, hi, &H, &E1, &F1, &E2, &F2, &pHx, &pHo1, &pHo2, &pE1, &pF1, &pE2, &pF2);
 	if (tb) {
 		uint8_t *ax;
@@ -337,7 +322,8 @@ static void wf_next_basic(void *km, void *km_tb, const mwf_opt_t *opt, int32_t t
 	} else {
 		wf_next_score(lo, hi, H, E1, F1, E2, F2, pHx, pHo1, pHo2, pE1, pF1, pE2, pF2);
 	}
-	wf_next_real_bound(&wf->a[wf->top], tl, ql);
+	if (H[lo] >= -1 || E1[lo] >= -1 || F1[lo] >= -1 || E2[lo] >= -1 || F2[lo] >= -1) wf->lo = lo;
+	if (H[hi] >= -1 || E1[hi] >= -1 || F1[hi] >= -1 || E2[hi] >= -1 || F2[hi] >= -1) wf->hi = hi;
 }
 
 static uint32_t *wf_traceback(void *km, const mwf_opt_t *opt, wf_tb_t *tb, int32_t t_end, const char *ts, int32_t q_end, const char *qs, int32_t last, int32_t *n_cigar)
@@ -410,7 +396,7 @@ static void mwf_wfa_core(void *km, const mwf_opt_t *opt, int32_t tl, const char 
 	sid = 0;
 	while (1) {
 		wf_slice_t *p = &wf->a[wf->top];
-		int32_t d, *H = p->H;
+		int32_t d, lo, hi, *H = p->H;
 		for (d = p->lo; d <= p->hi; ++d) {
 			int32_t k = 0;
 			if (H[d] < -1 || d + H[d] < -1 || H[d] >= tl || d + H[d] >= ql) continue;
@@ -424,14 +410,19 @@ static void mwf_wfa_core(void *km, const mwf_opt_t *opt, int32_t tl, const char 
 			H[d] = k;
 		}
 		if (d <= p->hi) break;
-		if (opt->s_stop > 0 && wf->s + 1 > opt->s_stop) {
+		if (is_tb && seg && sid < n_seg && seg[sid].s == wf->s) {
+			assert(seg[sid].d >= wf->lo && seg[sid].d <= wf->hi);
+			wf->lo = wf->hi = seg[sid++].d;
+		}
+		lo = wf->lo > -tl? wf->lo - 1 : -tl;
+		hi = wf->hi <  ql? wf->hi + 1 :  ql;
+		wf_next_basic(km_st, km_tb, opt, wf, is_tb? &tb : 0, lo, hi);
+		if ((wf->s&0xff) == 0) wf_stripe_shrink(wf, tl, ql);
+		r->n_iter += hi - lo + 1;
+		if ((opt->max_iter > 0 && r->n_iter > opt->max_iter) || (opt->max_s > 0 && wf->s > opt->max_s)) {
 			stopped = 1;
 			break;
 		}
-		d = INT32_MAX;
-		if (is_tb && seg && sid < n_seg && seg[sid].s == wf->s)
-			d = seg[sid++].d;
-		wf_next_basic(km_st, km_tb, opt, tl, ql, wf, is_tb? &tb : 0, d);
 	}
 	r->s = stopped? -1 : wf->s;
 	if (is_tb && !stopped)
@@ -501,14 +492,12 @@ static void wf_snapshot_free(void *km, wf_sss_t *sss)
 	kfree(km, sss->a);
 }
 
-static void wf_next_seg(void *km, const mwf_opt_t *opt, int32_t tl, int32_t ql, uint8_t *xbuf, wf_stripe_t *wf, wf_stripe_t *sf)
+static void wf_next_seg(void *km, const mwf_opt_t *opt, uint8_t *xbuf, wf_stripe_t *wf, wf_stripe_t *sf, int32_t lo, int32_t hi)
 {
-	int32_t d, lo, hi, *H, *E1, *E2, *F1, *F2;
+	int32_t d, *H, *E1, *E2, *F1, *F2;
 	const int32_t *pHx, *pHo1, *pHo2, *pE1, *pE2, *pF1, *pF2;
-	uint8_t *ax;
+	uint8_t *ax = xbuf - lo;
 
-	wf_next_intv(opt, wf, tl, ql, &lo, &hi);
-	ax = xbuf - lo;
 	wf_next_prep(km, opt, wf, lo, hi, &H, &E1, &F1, &E2, &F2, &pHx, &pHo1, &pHo2, &pE1, &pF1, &pE2, &pF2);
 	wf_next_tb(lo, hi, H, E1, F1, E2, F2, ax, pHx, pHo1, pHo2, pE1, pF1, pE2, pF2);
 	wf_next_prep(km, opt, sf, lo, hi, &H, &E1, &F1, &E2, &F2, &pHx, &pHo1, &pHo2, &pE1, &pF1, &pE2, &pF2);
@@ -532,7 +521,8 @@ static void wf_next_seg(void *km, const mwf_opt_t *opt, int32_t tl, int32_t ql, 
 		h = x == 4? f2 : h;
 		H[d] = h;
 	}
-	wf_next_real_bound(&wf->a[wf->top], tl, ql);
+	if (H[lo] >= -1 || E1[lo] >= -1 || F1[lo] >= -1 || E2[lo] >= -1 || F2[lo] >= -1) wf->lo = lo;
+	if (H[hi] >= -1 || E1[hi] >= -1 || F1[hi] >= -1 || E2[hi] >= -1 || F2[hi] >= -1) wf->hi = hi;
 }
 
 static wf_chkpt_t *wf_traceback_seg(void *km, wf_sss_t *sss, int32_t last, int32_t *n_seg)
@@ -578,7 +568,7 @@ wf_chkpt_t *mwf_wfa_seg(void *km, const mwf_opt_t *opt, int32_t tl, const char *
 
 	while (1) {
 		wf_slice_t *p = &wf->a[wf->top];
-		int32_t d, *H = p->H;
+		int32_t d, lo, hi, *H = p->H;
 		for (d = p->lo; d <= p->hi; ++d) {
 			int32_t k;
 			if (H[d] < -1 || d + H[d] < -1 || H[d] >= tl || d + H[d] >= ql) continue;
@@ -590,9 +580,12 @@ wf_chkpt_t *mwf_wfa_seg(void *km, const mwf_opt_t *opt, int32_t tl, const char *
 			H[d] = k;
 		}
 		if (d <= p->hi) break;
+		lo = wf->lo > -tl? wf->lo - 1 : -tl;
+		hi = wf->hi <  ql? wf->hi + 1 :  ql;
 		if ((wf->s + 1) % opt->step == 0)
 			wf_snapshot(km_st, &sss, sf);
-		wf_next_seg(km_st, opt, tl, ql, xbuf, wf, sf);
+		wf_next_seg(km_st, opt, xbuf, wf, sf, lo, hi);
+		if ((wf->s&0xff) == 0) wf_stripe_shrink(wf, tl, ql);
 	}
 	seg = wf_traceback_seg(km, &sss, last, &n_seg);
 	if (km_st == 0) {
@@ -617,6 +610,7 @@ void mwf_wfa_exact(void *km, const mwf_opt_t *opt, int32_t tl, const char *ts, i
 	if (opt->step > 0)
 		seg = mwf_wfa_seg(km, opt, tl, pts, ql, pqs, &n_seg);
 	mwf_wfa_core(km, opt, tl, pts, ql, pqs, n_seg, seg, r);
+	kfree(km, seg);
 	kfree(km, pts);
 }
 
@@ -766,6 +760,7 @@ static int32_t wf_anchor_filter(int32_t n, uint64_t *a, int32_t tl, int32_t ql, 
 		if (i == n) x = tl, y = ql;
 		else x = (int32_t)(a[i]>>32) + 1, y = (int32_t)a[i] + 1;
 		if (x - x0 != y - y0) {
+			//fprintf(stderr, "X\t%d\t(%d,%d) -> (%d,%d)\n", l, x0, y0, x, y);
 			if (l < min_l)
 				for (j = st > 0? st : 0; j < i; ++j)
 					a[j] = 0;
@@ -829,12 +824,11 @@ void mwf_wfa_chain(void *km, const mwf_opt_t *opt, int32_t tl, const char *ts, i
 void mwf_wfa_auto(void *km, const mwf_opt_t *opt0, int32_t tl, const char *ts, int32_t ql, const char *qs, mwf_rst_t *r)
 {
 	mwf_opt_t opt = *opt0;
-	opt.step = 0;
-	if (tl >= 200 && ql >= 200) opt.s_stop = 5000;
+	opt.step = 0, opt.max_iter = 100000000;
 	mwf_wfa_exact(km, &opt, tl, ts, ql, qs, r);
 	if (r->s < 0) {
 		if (opt.flag & MWF_F_CIGAR) opt.step = 5000;
-		opt.s_stop = -1;
+		opt.max_iter = -1;
 		mwf_wfa_chain(km, &opt, tl, ts, ql, qs, r);
 	}
 }
