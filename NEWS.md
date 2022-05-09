@@ -1,3 +1,17 @@
+Release 0.18-r538 (9 May 2022)
+------------------------------
+
+This release uses heuristics to speed up base alignment in long divergent
+regions. The heuristics does not guarantee optimal alignment but it reliably
+produces alignment close to the optimal except in centromeres where the
+algorithmically optimal alignment may not represent true evolution in biology.
+The new version is 10-700% faster than v0.17 depending on input data and
+parameters in use.
+
+(9 May 2022, r538)
+
+
+
 Release 0.17-r524 (29 April 2022)
 ---------------------------------
 
