@@ -955,6 +955,91 @@ function mg_cmd_collate(args)
 		print(a[j].join("\t"));
 }
 
+function mg_cmd_merge(args)
+{
+	var c, fn_anno = null;
+	while ((c = getopt(args, "a:")) != null) {
+		if (c == 'a') fn_anno = getopt.arg;
+	}
+	if (args.length - getopt.ind == 0) {
+		print("Usage: paste *.bed | mgutils.js merge [-a <anno.bed>] -");
+		return;
+	}
+
+	var file, buf = new Bytes();
+	var anno = {};
+	if (fn_anno) {
+		file = new File(fn_anno);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var key = [t[0], t[1], t[2]].join("_");
+			anno[key] = t[11];
+		}
+		file.close();
+	}
+	file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+	print('##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of samples with data">');
+	print('##INFO=<ID=NA,Number=1,Type=Integer,Description="Number of alleles">');
+	print('##INFO=<ID=AC,Number=.,Type=Integer,Description="Allele count">');
+	print('##INFO=<ID=ALEN,Number=.,Type=Integer,Description="Length of each allele">');
+	print('##INFO=<ID=ANNO,Number=1,Type=String,Description="Annotation">');
+	print('##INFO=<ID=VS,Number=1,Type=String,Description="Start vertex">');
+	print('##INFO=<ID=VE,Number=1,Type=String,Description="End vertex">');
+	print('##INFO=<ID=AWALK,Number=.,Type=String,Description="Walk of each allele">');
+	print('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">');
+	print('##FORMAT=<ID=CSTRAND,Number=1,Type=String,Description="Contig strand">');
+	print('##FORMAT=<ID=CTG,Number=1,Type=String,Description="Contig name">');
+	print('##FORMAT=<ID=CS,Number=1,Type=String,Description="Contig start, BED-like">');
+	print('##FORMAT=<ID=CE,Number=1,Type=String,Description="Contig end, BED-like">');
+	print("#CHROM\tSTART\tEND\tINFO\tFORMAT");
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		var a = [t[0], t[1], t[2], "", "GT:CSTRAND:CTG:CS:CE"];
+		var ah = {}, aa = [], b = [], ns = 0;
+		for (var j = 5; j < t.length; j += 6) {
+			if (t[j] == ".") {
+				b.push(["."]);
+				continue;
+			}
+			++ns;
+			var s = t[j].split(":");
+			if (ah[s[0]] == null) {
+				ah[s[0]] = aa.length;
+				aa.push({walk:s[0], len:s[1], cnt:0});
+			}
+			var k = ah[s[0]];
+			++aa[k].cnt;
+			s[0] = k;
+			b.push(s);
+		}
+		for (var i = 0; i < aa.length; ++i)
+			aa[i].i = i;
+		aa.sort(function(a,b) { return b.cnt - a.cnt });
+		var i2a = [], alen = [], awalk = [], ac = [];
+		for (var i = 0; i < aa.length; ++i) {
+			i2a[aa[i].i] = i;
+			alen[i] = aa[i].len;
+			awalk[i] = aa[i].walk;
+			ac[i] = aa[i].cnt;
+		}
+		for (var j = 0; j < b.length; ++j) {
+			if (b[j][0] != ".") {
+				var i = b[j].shift();
+				b[j][0] = i2a[i];
+				a.push(b[j].join(":"));
+			} else a.push(".");
+		}
+		var info = ["NS="+ns, "NA="+aa.length, "ALEN="+alen.join(","), "AC="+ac.join(",")];
+		var key = [t[0], t[1], t[2]].join("_");
+		if (anno[key] != null) info.push("ANNO="+anno[key]);
+		info.push("VS="+t[3], "VE="+t[4], "AWALK="+awalk.join(","));
+		a[3] = info.join(";");
+		print(a.join("\t"));
+	}
+	buf.destroy();
+	file.close();
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -969,7 +1054,7 @@ function main(args)
 		print("  paf2bl       blacklist regions from insert-to-ref alignment");
 		print("  anno         annotate short sequences");
 		print("  extractseg   extract a segment from GAF");
-		print("  collate      merge per-sample --call BED");
+		print("  merge        merge per-sample --call BED");
 		print("  bed2sql      generate SQL from --call BED");
 		//print("  subgaf       extract GAF overlapping with a region (BUGGY)");
 		//print("  sveval       evaluate SV accuracy");
@@ -986,6 +1071,7 @@ function main(args)
 	else if (cmd == 'stableGaf') mg_cmd_stableGaf(args);
 	else if (cmd == 'bed2sql') mg_cmd_bed2sql(args);
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
+	else if (cmd == 'merge') mg_cmd_merge(args);
 	else if (cmd == 'collate') mg_cmd_collate(args);
 	else throw Error("unrecognized command: " + cmd);
 }
