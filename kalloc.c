@@ -187,7 +187,7 @@ void *krealloc(void *_km, void *ap, size_t n_bytes) // TODO: this can be made mo
 void *krelocate(void *km, void *ap, size_t n_bytes)
 {
 	void *p;
-	if (km == 0) return ap;
+	if (km == 0 || ap == 0) return ap;
 	p = kmalloc(km, n_bytes);
 	memcpy(p, ap, n_bytes);
 	kfree(km, ap);
