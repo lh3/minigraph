@@ -172,10 +172,11 @@ function mg_cmd_joinfa(args)
 
 function mg_cmd_anno(args)
 {
-	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30, min_centro_len = 200;
+	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30, min_centro_len = 200, mobile = false, max_mobile_div = 2.0;
 	var fn_rmout = null, fn_etrf = null, fn_dust = null, fn_gap = null, fn_paf = null, fn_centro = null, fn_bb = null;
-	while ((c = getopt(args, "e:p:g:d:r:c:l:b:")) != null) {
+	while ((c = getopt(args, "e:p:g:d:r:c:l:b:m")) != null) {
 		if (c == 'l') min_feat_len = parseInt(getopt.arg);
+		else if (c == 'm') mobile = true;
 		else if (c == 'e') fn_etrf = getopt.arg;
 		else if (c == 'p') fn_paf = getopt.arg;
 		else if (c == 'g') fn_gap = getopt.arg;
@@ -196,6 +197,7 @@ function mg_cmd_anno(args)
 		print("  -p FILE     PAF alignment against reference [null]");
 		print("  -c FILE     dna-brnn centromere results [null]");
 		print("  -b FILE     bubble file [null]");
+		print("  -m          annotate AluY and L1HS separately");
 		exit(1);
 	}
 
@@ -228,7 +230,7 @@ function mg_cmd_anno(args)
 
 	if (fn_rmout) {
 		var motif0 = "GGAAT", motif_hash = {}, motif_mut_hash = {};
-		{
+		{ // dealing with possible (GGAAT)n rotations and mutations
 			var comp_tbl = { 'A':'T', 'T':'A', 'C':'G', 'G':'C' };
 			var motif = [motif0], motif_alt = [];
 
@@ -315,6 +317,10 @@ function mg_cmd_anno(args)
 				}
 			}
 
+			if (mobile) {
+				if (t[10] == "LINE/L1" && t[9] == "L1HS" && parseFloat(t[1]) < max_mobile_div) t[10] = "LINE/L1HS";
+				if (t[10] == "SINE/Alu" && /^AluY/.test(t[9]) && parseFloat(t[1]) < max_mobile_div) t[10] = "SINE/AluY";
+			}
 			if (t[10] == 'Simple_repeat' || t[10] == 'Low_complexity') t[10] = 'LCR';
 			if (t[10] != 'LCR') {
 				//	if (parseInt(t[0]) < min_rm_sc) continue;
