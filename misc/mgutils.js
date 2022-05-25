@@ -173,8 +173,8 @@ function mg_cmd_joinfa(args)
 function mg_cmd_anno(args)
 {
 	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30, min_centro_len = 200, mobile = false, max_mobile_div = 2.0;
-	var fn_rmout = null, fn_etrf = null, fn_dust = null, fn_gap = null, fn_paf = null, fn_centro = null, fn_bb = null;
-	while ((c = getopt(args, "e:p:g:d:r:c:l:b:m")) != null) {
+	var fn_rmout = null, fn_etrf = null, fn_dust = null, fn_gap = null, fn_paf = null, fn_centro = null, fn_bb = null, fn_sd = null;
+	while ((c = getopt(args, "e:p:g:d:r:c:l:b:s:m")) != null) {
 		if (c == 'l') min_feat_len = parseInt(getopt.arg);
 		else if (c == 'm') mobile = true;
 		else if (c == 'e') fn_etrf = getopt.arg;
@@ -184,6 +184,7 @@ function mg_cmd_anno(args)
 		else if (c == 'r') fn_rmout = getopt.arg;
 		else if (c == 'c') fn_centro = getopt.arg;
 		else if (c == 'b') fn_bb = getopt.arg;
+		else if (c == 's') fn_sd = getopt.arg;
 	}
 
 	if (args.length - getopt.ind < 1) {
@@ -197,13 +198,14 @@ function mg_cmd_anno(args)
 		print("  -p FILE     PAF alignment against reference [null]");
 		print("  -c FILE     dna-brnn centromere results [null]");
 		print("  -b FILE     bubble file [null]");
+		print("  -s FILE     segdup file (paste gfa2bed bedcov) [null]");
 		print("  -m          annotate AluY and L1HS separately");
 		exit(1);
 	}
 
 	var file, buf = new Bytes();
 
-	var bb = {}, bba = [];
+	var bb = {}, bba = [], seg = {};
 
 	file = new File(args[getopt.ind]);
 	while (file.readline(buf) >= 0) {
@@ -219,11 +221,31 @@ function mg_cmd_anno(args)
 	file.close();
 
 	if (fn_bb) {
+		if (fn_sd) {
+			file = new File(fn_sd);
+			while (file.readline(buf) >= 0) {
+				var t = buf.toString().split("\t");
+				seg[t[3]] = [parseInt(t[4]), parseInt(t[2]) - parseInt(t[1]), parseInt(t[6])];
+			}
+			file.close();
+		}
 		file = new File(fn_bb);
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
 			var key = t[0] + "_" + t[1] + "_" + t[2];
-			if (key in bb) bb[key].push(t[3], t[4], t[5], t[6], t[7], t[8], t[9], t[10]);
+			if (key in bb) {
+				bb[key].push(t[3], t[4], t[5], t[6], t[7], t[8], t[9], t[10]);
+				var s = t[11].split(","), tot_len = 0, tot_sd = 0, ref_len = 0;
+				for (var i = 1; i < s.length - 1; ++i) {
+					if (seg[s[i]] == null) continue;
+					tot_len += seg[s[i]][1], tot_sd += seg[s[i]][2];
+					if (seg[s[i]][0] == 0)
+						ref_len += seg[s[i]][1];
+				}
+				bb[key][7] = tot_len;
+				bb[key][8] = tot_sd;
+				bb[key][9] = ref_len;
+			}
 		}
 		file.close();
 	}
