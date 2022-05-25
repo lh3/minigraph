@@ -529,11 +529,12 @@ function mg_cmd_anno2tbl(args)
 		else if (t[11] == "Retroposon/SVA") type = "03_SVA";
 		else if (t[11] == "LTR/ERV") type = "04_ERV";
 		else if (t[11] == "inter" || /^(DNA|LINE|SINE|LTR)/.test(t[11])) type = "05_Other-TE";
-		else if (/^Satellite/.test(t[11]) || t[11] == "alpha" || t[11] == "hsat2/3") type = "10_Satellite";
+		else if (/^Satellite/.test(t[11]) || t[11] == "alpha" || t[11] == "hsat2/3" || t[11] == "_sat") type = "10_Satellite";
 		else if (t[11] == "self" || t[11] == "none") type = "30_Low-repeat";
 		else if (t[11] == "mixed") type = "20_Other-repeat";
 		else if (t[11] == "segdup") type = "21_SegDup";
-		else type = "30_Low-repeat";
+		else if (t[11] == "partial") type = "30_Low-repeat";
+		else type = "20_Other-repeat";
 		var key = type;
 		if (h[key] == null) h[key] = [0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		++h[key][na];
