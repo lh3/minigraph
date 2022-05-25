@@ -172,10 +172,11 @@ function mg_cmd_joinfa(args)
 
 function mg_cmd_anno(args)
 {
-	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30, min_centro_len = 200, mobile = false, max_mobile_div = 2.0;
+	var c, min_rm_div = 0.2, min_rm_sc = 300, micro_cap = 6, min_feat_len = 30, min_centro_len = 200, mobile = false, max_mobile_div = 2.0, min_segdup_frac = 0.2;
 	var fn_rmout = null, fn_etrf = null, fn_dust = null, fn_gap = null, fn_paf = null, fn_centro = null, fn_bb = null, fn_sd = null;
-	while ((c = getopt(args, "e:p:g:d:r:c:l:b:s:m")) != null) {
+	while ((c = getopt(args, "e:p:g:d:r:c:l:S:b:s:m")) != null) {
 		if (c == 'l') min_feat_len = parseInt(getopt.arg);
+		else if (c == 'S') min_segdup_frac = parseFloat(getopt.arg);
 		else if (c == 'm') mobile = true;
 		else if (c == 'e') fn_etrf = getopt.arg;
 		else if (c == 'p') fn_paf = getopt.arg;
@@ -191,6 +192,7 @@ function mg_cmd_anno(args)
 		print("Usage: anno.js [options] <in.bed>");
 		print("Options:");
 		print("  -l INT      min feature length [" + min_feat_len + "]");
+		print("  -S FLOAT    min segdup length [" + min_segdup_frac + "]");
 		print("  -r FILE     RepeatMasker .out [null]");
 		print("  -g FILE     seqtk gap output for stretches of Ns [null]");
 		print("  -d FILE     minimap2/sdust output for LCRs [null]");
@@ -358,12 +360,17 @@ function mg_cmd_anno(args)
 		file.close();
 
 		for (var i = 0; i < bba.length; ++i) {
-			var h = bb[bba[i]][1], a = [];
-			for (var key in h)
+			var h = bb[bba[i]][1], a = [], b = [];
+			for (var key in h) {
 				if (/^(DNA|SINE|LINE|Retroposon|LTR)/.test(key))
 					for (var j = 0; j < h[key].length; ++j)
 						a.push(h[key][j]);
+				if (/^(Satellite|hsat2\/3|alpha)/.test(key))
+					for (var j = 0; j < h[key].length; ++j)
+						b.push(h[key][j]);
+			}
 			if (a.length) h['_inter'] = a;
+			if (b.length) h['_sat'] = b;
 		}
 	}
 
@@ -421,7 +428,7 @@ function mg_cmd_anno(args)
 		file.close();
 	}
 
-	if (fn_centro) { // this not used, as RepeatMasker can usually do a good job
+	if (fn_centro) {
 		file = new File(fn_centro);
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
@@ -442,7 +449,7 @@ function mg_cmd_anno(args)
 		var x = {}, t = [m[1], m[2], m[3]];
 		if (fn_bb) t.push(bb[key][2], bb[key][3], bb[key][4], bb[key][5], bb[key][6], bb[key][7], bb[key][8], bb[key][9]);
 		else t.push(len);
-		for (var c in h) {
+		for (var c in h) { // calculated the merged length of each feature
 			var s, st = 0, en = 0, cov = 0;
 			s = h[c].sort(function(a, b) { return a[0] - b[0]; });
 			for (var j = 0; j < s.length; ++j) {
@@ -462,7 +469,6 @@ function mg_cmd_anno(args)
 		for (var c in x) {
 			if (c == 'LCR' || c == 'self') continue;
 			if (c == '_inter') continue;
-			//if (c == '_inter') continue;
 			sum += x[c];
 			if (c != 'mini' && c != 'micro') sum_misc += x[c];
 			if (max < x[c]) max2 = max, max_c2 = max_c, max = x[c], max_c = c;
@@ -481,15 +487,17 @@ function mg_cmd_anno(args)
 			type = max_c;
 		} else if (x['_inter'] != null && x['_inter'] >= len * 0.7) {
 			type = 'inter';
+		} else if (x['_sat'] != null && x['_sat'] >= len * 0.5) {
+			type = 'Satellite';
 		} else if (sum_misc + lcr >= len * 0.7) {
 			type = 'mixed';
 		} else if (sum + lcr > len * 0.05) {
-			if (fn_bb && t[8] >= 0 && t[9] >= 0 && t[10] >= 0)
-				type = t[8] >= 1000 && t[9] >= t[8] * 0.5? 'segdup' : 'partial';
-			else type = 'partial';
+			type = 'partial';
 		} else if (self_len >= len * 0.5) {
 			type = 'self';
 		}
+		if ((type == 'partial' || type == 'self' || type == 'none' || type == 'mixed') && fn_bb && t[8] >= 1000 && t[9] >= t[8] * min_segdup_frac)
+			type = 'segdup';
 		t.push(type);
 		for (var c in x)
 			t.push(c + ':' + x[c]);
