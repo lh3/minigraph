@@ -523,7 +523,7 @@ function mg_cmd_anno2tbl(args)
 		var type = null;
 		if (t[11] == "mini") type = "11_VNTR";
 		else if (t[11] == "micro") type = "12_STR";
-		else if (t[11] == "micro" || t[11] == "lcr") type = "13_Other-LCR";
+		else if (t[11] == "lcr") type = "13_Other-LCR";
 		else if (t[11] == "LINE/L1") type = "02_L1";
 		else if (t[11] == "SINE/Alu") type = "01_Alu";
 		else if (t[11] == "Retroposon/SVA") type = "03_SVA";
