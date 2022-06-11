@@ -519,6 +519,25 @@ function mg_cmd_anno(args)
 	buf.destroy();
 }
 
+function mg_classify_repeat(anno) {
+	var type;
+	if (anno == "mini") type = "11_VNTR";
+	else if (anno == "micro") type = "12_STR";
+	else if (anno == "lcr") type = "13_Other-LCR";
+	else if (anno == "LINE/L1" || anno == "LINE/L1HS") type = "02_L1";
+	else if (anno == "SINE/Alu" || anno == "SINE/AluY") type = "01_Alu";
+	else if (anno == "Retroposon/SVA") type = "03_SVA";
+	else if (anno == "LTR/ERV") type = "04_ERV";
+	else if (anno == "inter" || /^(DNA|LINE|SINE|LTR)/.test(anno)) type = "05_Other-TE";
+	else if (/^Satellite/.test(anno) || anno == "alpha" || anno == "hsat2/3" || anno == "_sat") type = "10_Satellite";
+	else if (anno == "self" || anno == "none") type = "30_Low-repeat";
+	else if (anno == "mixed") type = "20_Other-repeat";
+	else if (anno == "segdup") type = "21_SegDup";
+	else if (anno == "partial") type = "30_Low-repeat";
+	else type = "20_Other-repeat";
+	return type;
+}
+
 function mg_cmd_anno2tbl(args)
 {
 	var segdup_ratio = 0.7;
@@ -532,22 +551,7 @@ function mg_cmd_anno2tbl(args)
 		if (t[11] == "gap") continue;
 		if (/chrUn|_random/.test(t[0])) continue;
 		var na = t[4] < 4? t[4] : 4;
-		var type = null;
-		if (t[11] == "mini") type = "11_VNTR";
-		else if (t[11] == "micro") type = "12_STR";
-		else if (t[11] == "lcr") type = "13_Other-LCR";
-		else if (t[11] == "LINE/L1" || t[11] == "LINE/L1HS") type = "02_L1";
-		else if (t[11] == "SINE/Alu" || t[11] == "SINE/AluY") type = "01_Alu";
-		else if (t[11] == "Retroposon/SVA") type = "03_SVA";
-		else if (t[11] == "LTR/ERV") type = "04_ERV";
-		else if (t[11] == "inter" || /^(DNA|LINE|SINE|LTR)/.test(t[11])) type = "05_Other-TE";
-		else if (/^Satellite/.test(t[11]) || t[11] == "alpha" || t[11] == "hsat2/3" || t[11] == "_sat") type = "10_Satellite";
-		else if (t[11] == "self" || t[11] == "none") type = "30_Low-repeat";
-		else if (t[11] == "mixed") type = "20_Other-repeat";
-		else if (t[11] == "segdup") type = "21_SegDup";
-		else if (t[11] == "partial") type = "30_Low-repeat";
-		else type = "20_Other-repeat";
-		var key = type;
+		var key = mg_classify_repeat(anno);
 		if (h[key] == null) h[key] = [0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		++h[key][na];
 		h[key][na+3] += t[7];
@@ -1090,6 +1094,67 @@ function mg_cmd_merge(args)
 	file.close();
 }
 
+function mg_cmd_segfreq(args) {
+	var c;
+	while ((c = getopt(args, "")) != null) {
+	}
+	if (args.length - getopt.ind < 2) {
+		print("Usage: mgutils.js segfreq <gfa2bed.bed> <merged.txt>");
+		return 1;
+	}
+	var file, buf = new Bytes();
+
+	file = new File(args[getopt.ind]);
+	var h = {}, a = [];
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		h[t[3]] = a.length;
+		a.push([t[0], t[1], t[2], t[3], parseInt(t[4]), 0, 0, "N/A", "N/A"]);
+	}
+	file.close();
+
+	var re_info = /([^\s=;]+)=([^\s=;]+)/g;
+	var re_walk = /([><])([^\s><]+)/g;
+	file = new File(args[getopt.ind+1]);
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t", 4);
+		if (t[0][0] == "#") continue;
+		var anno = null, ac = null, walk = null;
+		while ((m = re_info.exec(t[3])) != null) {
+			if (m[1] == "ANNO") anno = m[2];
+			else if (m[1] == "AWALK") walk = m[2].split(",");
+			else if (m[1] == "AC") {
+				ac = m[2].split(",");
+				for (var i = 0; i < ac.length; ++i)
+					ac[i] = parseInt(ac[i]);
+			}
+		}
+		if (ac == null || walk == null) throw Error("Missing AC or AWALK");
+		if (ac.length != walk.length) throw Error("Inconsistent AC or AWALK");
+		if (anno == null) anno = "N/A";
+		var ns = 0;
+		for (var i = 0; i < walk.length; ++i)
+			ns += ac[i];
+		for (var i = 0; i < walk.length; ++i) {
+			if (walk[i] == "*") continue;
+			while ((m = re_walk.exec(walk[i])) != null) {
+				var s = m[2];
+				if (h[s] == null) throw Error("Missing segment " + s);
+				var b = a[h[s]];
+				b[5] = ns;
+				b[6] += ac[i];
+				b[7] = anno;
+				b[8] = mg_classify_repeat(anno);
+			}
+		}
+	}
+	file.close();
+	buf.destroy();
+
+	for (var i = 0; i < a.length; ++i)
+		print(a[i].join("\t"));
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -1106,6 +1171,7 @@ function main(args)
 		print("  anno2tbl     summarize anno output");
 		print("  extractseg   extract a segment from GAF");
 		print("  merge        merge per-sample --call BED");
+		print("  segfreq      compute node frequency from merged calls");
 		print("  bed2sql      generate SQL from --call BED");
 		//print("  subgaf       extract GAF overlapping with a region (BUGGY)");
 		//print("  sveval       evaluate SV accuracy");
@@ -1124,6 +1190,7 @@ function main(args)
 	else if (cmd == 'bed2sql') mg_cmd_bed2sql(args);
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else if (cmd == 'merge') mg_cmd_merge(args);
+	else if (cmd == 'segfreq') mg_cmd_segfreq(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
