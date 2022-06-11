@@ -536,8 +536,8 @@ function mg_cmd_anno2tbl(args)
 		if (t[11] == "mini") type = "11_VNTR";
 		else if (t[11] == "micro") type = "12_STR";
 		else if (t[11] == "lcr") type = "13_Other-LCR";
-		else if (t[11] == "LINE/L1") type = "02_L1";
-		else if (t[11] == "SINE/Alu") type = "01_Alu";
+		else if (t[11] == "LINE/L1" || t[11] == "LINE/L1HS") type = "02_L1";
+		else if (t[11] == "SINE/Alu" || t[11] == "SINE/AluY") type = "01_Alu";
 		else if (t[11] == "Retroposon/SVA") type = "03_SVA";
 		else if (t[11] == "LTR/ERV") type = "04_ERV";
 		else if (t[11] == "inter" || /^(DNA|LINE|SINE|LTR)/.test(t[11])) type = "05_Other-TE";
