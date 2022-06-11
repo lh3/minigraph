@@ -238,8 +238,11 @@ function mg_cmd_anno(args)
 			if (key in bb) {
 				bb[key].push(t[3], t[4], t[5], t[6], t[7], t[8], t[9], t[10]);
 				var s = t[11].split(","), tot_len = 0, tot_sd = 0, ref_len = 0;
+				var dup = {};
 				for (var i = 1; i < s.length - 1; ++i) {
 					if (seg[s[i]] == null) continue;
+					if (dup[s[i]]) continue;
+					dup[s[i]] = 1;
 					tot_len += seg[s[i]][1], tot_sd += seg[s[i]][2];
 					if (seg[s[i]][0] == 0)
 						ref_len += seg[s[i]][1];
@@ -547,11 +550,11 @@ function mg_cmd_anno2tbl(args)
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
 		for (var i = 1; i <= 7; ++i) t[i] = parseInt(t[i]);
-		if (t[5]) continue;
+		//if (t[5]) continue;
 		if (t[11] == "gap") continue;
 		if (/chrUn|_random/.test(t[0])) continue;
 		var na = t[4] < 4? t[4] : 4;
-		var key = mg_classify_repeat(anno);
+		var key = mg_classify_repeat(t[11]);
 		if (h[key] == null) h[key] = [0, null, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 		++h[key][na];
 		h[key][na+3] += t[7];
@@ -1095,11 +1098,12 @@ function mg_cmd_merge(args)
 }
 
 function mg_cmd_segfreq(args) {
-	var c;
-	while ((c = getopt(args, "")) != null) {
+	var c, min_af = 0.05;
+	while ((c = getopt(args, "f:")) != null) {
+		if (c == 'f') min_af = parseFloat(getopt.arg);
 	}
 	if (args.length - getopt.ind < 2) {
-		print("Usage: mgutils.js segfreq <gfa2bed.bed> <merged.txt>");
+		print("Usage: mgutils.js segfreq [-f minFreq=0.05] <gfa2bed.bed> <merged.txt> [bubble.bed]");
 		return 1;
 	}
 	var file, buf = new Bytes();
@@ -1109,12 +1113,13 @@ function mg_cmd_segfreq(args) {
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
 		h[t[3]] = a.length;
-		a.push([t[0], t[1], t[2], t[3], parseInt(t[4]), 0, 0, "N/A", "N/A"]);
+		a.push([t[0], t[1], t[2], t[3], parseInt(t[4]), 0, 0, "N/A", "N/A", 0]);
 	}
 	file.close();
 
 	var re_info = /([^\s=;]+)=([^\s=;]+)/g;
 	var re_walk = /([><])([^\s><]+)/g;
+	var bb = {};
 	file = new File(args[getopt.ind+1]);
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t", 4);
@@ -1132,27 +1137,64 @@ function mg_cmd_segfreq(args) {
 		if (ac == null || walk == null) throw Error("Missing AC or AWALK");
 		if (ac.length != walk.length) throw Error("Inconsistent AC or AWALK");
 		if (anno == null) anno = "N/A";
+		bb[t[0]+"_"+t[1]+"_"+t[2]] = anno;
 		var ns = 0;
 		for (var i = 0; i < walk.length; ++i)
 			ns += ac[i];
+		var dup = {};
 		for (var i = 0; i < walk.length; ++i) {
 			if (walk[i] == "*") continue;
 			while ((m = re_walk.exec(walk[i])) != null) {
 				var s = m[2];
 				if (h[s] == null) throw Error("Missing segment " + s);
+				if (dup[s]) continue;
+				dup[s] = 1;
 				var b = a[h[s]];
 				b[5] = ns;
 				b[6] += ac[i];
 				b[7] = anno;
 				b[8] = mg_classify_repeat(anno);
+				b[9] = walk.length;
 			}
 		}
 	}
 	file.close();
+
+	if (args.length - getopt.ind >= 3) {
+		file = new File(args[getopt.ind+2]);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var s = t[11].split(",");
+			var anno = bb[t[0]+"_"+t[1]+"_"+t[2]];
+			if (anno == null) throw Error("Missing bubble");
+			for (var i = 1; i < s.length - 1; ++i) {
+				if (h[s[i]] == null) throw Error("Inconsistent bubble file");
+				var b = a[h[s[i]]];
+				b[10] = t[0], b[11] = t[1], b[12] = t[2];
+				b[7] = anno;
+				b[8] = mg_classify_repeat(anno);
+			}
+		}
+		file.close();
+	}
+
 	buf.destroy();
 
-	for (var i = 0; i < a.length; ++i)
+	var replen = {};
+	for (var i = 0; i < a.length; ++i) {
 		print(a[i].join("\t"));
+		var anno = a[i][8], len = parseInt(a[i][2]) - parseInt(a[i][1]);
+		if (a[i][4] > 0 && a[i][5] > 0 && a[i][6] >= a[i][5] * min_af) {
+			if (replen[anno] == null) replen[anno] = [0, 0, 0];
+			if (a[i][9] == 2) replen[anno][0] += len;
+			else if (a[i][9] == 3) replen[anno][1] += len;
+			else if (a[i][9] > 3) replen[anno][2] += len;
+		}
+	}
+	for (var x in replen) {
+		var y = x.replace(/^\d+_/, "");
+		warn(x, y, replen[x].join("\t"));
+	}
 }
 
 /*************************
