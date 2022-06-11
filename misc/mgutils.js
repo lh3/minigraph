@@ -360,7 +360,7 @@ function mg_cmd_anno(args)
 		file.close();
 
 		for (var i = 0; i < bba.length; ++i) {
-			var h = bb[bba[i]][1], a = [], b = [];
+			var h = bb[bba[i]][1], a = [], b = [], c_alu = [], c_l1 = [];
 			for (var key in h) {
 				if (/^(DNA|SINE|LINE|Retroposon|LTR)/.test(key))
 					for (var j = 0; j < h[key].length; ++j)
@@ -368,9 +368,17 @@ function mg_cmd_anno(args)
 				if (/^(Satellite|hsat2\/3|alpha)/.test(key))
 					for (var j = 0; j < h[key].length; ++j)
 						b.push(h[key][j]);
+				if (/^(SINE\/Alu)/.test(key))
+					for (var j = 0; j < h[key].length; ++j)
+						c_alu.push(h[key][j]);
+				if (/^(LINE\/L1)/.test(key))
+					for (var j = 0; j < h[key].length; ++j)
+						c_l1.push(h[key][j]);
 			}
 			if (a.length) h['_inter'] = a;
 			if (b.length) h['_sat'] = b;
+			if (c_alu.length) h['_alu'] = c_alu;
+			if (c_l1.length) h['_l1'] = c_l1;
 		}
 	}
 
@@ -468,7 +476,7 @@ function mg_cmd_anno(args)
 		var self_len = x['self'] == null? 0 : x['self'];
 		for (var c in x) {
 			if (c == 'LCR' || c == 'self') continue;
-			if (c == '_inter') continue;
+			if (c[0] == '_') continue;
 			sum += x[c];
 			if (c != 'mini' && c != 'micro') sum_misc += x[c];
 			if (max < x[c]) max2 = max, max_c2 = max_c, max = x[c], max_c = c;
@@ -485,6 +493,10 @@ function mg_cmd_anno(args)
 			}
 		} else if ((max_c == 'mini' || max_c == 'micro') && max2 < max * 0.1) {
 			type = max_c;
+		} else if (x['_alu'] != null && x['_alu'] >= len * 0.7) {
+			type = 'SINE/Alu';
+		} else if (x['_l1'] != null && x['_l1'] >= len * 0.7) {
+			type = 'LINE/L1';
 		} else if (x['_inter'] != null && x['_inter'] >= len * 0.7) {
 			type = 'inter';
 		} else if (x['_sat'] != null && x['_sat'] >= len * 0.5) {
