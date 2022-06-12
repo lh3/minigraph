@@ -1,3 +1,14 @@
+Release 0.19-r551 (12 June 2022)
+--------------------------------
+
+This release fixes a segmental fault if minigraph is compiled with certain
+compiler-libc combinations. This is apparently caused by memcpy(0,0,0).
+Minigraph is otherwise identical v0.18.
+
+(12 June 2022, r551)
+
+
+
 Release 0.18-r538 (9 May 2022)
 ------------------------------
 
