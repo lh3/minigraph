@@ -1197,6 +1197,169 @@ function mg_cmd_segfreq(args) {
 	}
 }
 
+function mg_cmd_genecopy(args)
+{
+	var c, opt = { min_cov:0.8, min_rel_cov:0.9, max_prev_ovlp:0.5, mm:4, gapo:5 };
+	while ((c = getopt(args, "c:r:")) != null) {
+		if (c == 'c') opt.min_cov = parseFloat(getopt.arg);
+		else if (c == 'r') opt.min_rel_cov = parseFloat(getopt.arg);
+	}
+	if (args.length - getopt.ind < 2) {
+		print("Usage: mgutils.js genecopy [options] <in.gaf> <src.bed>");
+		print("Options:");
+		print("  -c FLOAT     min coverage [" + opt.min_cov + "]");
+		print("  -r FLOAT     min relative coverage [" + opt.min_rel_cov + "]");
+		return;
+	}
+	var re_cg = /(\d+)([MIDNSHP=X])/g;
+	var re_walk = /([><])([^\s><]+):(\d+)-(\d+)/g;
+	var file, buf = new Bytes();
+
+	var src = {};
+	file = new File(args[getopt.ind+1]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		src[t[3]] = [t[0], parseInt(t[1]), parseInt(t[2]), t[5] == '+'? 1 : -1];
+	}
+	file.close();
+
+	file = new File(args[getopt.ind]);
+	var gene = {}, reg = {};
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+
+		// check coverage
+		if (/\|([A-Z]+\d*\.\d+|ENSG\d+)$/.test(t[0])) continue;
+		for (var i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
+		for (var i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
+		if (t[3] - t[2] < t[1] * opt.min_cov) continue;
+		if (gene[t[0]] != null) {
+			var g0 = gene[t[0]][0];
+			if (t[3] - t[2] < (g0[2] - g0[1]) * opt.min_rel_cov)
+				continue;
+		}
+
+		// compute de
+		var m, cg = null;
+		for (var i = 12; i < t.length; ++i) {
+			if (t[i].substr(0, 4) == "cg:Z")
+				cg = t[i].substr(5);
+		}
+		if (cg == null) throw Error("no cg");
+		var blen = 0, mlen = 0, sc = 0;
+		while ((m = re_cg.exec(cg)) != null) {
+			var len = parseInt(m[1]);
+			if (m[2] == '=') mlen += len, blen += len, sc += len;
+			else {
+				++blen;
+				if (m[2] == '*') sc -= opt.mm;
+				else sc -= opt.gapo + len;
+			}
+		}
+		var de = (blen - mlen) / blen;
+
+		// find intervals
+		var intv = [];
+		if (t[5][0] == '>' || t[5][0] == '<') {
+			var len = 0;
+			while ((m = re_walk.exec(t[5])) != null) {
+				var st = parseInt(m[3]), en = parseInt(m[4]);
+				var ss = st, ee = en;
+				if (t[7] >= len && t[7] < len + en - st) {
+					if (m[1] == '>') ss = st + t[7];
+					else ee = en - t[7];
+				} else if (t[8] >= len && t[8] < len + en - st) {
+					if (m[1] == '>') ee = st + t[8] - len;
+					else ss = st + t[6] - t[8];
+				}
+				intv.push([m[2], ss, ee, m[1] == '>'? 1 : -1]);
+				len += en - st;
+			}
+		} else intv.push([t[5], t[7], t[8], t[4] == '+'? 1 : -1]);
+
+		// save
+		if (gene[t[0]] == null) gene[t[0]] = [];
+		for (var j = 0; j < intv.length; ++j) {
+			var x = intv[j], pass = true;
+			if (reg[x[0]] == null) reg[x[0]] = [];
+			if (src[t[0]] != null) {
+				var y = src[t[0]];
+				if (y[0] == x[0] && y[1] < x[2] && x[1] < y[2]) {
+					var l = (x[2] < y[2]? x[2] : y[2]) - (x[1] > y[1]? x[1] : y[1]);
+					if (l > (x[2] - x[1]) * 0.99) pass = false;
+				}
+			}
+			reg[x[0]].push([x[1], x[2], 0, t[0], gene[t[0]].length, pass, x[3]]);
+		}
+		gene[t[0]].push([t[1], t[2], t[3], sc, de, intv]);
+	}
+	file.close();
+	buf.destroy();
+
+	// preparation
+	var a = [];
+	for (var g in gene) {
+		var x = gene[g];
+		for (var i = 0; i < x.length; ++i)
+			a.push([x[i][3], g, i]);
+	}
+	a.sort(function(x,y) { return y[0]-x[0] });
+	for (var x in reg) it_index(reg[x]);
+
+	// select
+	var good_hit = [];
+	for (var i = 0; i < a.length; ++i) {
+		var x = a[i];
+		var h = gene[x[1]][x[2]];
+		var intv = h[5], cov_tot = 0, len_tot = 0, ovlp_gene = {};
+		for (var j = 0; j < intv.length; ++j) {
+			var y = intv[j];
+			len_tot += y[2] - y[1];
+			if (reg[y[0]] == null) continue;
+			var st0 = y[1], en0 = y[2];
+			var b = it_overlap(reg[y[0]], st0, en0);
+			var cov_st = 0, cov_en = 0, cov = 0;
+			for (var k = 0; k < b.length; ++k) {
+				if (b[k][5] || b[k][6] != y[3]) continue;
+				ovlp_gene[b[k][3]] = 1;
+				var st1 = b[k][0] > st0? b[k][0] : st0;
+				var en1 = b[k][1] < en0? b[k][1] : en0;
+				if (st1 > cov_en) {
+					cov += cov_en - cov_st;
+					cov_st = st1, cov_en = en1;
+				} else cov_en = cov_en > en1? cov_en : en1;
+			}
+			cov += cov_en - cov_st;
+			cov_tot += cov;
+		}
+		var ovlp_gene_arr = [];
+		for (var y in ovlp_gene) ovlp_gene_arr.push(y);
+		if (ovlp_gene_arr.length > 0)
+			print("OG", x[1], x[2], cov_tot, len_tot, ovlp_gene_arr);
+		if (cov_tot < len_tot * opt.max_prev_ovlp) {
+			good_hit.push([x[1], x[2]]);
+			for (var j = 0; j < intv.length; ++j) {
+				var y = intv[j];
+				if (reg[y[0]] == null) continue;
+				var b = it_overlap(reg[y[0]], y[1], y[2]);
+				for (var k = 0; k < b.length; ++k)
+					if (b[k][3] == x[1] && b[k][4] == x[2])
+						b[k][5] = false;
+			}
+		}
+	}
+
+	// count good_hit
+	var out = {};
+	for (var g in gene) out[g] = [gene[g].length, 0];
+	for (var i = 0; i < good_hit.length; ++i) {
+		print("GH", good_hit[i][0], gene[good_hit[i][0]][good_hit[i][1]].join("\t"));
+		++out[good_hit[i][0]][1];
+	}
+	for (var g in out)
+		print("GC", g, out[g].join("\t"));
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -1214,6 +1377,7 @@ function main(args)
 		print("  extractseg   extract a segment from GAF");
 		print("  merge        merge per-sample --call BED");
 		print("  segfreq      compute node frequency from merged calls");
+		print("  genecopy     gene copy analysis");
 		print("  bed2sql      generate SQL from --call BED");
 		//print("  subgaf       extract GAF overlapping with a region (BUGGY)");
 		//print("  sveval       evaluate SV accuracy");
@@ -1233,6 +1397,7 @@ function main(args)
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else if (cmd == 'merge') mg_cmd_merge(args);
 	else if (cmd == 'segfreq') mg_cmd_segfreq(args);
+	else if (cmd == 'genecopy') mg_cmd_genecopy(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
