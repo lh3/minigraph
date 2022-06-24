@@ -1110,6 +1110,38 @@ function mg_cmd_merge(args)
 	file.close();
 }
 
+function mg_cmd_merge2vcf(args) {
+	var buf = new Bytes();
+	var file = args.length == 0? new File() : new File(args[0]);
+	print("##fileformat=VCFv4.2");
+	print('##ALT=<ID=CNV,Description="description">');
+	print('##FORMAT=<ID=GT0,Number=1,Type=String,Description="Original genotype">');
+	while (file.readline(buf) >= 0) {
+		var line = buf.toString();
+		if (/^##/.test(line)) {
+			print(line);
+			continue;
+		}
+		var a, t = line.split("\t");
+		if (line[0] == "#") {
+			a = ["#CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"];
+			for (var i = 5; i < t.length; ++i)
+				a.push(t[i]);
+		} else {
+			a = [t[0], t[1], ".", "N", "<CNV>", 30, "PASS", t[3] + ";END=" + t[2], "GT:GT0"];
+			for (var i = 5; i < t.length; ++i) {
+				var s = t[i].split(":");
+				if (s[0] == ".") a.push(s[0]);
+				else if (s[0] == "0") a.push("0:0");
+				else a.push("1:" + s[0]);
+			}
+		}
+		print(a.join("\t"));
+	}
+	file.close();
+	buf.destroy();
+}
+
 function mg_cmd_segfreq(args) {
 	var c, min_af = 0.05;
 	while ((c = getopt(args, "f:")) != null) {
@@ -1389,6 +1421,7 @@ function main(args)
 		print("  anno2tbl     summarize anno output");
 		print("  extractseg   extract a segment from GAF");
 		print("  merge        merge per-sample --call BED");
+		print("  merge2vcf    convert merge BED output to VCF");
 		print("  segfreq      compute node frequency from merged calls");
 		print("  genecopy     gene copy analysis");
 		print("  bed2sql      generate SQL from --call BED");
@@ -1409,6 +1442,7 @@ function main(args)
 	else if (cmd == 'bed2sql') mg_cmd_bed2sql(args);
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else if (cmd == 'merge') mg_cmd_merge(args);
+	else if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
 	else if (cmd == 'segfreq') mg_cmd_segfreq(args);
 	else if (cmd == 'genecopy') mg_cmd_genecopy(args);
 	else throw Error("unrecognized command: " + cmd);
