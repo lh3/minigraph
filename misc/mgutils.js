@@ -1014,12 +1014,16 @@ function mg_cmd_bed2sql(args)
 
 function mg_cmd_merge(args)
 {
-	var c, fn_anno = null;
-	while ((c = getopt(args, "a:")) != null) {
+	var c, fn_anno = null, fn_sample = null;
+	while ((c = getopt(args, "a:s:")) != null) {
 		if (c == 'a') fn_anno = getopt.arg;
+		else if (c == 's') fn_sample = getopt.arg;
 	}
 	if (args.length - getopt.ind == 0) {
-		print("Usage: paste *.bed | mgutils.js merge [-a <anno.bed>] -");
+		print("Usage: paste *.bed | mgutils.js merge -");
+		print("Options:");
+		print("  -a FILE    annotation [null]");
+		print("  -s FILE    list of samples [null]");
 		return;
 	}
 
@@ -1031,6 +1035,15 @@ function mg_cmd_merge(args)
 			var t = buf.toString().split("\t");
 			var key = [t[0], t[1], t[2]].join("_");
 			anno[key] = t[11];
+		}
+		file.close();
+	}
+	var hdr = ["#CHROM", "START", "END", "INFO", "FORMAT"];
+	if (fn_sample) {
+		file = new File(fn_sample);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split(/\s+/);
+			hdr.push(t[0]);
 		}
 		file.close();
 	}
@@ -1048,7 +1061,7 @@ function mg_cmd_merge(args)
 	print('##FORMAT=<ID=CTG,Number=1,Type=String,Description="Contig name">');
 	print('##FORMAT=<ID=CS,Number=1,Type=String,Description="Contig start, BED-like">');
 	print('##FORMAT=<ID=CE,Number=1,Type=String,Description="Contig end, BED-like">');
-	print("#CHROM\tSTART\tEND\tINFO\tFORMAT");
+	print(hdr.join("\t"));
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
 		var a = [t[0], t[1], t[2], "", "GT:CSTRAND:CTG:CS:CE"];
@@ -1199,7 +1212,7 @@ function mg_cmd_segfreq(args) {
 
 function mg_cmd_genecopy(args)
 {
-	var c, opt = { min_cov:0.8, min_rel_cov:0.9, max_prev_ovlp:0.5, mm:4, gapo:5 };
+	var c, opt = { min_cov:0.8, min_rel_cov:0.85, max_prev_ovlp:0.5, mm:4, gapo:5 };
 	while ((c = getopt(args, "c:r:")) != null) {
 		if (c == 'c') opt.min_cov = parseFloat(getopt.arg);
 		else if (c == 'r') opt.min_rel_cov = parseFloat(getopt.arg);
