@@ -1405,6 +1405,53 @@ function mg_cmd_genecopy(args)
 		print("GC", g, out[g].join("\t"));
 }
 
+function mg_cmd_path(args)
+{
+	if (args.length != 2) {
+		print("Usage: paste *.bed | mgutils.js path <sample file> -");
+		return;
+	}
+	var file, buf = new Bytes();
+	var paths = [];
+    var samples = [];
+    file = new File(args[0]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString();
+        paths.push([]);
+		samples.push(t);
+	}
+	file.close();
+	file = args[1] == "-"? new File() : new File(args[1]);
+
+    var dict = {">":"+","<":"-"};
+
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+        for (var j = 5; j < t.length; j += 6) {
+            var index = ~~(j/6); //~~ is a way to get integer division
+            if (!paths[index].length) {
+                paths[index].push(t[3].substring(1)+"+");
+            }
+            if (t[j] != ".") {
+                if (t[j][0] != "*") {
+                    var nodes = t[j].split(":")[0].split(/(?=>|<)/g);
+                    for (var n=0; n<nodes.length; n++) {
+                        var node=nodes[n];
+                        paths[index].push(node.substring(1)+dict[node[0]]);
+                    }
+                }
+            }
+            paths[index].push(t[4].substring(1)+"+");
+	    }
+    }
+    buf.destroy();
+    file.close();
+    for (var p=0; p<paths.length; p++) {
+        var path = paths[p].join(",");
+	    print("P",samples[p],path);
+    }
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -1422,6 +1469,7 @@ function main(args)
 		print("  extractseg   extract a segment from GAF");
 		print("  merge        merge per-sample --call BED");
 		print("  merge2vcf    convert merge BED output to VCF");
+        print("  path         prints P-lines for per-sample --call BED");
 		print("  segfreq      compute node frequency from merged calls");
 		print("  genecopy     gene copy analysis");
 		print("  bed2sql      generate SQL from --call BED");
@@ -1443,6 +1491,7 @@ function main(args)
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else if (cmd == 'merge') mg_cmd_merge(args);
 	else if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
+    else if (cmd == 'path') mg_cmd_path(args);
 	else if (cmd == 'segfreq') mg_cmd_segfreq(args);
 	else if (cmd == 'genecopy') mg_cmd_genecopy(args);
 	else throw Error("unrecognized command: " + cmd);
