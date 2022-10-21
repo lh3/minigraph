@@ -379,7 +379,7 @@ static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max
 
 static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1, const mg128_t *a)
 {
-	if (!l1->inner_pre) { // bridging two segments
+	if (l1->v != l0->v) { // bridging two segments
 		int32_t ed = -1;
 		if (aux->n_seg > 1 || !bridge_gwfa(aux, kmer_size, gdp_max_ed, l0, l1, &ed))
 			bridge_shortk(aux, l0, l1);
@@ -388,7 +388,6 @@ static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_siz
 	} else { // on one segment
 		int32_t k;
 		mg_llchain_t *t = &aux->llc[aux->n_llc - 1];
-		assert(l0->v == l1->v);
 		for (k = 0; k < l1->cnt; ++k) { // FIXME: this part is made redundant by resolve_overlap()
 			const mg128_t *ak = &a[l1->off + k];
 			if ((int32_t)ak->x > l0->re && (int32_t)ak->y > l0->qe)
