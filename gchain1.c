@@ -393,10 +393,11 @@ static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_siz
 			if ((int32_t)ak->x > l0->re && (int32_t)ak->y > l0->qe)
 				break;
 		}
-		assert(k < l1->cnt);
-		t->cnt += l1->cnt - k, t->score += l1->score;
-		memcpy(&gc->a[aux->n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
-		aux->n_a += l1->cnt - k;
+		if (k < l1->cnt) { // l1 contained. TODO: check what is happening...
+			t->cnt += l1->cnt - k, t->score += l1->score;
+			memcpy(&gc->a[aux->n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
+			aux->n_a += l1->cnt - k;
+		}
 	}
 }
 
