@@ -1448,7 +1448,7 @@ function mg_cmd_path(args)
     file.close();
     for (var p=0; p<paths.length; p++) {
         var path = paths[p].join(",");
-	    print("P",samples[p],path);
+	    print("P",samples[p],path,"*");
     }
 }
 
