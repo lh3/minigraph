@@ -193,10 +193,10 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 			mg_sprintf_lite(s, "\tcg:Z:");
 			if (rev_sign)
 				for (j = p->p->n_cigar - 1; j >= 0; --j)
-					mg_sprintf_lite(s, "%d%c", p->p->cigar[j]>>4, "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
+					mg_sprintf_lite(s, "%d%c", (int32_t)(p->p->cigar[j]>>4), "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
 			else
 				for (j = 0; j < p->p->n_cigar; ++j)
-					mg_sprintf_lite(s, "%d%c", p->p->cigar[j]>>4, "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
+					mg_sprintf_lite(s, "%d%c", (int32_t)(p->p->cigar[j]>>4), "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
 		}
 		mg_sprintf_lite(s, "\n");
 		if ((mg_dbg_flag & MG_DBG_LCHAIN) || (flag & MG_M_WRITE_LCHAIN)) {
