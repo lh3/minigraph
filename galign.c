@@ -120,7 +120,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 			j0 = j, l0 = l;
 		}
 		// save the CIGAR to gt->gc[i]
-		gc->p = (mg_cigar_t*)kcalloc(gt->km, 1, cigar.n * 4 + sizeof(mg_cigar_t));
+		gc->p = (mg_cigar_t*)kcalloc(gt->km, 1, cigar.n * 8 + sizeof(mg_cigar_t));
 		gc->p->ss = (int32_t)gt->a[off_a0].x + 1 - (int32_t)(gt->a[off_a0].y>>32&0xff);
 		gc->p->ee = (int32_t)gt->a[off_a0 + gc->n_anchor - 1].x + 1;
 		gc->p->n_cigar = cigar.n;

@@ -1,3 +1,14 @@
+Release 0.20-r559 (20 November 2022)
+------------------------------------
+
+This release fixes several assertion failures (#78, #79 and #80) caused by
+recent changes in graph chaining. It also fixes an integer overflow that may
+happen to chromosomes longer than 256 Mb (#76). Results remain the same.
+
+(20 November 2022, r559)
+
+
+
 Release 0.19-r551 (12 June 2022)
 --------------------------------
 
