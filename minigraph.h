@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.19-r551"
+#define MG_VERSION "0.20-r559"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -41,6 +41,7 @@
 typedef struct { uint64_t x, y; } mg128_t;
 typedef struct { size_t n, m; mg128_t *a; } mg128_v;
 typedef struct { int32_t n, m; uint32_t *a; } mg32_v;
+typedef struct { int32_t n, m; uint64_t *a; } mg64_v;
 
 typedef struct {
 	int w, k;
@@ -113,7 +114,7 @@ typedef struct {
 
 typedef struct {
 	int32_t n_cigar, mlen, blen, aplen, ss, ee; // ss: start on the start vertex; ee: end on the end vertex
-	uint32_t cigar[];
+	uint64_t cigar[];
 } mg_cigar_t;
 
 typedef struct {

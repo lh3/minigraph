@@ -316,7 +316,7 @@ static inline void copy_lchain(mg_llchain_t *q, const mg_lchain_t *p, int32_t *n
 	(*n_a) += q->cnt;
 }
 
-static void bridge_shortk(bridge_aux_t *aux, const mg_lchain_t *l0, const mg_lchain_t *l1)
+static int32_t bridge_shortk(bridge_aux_t *aux, const mg_lchain_t *l0, const mg_lchain_t *l1)
 {
 	int32_t s, n_pathv;
 	mg_path_dst_t dst;
@@ -328,10 +328,12 @@ static void bridge_shortk(bridge_aux_t *aux, const mg_lchain_t *l0, const mg_lch
 	dst.target_hash = l1->hash_pre;
 	dst.check_hash = 1;
 	p = mg_shortest_k(aux->km, aux->g, l1->v^1, 1, &dst, dst.target_dist, MG_MAX_SHORT_K, &n_pathv);
-	if (n_pathv == 0 || dst.target_hash != dst.hash)
-		fprintf(stderr, "%c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d\n", "><"[(l1->v^1)&1], aux->g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1], aux->g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
-	assert(n_pathv > 0);
-	assert(dst.target_hash == dst.hash);
+	if (n_pathv == 0 || dst.target_hash != dst.hash) {
+		fprintf(stderr, "[W::%s] %c%s[%d] -> %c%s[%d], dist=%d, target_dist=%d; chain skiped.\n", __func__, "><"[(l1->v^1)&1], aux->g->seg[l1->v>>1].name, l1->v^1, "><"[(l0->v^1)&1],
+				aux->g->seg[l0->v>>1].name, l0->v^1, dst.dist, dst.target_dist);
+		kfree(aux->km, p);
+		return -1;
+	}
 	for (s = n_pathv - 2; s >= 1; --s) { // path found in a backward way, so we need to reverse it
 		mg_llchain_t *q;
 		if (aux->n_llc == aux->m_llc) KEXPAND(aux->km, aux->llc, aux->m_llc);
@@ -341,6 +343,7 @@ static void bridge_shortk(bridge_aux_t *aux, const mg_lchain_t *l0, const mg_lch
 		q->ed = -1;
 	}
 	kfree(aux->km, p);
+	return 0;
 }
 
 static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1, int32_t *ed)
@@ -377,28 +380,30 @@ static int32_t bridge_gwfa(bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max
 	return 1;
 }
 
-static void bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1, const mg128_t *a)
+static int32_t bridge_lchains(mg_gchains_t *gc, bridge_aux_t *aux, int32_t kmer_size, int32_t gdp_max_ed, const mg_lchain_t *l0, const mg_lchain_t *l1, const mg128_t *a)
 {
-	if (!l1->inner_pre) { // bridging two segments
-		int32_t ed = -1;
+	if (l1->v != l0->v) { // bridging two segments
+		int32_t ed = -1, ret = 0;
 		if (aux->n_seg > 1 || !bridge_gwfa(aux, kmer_size, gdp_max_ed, l0, l1, &ed))
-			bridge_shortk(aux, l0, l1);
+			ret = bridge_shortk(aux, l0, l1);
+		if (ret < 0) return -1;
 		if (aux->n_llc == aux->m_llc) KEXPAND(aux->km, aux->llc, aux->m_llc);
 		copy_lchain(&aux->llc[aux->n_llc++], l1, &aux->n_a, gc->a, a, ed);
 	} else { // on one segment
 		int32_t k;
 		mg_llchain_t *t = &aux->llc[aux->n_llc - 1];
-		assert(l0->v == l1->v);
 		for (k = 0; k < l1->cnt; ++k) { // FIXME: this part is made redundant by resolve_overlap()
 			const mg128_t *ak = &a[l1->off + k];
 			if ((int32_t)ak->x > l0->re && (int32_t)ak->y > l0->qe)
 				break;
 		}
-		assert(k < l1->cnt);
-		t->cnt += l1->cnt - k, t->score += l1->score;
-		memcpy(&gc->a[aux->n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
-		aux->n_a += l1->cnt - k;
+		if (k < l1->cnt) { // l1 contained. TODO: check what is happening...
+			t->cnt += l1->cnt - k, t->score += l1->score;
+			memcpy(&gc->a[aux->n_a], &a[l1->off + k], (l1->cnt - k) * sizeof(mg128_t));
+			aux->n_a += l1->cnt - k;
+		}
 	}
+	return 0;
 }
 
 static void resolve_overlap(mg_lchain_t *l0, mg_lchain_t *l1, const mg128_t *a)
@@ -483,7 +488,14 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 			for (j0 = 0, j = 1; j < nui; ++j) {
 				const mg_lchain_t *l0 = &lc[st + j0], *l1 = &lc[st + j];
 				if (l1->cnt > 0) {
-					bridge_lchains(gc, &aux, kmer_size, gdp_max_ed, l0, l1, a);
+					int32_t ret, t;
+					ret = bridge_lchains(gc, &aux, kmer_size, gdp_max_ed, l0, l1, a);
+					if (ret < 0) {
+						for (t = j0; t < j; ++t) {
+							ret = bridge_lchains(gc, &aux, kmer_size, gdp_max_ed, &lc[st + t], &lc[st + t + 1], a);
+							assert(ret >= 0);
+						}
+					}
 					j0 = j;
 				}
 			}

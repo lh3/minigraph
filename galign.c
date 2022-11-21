@@ -4,21 +4,22 @@
 #include "kalloc.h"
 #include "miniwfa.h"
 
-static void append_cigar1(void *km, mg32_v *c, int32_t op, int32_t len)
+static void append_cigar1(void *km, mg64_v *c, int32_t op, int32_t len)
 {
 	if (c->n > 0 && (c->a[c->n - 1]&0xf) == op) {
-		c->a[c->n - 1] += len<<4;
+		c->a[c->n - 1] += (uint64_t)len<<4;
 	} else {
 		if (c->n == c->m) {
 			c->m += (c->m>>1) + 16;
 			KREALLOC(km, c->a, c->m);
 		}
-		c->a[c->n++] = len<<4 | op;
+		c->a[c->n++] = (uint64_t)len<<4 | op;
 	}
 }
 
-static void append_cigar(void *km, mg32_v *c, int32_t n_cigar, const uint32_t *cigar)
+static void append_cigar(void *km, mg64_v *c, int32_t n_cigar, const uint32_t *cigar)
 {
+	int32_t k;
 	if (n_cigar == 0) return;
 	append_cigar1(km, c, cigar[0]&0xf, cigar[0]>>4);
 	if (c->n + n_cigar - 1 > c->m) {
@@ -26,7 +27,8 @@ static void append_cigar(void *km, mg32_v *c, int32_t n_cigar, const uint32_t *c
 		kroundup32(c->m);
 		KREALLOC(km, c->a, c->m);
 	}
-	memcpy(&c->a[c->n], &cigar[1], sizeof(*cigar) * (n_cigar - 1));
+	for (k = 0; k < n_cigar - 1; ++k)
+		c->a[c->n + k] = cigar[1 + k];
 	c->n += n_cigar - 1;
 }
 
@@ -35,7 +37,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 	int32_t i, l_seq = 0, m_seq = 0;
 	char *seq = 0;
 	void *km2;
-	mg32_v cigar = {0,0,0};
+	mg64_v cigar = {0,0,0};
 	km2 = km_init2(km, 0);
 	for (i = 0; i < gt->n_gc; ++i) {
 		mg_gchain_t *gc = &gt->gc[i];
@@ -118,11 +120,11 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 			j0 = j, l0 = l;
 		}
 		// save the CIGAR to gt->gc[i]
-		gc->p = (mg_cigar_t*)kcalloc(gt->km, 1, cigar.n * 4 + sizeof(mg_cigar_t));
+		gc->p = (mg_cigar_t*)kcalloc(gt->km, 1, cigar.n * 8 + sizeof(mg_cigar_t));
 		gc->p->ss = (int32_t)gt->a[off_a0].x + 1 - (int32_t)(gt->a[off_a0].y>>32&0xff);
 		gc->p->ee = (int32_t)gt->a[off_a0 + gc->n_anchor - 1].x + 1;
 		gc->p->n_cigar = cigar.n;
-		memcpy(gc->p->cigar, cigar.a, cigar.n * 4);
+		memcpy(gc->p->cigar, cigar.a, cigar.n * 8);
 		for (j = 0, l = 0; j < gc->p->n_cigar; ++j) {
 			int32_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
 			if (op == 7) gc->p->mlen += len, gc->p->blen += len;
