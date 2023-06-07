@@ -1,28 +1,14 @@
 [![Build Status](https://travis-ci.org/lh3/minigraph.svg?branch=master)](https://travis-ci.org/lh3/minigraph)
+[![Documentation Status](https://img.shields.io/badge/doc-passing-brightgreen)](https://lh3.github.io/minigraph/)
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/minigraph.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minigraph)
 [<img alt="docker_minigrapht" src="https://img.shields.io/badge/container-Docker-blue">](https://quay.io/repository/biocontainers/minigraph)
 [<img alt="singularity_minigraph" src="https://img.shields.io/badge/container-Singularity-orange">](https://quay.io/repository/biocontainers/minigraph)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/minigraph/badges/license.svg)](https://anaconda.org/bioconda/minigraph)
 
-## <a name="started"></a>Getting Started
+minigraph
+=========================================
 
-```sh
-git clone https://github.com/lh3/minigraph
-cd minigraph && make
-# Map sequence to sequence, similar to minimap2 without base alignment
-./minigraph test/MT-human.fa test/MT-orangA.fa > out.paf
-# Map sequence to graph
-./minigraph test/MT.gfa test/MT-orangA.fa > out.gaf
-# Incremental graph generation (-l10k necessary for this toy example)
-./minigraph -cxggs -l10k test/MT.gfa test/MT-chimp.fa test/MT-orangA.fa > out.gfa
-# Call per-sample path in each bubble/variation (-c not needed for this)
-./minigraph -xasm -l10k --call test/MT.gfa test/MT-orangA.fa > orangA.call.bed
-
-# The lossy FASTA representation (requring https://github.com/lh3/gfatools)
-gfatools gfa2fa -s out.gfa > out.fa
-# Extract localized structural variations
-gfatools bubble out.gfa > SV.bed
-```
+Seq-to-graph mapper and graph generator
 
 ## Table of Contents
 
@@ -38,6 +24,28 @@ gfatools bubble out.gfa > SV.bed
   - [Prebuilt graphs](#prebuilt)
   - [Algorithm overview](#algo)
 - [Limitations](#limit)
+
+## <a name="started"></a>Getting Started
+
+```sh
+# Map sequence to sequence, similar to minimap2 without base alignment
+./minigraph test/MT-human.fa test/MT-orangA.fa > out.paf
+
+# Map sequence to graph
+./minigraph test/MT.gfa test/MT-orangA.fa > out.gaf
+
+# Incremental graph generation (-l10k necessary for this toy example)
+./minigraph -cxggs -l10k test/MT.gfa test/MT-chimp.fa test/MT-orangA.fa > out.gfa
+
+# Call per-sample path in each bubble/variation (-c not needed for this)
+./minigraph -xasm -l10k --call test/MT.gfa test/MT-orangA.fa > orangA.call.bed
+
+# The lossy FASTA representation (requring https://github.com/lh3/gfatools)
+gfatools gfa2fa -s out.gfa > out.fa
+
+# Extract localized structural variations
+gfatools bubble out.gfa > SV.bed
+```
 
 ## <a name="intro"></a>Introduction
 
@@ -60,6 +68,10 @@ To install minigraph, type `make` in the source code directory. The only
 non-standard dependency is [zlib][zlib]. For better performance, it is
 recommended to compile with recent compliers.
 
+```sh
+git clone https://github.com/lh3/minigraph
+cd minigraph && make
+```
 ### <a name="map"></a>Sequence-to-graph mapping
 
 To map sequences against a graph, you should prepare the graph in the [GFA
