@@ -1,4 +1,9 @@
 [![Build Status](https://travis-ci.org/lh3/minigraph.svg?branch=master)](https://travis-ci.org/lh3/minigraph)
+[![BioConda Install](https://img.shields.io/conda/dn/bioconda/minigraph.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minigraph)
+[<img alt="docker_minigrapht" src="https://img.shields.io/badge/container-Docker-blue">](https://quay.io/repository/biocontainers/minigraph)
+[<img alt="singularity_minigraph" src="https://img.shields.io/badge/container-Singularity-orange">](https://quay.io/repository/biocontainers/minigraph)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/minigraph/badges/license.svg)](https://anaconda.org/bioconda/minigraph)
+
 ## <a name="started"></a>Getting Started
 
 ```sh
