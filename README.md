@@ -204,4 +204,4 @@ highlighted in bold. The description may help to tune minigraph parameters.
 [gfatools]: https://github.com/lh3/gfatools
 [bandage]: https://rrwick.github.io/Bandage/
 [gfaviz]: https://github.com/ggonnella/gfaviz
-[human-zenodo]: https://zenodo.org/record/6499594
+[human-zenodo]: https://zenodo.org/record/6983934
