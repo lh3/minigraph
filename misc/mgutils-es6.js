@@ -86,7 +86,11 @@ function mg_cmd_merge2vcf(args) {
 		else if (o.opt == "-s") opt.fn_sample = o.arg;
 	}
 	if (args.length == 0) {
-		warn("Usage: mgutils-es6.js merge2vcf [options] <in.bed>");
+		print(`Usage: mgutils-es6.js merge2vcf [options] <in.bed>`);
+		print(`Options:`);
+		print(`  -r INT    which sample corresponds to the reference [${opt.ref_index}]`);
+		print(`  -a INT    max allele number [${opt.max_allele}]`);
+		print(`  -s FILE   list of sample names, one per line []`);
 		return;
 	}
 	let file, buf = new Bytes();
