@@ -108,7 +108,7 @@ function mg_cmd_merge2vcf(args) {
 	hdr.push(`##ALT=<ID=CNV,Description="description">`);
 	hdr.push(`##FORMAT=<ID=GT0,Number=1,Type=String,Description="Original genotype">`);
 	for (let i = 1; i <= opt.max_allele; ++i)
-		hdr.push(`##ALT=<ID=CNV:${i},Description="Allele ${i}">`);
+		hdr.push(`##ALT=<ID=X:${i},Description="Allele ${i}">`);
 	while (file.readline(buf) >= 0) {
 		let line = buf.toString();
 		if (line[0] == "#" && line[1] == "#") {
