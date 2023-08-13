@@ -109,6 +109,7 @@ function mg_cmd_merge2vcf(args) {
 	hdr.push(`##FORMAT=<ID=GT0,Number=1,Type=String,Description="Original genotype">`);
 	for (let i = 1; i <= opt.max_allele; ++i)
 		hdr.push(`##ALT=<ID=X:${i},Description="Allele ${i}">`);
+	let n_sample = opt.sample.length;
 	while (file.readline(buf) >= 0) {
 		let line = buf.toString();
 		if (line[0] == "#" && line[1] == "#") {
@@ -130,6 +131,8 @@ function mg_cmd_merge2vcf(args) {
 			print(`#${a.join("\t")}`);
 		} else {
 			let t = buf.toString().split("\t");
+			if (n_sample == 0) n_sample = t.length - 5;
+			if (n_sample != t.length - 5) throw Error("different number of samples");
 			let a = [t[0], t[1], ".", "N", "", "30", "PASS"]
 			let m, ref = -1;
 			if ((m = /^(\d+)/.exec(t[5 + opt.ref_index])) != null)
