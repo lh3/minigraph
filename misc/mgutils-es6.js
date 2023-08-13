@@ -191,6 +191,32 @@ function mg_cmd_merge2vcf(args) {
 	buf.destroy();
 }
 
+function mg_cmd_addsample(args) {
+	if (args.length < 2) {
+		print("Usage: mgutils-es6.js addsample <merged.bed> <sample.txt>");
+		return;
+	}
+	let file, buf = new Bytes();
+	file = new File(args[1]);
+	let sample = [];
+	while (file.readline(buf) >= 0) {
+		let t = buf.toString().split(/\s+/);
+		sample.push(t[0]);
+	}
+	file.close();
+	file = new File(args[0]);
+	while (file.readline(buf) >= 0) {
+		const line = buf.toString();
+		if (line[0] != "#" || (line[0] == "#" && line[1] == "#")) {
+			print(buf);
+		} else {
+			print("#CHROM", "START", "END", "INFO", "FORMAT", sample.join("\t"));
+		}
+	}
+	file.close();
+	buf.destroy();
+}
+
 /*****************
  * Main function *
  *****************/
@@ -201,11 +227,13 @@ function main(args)
 		print("Usage: mgutils-es6.js <command> [arguments]");
 		print("Commands:");
 		print("  merge2vcf    convert merge BED output to VCF");
+		print("  addsample    add samples to merged BED (as a fix)");
 		exit(1);
 	}
 
 	var cmd = args.shift();
 	if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
+	else if (cmd == 'addsample') mg_cmd_addsample(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
