@@ -125,14 +125,24 @@ bubble/variation and the rest of columns are:
 
 Given an assembly, you can find the path/allele of this assembly in each bubble with
 ```sh
-minigraph -cxasm --call graph.gfa sample-asm.fa > sample.bed
+minigraph -cxasm --call -t16 graph.gfa sample-asm.fa > sample.bed
 ```
 On each line in the BED-like output, the last colon separated field gives the
 alignment path through the bubble, the path length in the graph, the mapping
 strand of sample contig, the contig name, the approximate contig start and
 contig end. The number of lines in the file is the same as the number of lines
-in the output of `gfatools bubble`. You can use the `paste` Unix command to
-piece multiple samples together.
+in the output of `gfatools bubble`.
+
+Given a set of assemblies, you can generate calls for each and combine them
+together:
+```sh
+minigraph -cxasm --call -t16 graph.gfa 00ref.fa > 00ref.bed
+minigraph -cxasm --call -t16 graph.gfa asm1.fa > asm1.bed
+minigraph -cxasm --call -t16 graph.gfa asm2.fa > asm2.bed
+ls *.bed | sed s,.bed,, > sample.txt
+paste *.bed | misc/mgutils.js merge -s sample.txt - > merged.bed
+misc/mgutils-es6.js merge2vcf merged.bed > merged.vcf  # requiring k8 v1.0
+```
 
 ### <a name="prebuilt"></a>Prebuilt graphs
 
