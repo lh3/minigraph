@@ -1,8 +1,0 @@
-matrix:
-  include:
-    - language: c
-      compiler: gcc
-      script: make
-    - language: c
-      compiler: clang
-      script: make
