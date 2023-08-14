@@ -15,6 +15,10 @@ cd minigraph && make
 
 # Extract localized structural variations
 gfatools bubble out.gfa > SV.bed
+
+# Generate human MHC graph and call SVs jointly (~10 min)
+curl -sL https://zenodo.org/record/8245267/files/mg-cookbook-v1_x64-linux.tar.bz2?download=1 | tar -jxf -
+cd mg-cookbook-v1_x64-linux && ./00run.sh
 ```
 
 ## Table of Contents
@@ -135,18 +139,11 @@ in the output of `gfatools bubble`.
 ### <a name="svexample"></a>SV calling showcase (human MHC)
 
 The following example generates a graph for 61 humam MHC haplotypes and calls
-SVs from them. primary sequences are retrieved from an [AGC][agc] archive.
+SVs from them. Primary sequences are retrieved from an [AGC][agc] archive.
 ```sh
-# Install minigraph
-git clone https://github.com/lh3/minigraph
-cd minigraph && make
-
-# Install agc and k8-1.0 (older k8 doesn't work!) and download data
-curl -sL https://github.com/refresh-bio/agc/releases/download/v3.0/agc-3.0_x64-linux-noavx.tar.gz | tar -zxf -
-curl -sL https://github.com/attractivechaos/k8/releases/download/v1.0/k8-1.0.tar.bz2 | tar -jxf -
-ln -s agc-3.0_x64-linux-noavx/agc
-ln -s k8-1.0/k8-x86_64-Linux k8
-wget -O MHC-61.agc https://zenodo.org/record/6617246/files/MHC-61.agc?download=1
+# Obtain cookbook data and precompiled binaries
+curl -sL https://zenodo.org/record/8245267/files/mg-cookbook-v1_x64-linux.tar.bz2?download=1 | tar -jxf -
+cd mg-cookbook-v1_x64-linux
 
 # Generate graph. This takes ~7 minutes.
 ./agc listset MHC-61.agc | awk '!/GRC/{a=a" <(./agc getset MHC-61.agc "$1")"}END{print "./minigraph -cxggs <(./agc getset MHC-61.agc MHC-00GRCh38)"a}' | bash > MHC-61.gfa 2> MHC-61.gfa.log
@@ -155,8 +152,8 @@ wget -O MHC-61.agc https://zenodo.org/record/6617246/files/MHC-61.agc?download=1
 ./agc listset MHC-61.agc | xargs -i echo ./minigraph -cxasm --call -t1 MHC-61.gfa '<(./agc getset MHC-61.agc {})' \> {}.bed 2\> {}.bed.log | parallel -j16
 
 # Merge per-sample calls and generate VCF. `-r0` indicates the reference sample.
-paste *.bed | ./k8 misc/mgutils.js merge -s <(./agc listset MHC-61.agc) - | gzip > MHC-61.sv.bed.gz
-./k8 misc/mgutils-es6.js merge2vcf -r0 MHC-61.sv.bed.gz > MHC-61.sv.vcf
+paste *.bed | ./k8 mgutils.js merge -s <(./agc listset MHC-61.agc) - | gzip > MHC-61.sv.bed.gz
+./k8 mgutils-es6.js merge2vcf -r0 MHC-61.sv.bed.gz > MHC-61.sv.vcf
 ```
 
 In this example, the GRCh38 haplotype is named "MHC-00GRCh38" in the AGC
