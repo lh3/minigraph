@@ -28,7 +28,7 @@ gfatools bubble out.gfa > SV.bed
   - [Sequence-to-graph mapping](#map)
   - [Graph generation](#ggen)
   - [Calling structural variations](#callsv)
-  - [SV calling showcase](#svexample)
+  - [SV calling showcase (human MHC)](#svexample)
   - [Prebuilt graphs](#prebuilt)
   - [Algorithm overview](#algo)
 - [Limitations](#limit)
@@ -132,10 +132,10 @@ strand of sample contig, the contig name, the approximate contig start and
 contig end. The number of lines in the file is the same as the number of lines
 in the output of `gfatools bubble`.
 
-### <a name="svexample"></a>SV calling showcase
+### <a name="svexample"></a>SV calling showcase (human MHC)
 
-The following shows a complete example, with example data, to generate human
-MHC graph and call SVs jointly:
+The following example generates a graph for 61 humam MHC haplotypes and calls
+SVs from them. primary sequences are retrieved from an [AGC][agc] archive.
 ```sh
 # Install minigraph
 git clone https://github.com/lh3/minigraph
@@ -158,6 +158,13 @@ wget -O MHC-61.agc https://zenodo.org/record/6617246/files/MHC-61.agc?download=1
 paste *.bed | ./k8 misc/mgutils.js merge -s <(./agc listset MHC-61.agc) - | gzip > MHC-61.sv.bed.gz
 ./k8 misc/mgutils-es6.js merge2vcf -r0 MHC-61.sv.bed.gz > MHC-61.sv.vcf
 ```
+
+In this example, the GRCh38 haplotype is named "MHC-00GRCh38" in the AGC
+archive and is taken as the reference. The awk command line generates a command
+line that retrieves each haplotype on the fly and feeds it to minigraph.
+`misc/mgutils.js merge` combines per-sample calls and generates a merged BED
+file. The final `misc/mgutils-es6.js merge2vcf` derives a VCF file. This script
+requires the latest k8 JavaScript runtime.
 
 ### <a name="prebuilt"></a>Prebuilt graphs
 
@@ -230,3 +237,4 @@ highlighted in bold. The description may help to tune minigraph parameters.
 [bandage]: https://rrwick.github.io/Bandage/
 [gfaviz]: https://github.com/ggonnella/gfaviz
 [human-zenodo]: https://zenodo.org/record/6983934
+[agc]: https://github.com/refresh-bio/agc
