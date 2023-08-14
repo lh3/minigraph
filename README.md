@@ -17,30 +17,6 @@ cd minigraph && make
 gfatools bubble out.gfa > SV.bed
 ```
 
-Generate human MHC graph and call SVs jointly:
-```sh
-# Install minigraph
-git clone https://github.com/lh3/minigraph
-cd minigraph && make
-
-# Install agc and k8-1.0 (older k8 doesn't work!) and download data
-curl -sL https://github.com/refresh-bio/agc/releases/download/v3.0/agc-3.0_x64-linux-noavx.tar.gz | tar -zxf -
-curl -sL https://github.com/attractivechaos/k8/releases/download/v1.0/k8-1.0.tar.bz2 | tar -jxf -
-ln -s agc-3.0_x64-linux-noavx/agc
-ln -s k8-1.0/k8-x86_64-Linux k8
-wget -O MHC-61.agc https://zenodo.org/record/6617246/files/MHC-61.agc?download=1
-
-# Generate graph. This takes ~7 minutes.
-./agc listset MHC-61.agc | awk '!/GRC/{a=a" <(./agc getset MHC-61.agc "$1")"}END{print "./minigraph -cxggs <(./agc getset MHC-61.agc MHC-00GRCh38)"a}' | bash > MHC-61.gfa 2> MHC-61.gfa.log
-
-# Call SVs per sample. This takes a couple of minutes.
-./agc listset MHC-61.agc | xargs -i echo ./minigraph -cxasm --call -t1 MHC-61.gfa '<(./agc getset MHC-61.agc {})' \> {}.bed 2\> {}.bed.log | parallel -j16
-
-# Merge per-sample calls and generate VCF. `-r0` indicates the reference sample.
-paste *.bed | ./k8 misc/mgutils.js merge -s <(./agc listset MHC-61.agc) - | gzip > MHC-61.sv.bed.gz
-./k8 misc/mgutils-es6.js merge2vcf -r0 MHC-61.sv.bed.gz > MHC-61.sv.vcf
-```
-
 ## Table of Contents
 
 <img align="right" width="278" src="doc/example1.png"/>
@@ -52,6 +28,7 @@ paste *.bed | ./k8 misc/mgutils.js merge -s <(./agc listset MHC-61.agc) - | gzip
   - [Sequence-to-graph mapping](#map)
   - [Graph generation](#ggen)
   - [Calling structural variations](#callsv)
+  - [SV calling showcase](#svexample)
   - [Prebuilt graphs](#prebuilt)
   - [Algorithm overview](#algo)
 - [Limitations](#limit)
@@ -155,15 +132,31 @@ strand of sample contig, the contig name, the approximate contig start and
 contig end. The number of lines in the file is the same as the number of lines
 in the output of `gfatools bubble`.
 
-Given a set of assemblies, you can generate calls for each and combine them
-together:
+### <a name="svexample"></a>SV calling showcase
+
+The following shows a complete example, with example data, to generate human
+MHC graph and call SVs jointly:
 ```sh
-minigraph -cxasm --call -t16 graph.gfa 00ref.fa > 00ref.bed
-minigraph -cxasm --call -t16 graph.gfa asm1.fa > asm1.bed
-minigraph -cxasm --call -t16 graph.gfa asm2.fa > asm2.bed
-ls *.bed | sed s,.bed,, > sample.txt
-paste *.bed | misc/mgutils.js merge -s sample.txt - > merged.bed
-misc/mgutils-es6.js merge2vcf merged.bed > merged.vcf  # requiring k8 v1.0
+# Install minigraph
+git clone https://github.com/lh3/minigraph
+cd minigraph && make
+
+# Install agc and k8-1.0 (older k8 doesn't work!) and download data
+curl -sL https://github.com/refresh-bio/agc/releases/download/v3.0/agc-3.0_x64-linux-noavx.tar.gz | tar -zxf -
+curl -sL https://github.com/attractivechaos/k8/releases/download/v1.0/k8-1.0.tar.bz2 | tar -jxf -
+ln -s agc-3.0_x64-linux-noavx/agc
+ln -s k8-1.0/k8-x86_64-Linux k8
+wget -O MHC-61.agc https://zenodo.org/record/6617246/files/MHC-61.agc?download=1
+
+# Generate graph. This takes ~7 minutes.
+./agc listset MHC-61.agc | awk '!/GRC/{a=a" <(./agc getset MHC-61.agc "$1")"}END{print "./minigraph -cxggs <(./agc getset MHC-61.agc MHC-00GRCh38)"a}' | bash > MHC-61.gfa 2> MHC-61.gfa.log
+
+# Call SVs per sample. This takes a couple of minutes.
+./agc listset MHC-61.agc | xargs -i echo ./minigraph -cxasm --call -t1 MHC-61.gfa '<(./agc getset MHC-61.agc {})' \> {}.bed 2\> {}.bed.log | parallel -j16
+
+# Merge per-sample calls and generate VCF. `-r0` indicates the reference sample.
+paste *.bed | ./k8 misc/mgutils.js merge -s <(./agc listset MHC-61.agc) - | gzip > MHC-61.sv.bed.gz
+./k8 misc/mgutils-es6.js merge2vcf -r0 MHC-61.sv.bed.gz > MHC-61.sv.vcf
 ```
 
 ### <a name="prebuilt"></a>Prebuilt graphs
