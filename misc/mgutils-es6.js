@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const version = "r564";
+const version = "r565";
 
 /**************
  * From k8.js *
@@ -353,14 +353,19 @@ function mg_cmd_mergeindel(args) {
 	}
 
 	function print_bed(ctg, t) {
-		let len = 0, mapq = 0, n = t[6].length;
+		let len = 0, mapq = 0, n = t[6].length, nf = 0, nr = 0;
 		if (n < min_cnt) return;
-		for (let i = 0; i < n; ++i)
-			len += t[6][i], mapq += t[7][i];
+		for (let i = 0; i < n; ++i) {
+			len += t[6][i];
+			mapq += t[7][i];
+			if (t[8][i][0] == '+') ++nf;
+			else ++nr;
+		}
 		len = Math.floor(len / n + .499);
+		const len_str = len > 0? "+" + len.toString() : len.toString();
 		mapq = Math.floor(mapq / n + .499);
 		if (mapq < min_mapq) return;
-		print(ctg, t[0], t[1], ".", mapq, ".", len, n, t[8].join(","));
+		print(ctg, t[0], t[1], len_str, n, ".", `mq:i:${mapq}`, `cf:i:${nf}`, `cr:i:${nr}`, `rd:Z:${t[8].join(",")}`);
 	}
 
 	for (const ctg in h) {
