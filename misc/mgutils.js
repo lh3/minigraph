@@ -118,10 +118,11 @@ function mg_cmd_renamefa(args)
 	var file = new File(args[getopt.ind+1]);
 	var buf = new Bytes();
 	while (file.readline(buf) >= 0) {
-		if (buf[0] != 62) {
+		const s = buf.toString();
+		if (s[0] != '>') {
 			print(buf);
 		} else {
-			var m, s = buf.toString();
+			var m;
 			if ((m = /^>(.*)/.exec(s)) != null) {
 				var name = m[1].replace(/^\S+#/, "");
 				print(">" + prefix + sep + name);

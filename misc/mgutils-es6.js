@@ -1,5 +1,7 @@
 #!/usr/bin/env k8
 
+const version = "r563";
+
 /**************
  * From k8.js *
  **************/
@@ -72,6 +74,16 @@ function* getopt(argv, ostr, longopts) {
 		else if (opt != "?") yield { opt: `-${opt}`, arg: arg };
 		else yield { opt: "?", arg: "" };
 	}
+}
+
+function* k8_readline(fn) {
+	let buf = new Bytes();
+	let file = new File(fn);
+	while (file.readline(buf) >= 0) {
+		yield buf.toString();
+	}
+	file.close();
+	buf.destroy();
 }
 
 /***************
@@ -217,6 +229,172 @@ function mg_cmd_addsample(args) {
 	buf.destroy();
 }
 
+function mg_cmd_getindel(args) {
+	let min_mapq = 5, min_frac = 0.7, min_len = 100, max_cnt = 5, dbg = false;
+	for (const o of getopt(args, "q:l:dc:", [])) {
+		if (o.opt == "-q") min_mapq = parseInt(o.arg);
+		else if (o.opt == "-l") min_len = parseInt(o.arg);
+		else if (o.opt == "-d") dbg = true;
+		else if (o.opt == "-f") min_frac = parseFloat(o.arg);
+		else if (o.opt == "-c") max_cnt = parseInt(o.arg);
+	}
+	if (args.length == 0) {
+		print("Usage: mgutils-es6.js getindel [options] <stable.gaf>");
+		print("Options:");
+		print(`  -q INT     min mapq [${min_mapq}]`);
+		print(`  -l INT     min INDEL len [${min_len}]`);
+		print(`  -f FLOAT   min mapped query fraction [${min_frac}]`);
+		print(`  -c INT     max count per read [${max_cnt}]`);
+		return;
+	}
+	let re = /(\d+)([=XIDM])/g, re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g;
+	for (const line of k8_readline(args[0])) {
+		let t = line.split("\t");
+		for (let i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
+		for (let i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
+		if (t[11] < min_mapq) continue;
+		if (t[3] - t[2] < t[1] * min_frac) continue;
+		let cg = null;
+		for (let i = 12; i < t.length; ++i)
+			if (t[i].substr(0, 5) === "cg:Z:")
+				cg = t[i].substr(5);
+		if (cg == null) continue;
+		let m, a = [], x = t[7];
+		while ((m = re.exec(cg)) != null) {
+			const op = m[2], len = parseInt(m[1]);
+			if (len >= min_len) {
+				if (op === "I") a.push([x - 1, x + 1, len]);
+				else if (op === "D") a.push([x, x + len, -len]);
+			}
+			if (op == "M" || op == "=" || op == "X" || op == "D")
+				x += len;
+		}
+		if (a.length == 0 || a.length > max_cnt) continue;
+		if (dbg) print('X0', line);
+		let seg = [];
+		if (/[><]/.test(t[5])) { // with ><
+			let y = 0;
+			if (t[4] != '+') throw Error("reverse strand on path");
+			while ((m = re_path.exec(t[5])) != null) {
+				const st = parseInt(m[3]), en = parseInt(m[4]);
+				seg.push([m[2], st, en, m[1] == '>'? 1 : -1, y, y + (en - st)]);
+				y += en - st;
+			}
+		} else {
+			seg.push([t[5], 0, t[6], 1, 0, t[6]]);
+		}
+		let st = [], en = [];
+		for (let i = 0, k = 0; i < a.length; ++i) { // start
+			while (k < seg.length && seg[k][5] <= a[i][0]) ++k;
+			if (k == seg.length) throw Error("failed to find start");
+			const l = a[i][0] - seg[k][4];
+			if (seg[k][3] > 0)
+				st.push([k, seg[k][1] + l, seg[k][1] + l]);
+			else
+				st.push([k, seg[k][2] - l, seg[k][1] + l]);
+		}
+		for (let i = 0, k = 0; i < a.length; ++i) { // end
+			while (k < seg.length && seg[k][5] <= a[i][1]) ++k;
+			if (k == seg.length) throw Error("failed to find end");
+			const l = a[i][1] - seg[k][4];
+			if (seg[k][3] > 0)
+				en.push([k, seg[k][1] + l, seg[k][1] + l]);
+			else
+				en.push([k, seg[k][2] - l, seg[k][1] + l]);
+		}
+		for (let i = 0; i < a.length; ++i) {
+			if (dbg) print('X2', a[i][0], a[i][1], st[i][0], en[i][0]);
+			if (st[i][0] == en[i][0]) { // on the same segment
+				const s = seg[st[i][0]];
+				const strand = s[3] > 0? t[4] : t[4] == '+'? '-' : '+';
+				print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], t[0], t[11], strand, a[i][2]);
+			} else { // on different segments
+				let path = [], len = 0;
+				for (let j = st[i][0]; j <= en[i][0]; ++j) {
+					const s = seg[j];
+					len += s[2] - s[1];
+					path.push((s[3] > 0? '>' : '<') + s[0] + `:${s[1]}-${s[2]}`);
+				}
+				const off = seg[st[i][0]][4];
+				print(path.join(""), a[i][0] - off, a[i][1] - off, t[0], t[11], '+', a[i][2]);
+			}
+		}
+	}
+}
+
+function mg_cmd_mergeindel(args) {
+	let min_mapq = 5, min_cnt = 3, win_size = 100, max_diff = 0.05;
+	for (const o of getopt(args, "q:c:w:d:", [])) {
+		if (o.opt == "-q") min_mapq = parseInt(o.arg);
+		else if (o.opt == "-c") min_cnt = parseInt(o.arg);
+		else if (o.opt == "-w") win_size = parseInt(o.arg);
+		else if (o.opt == "-d") max_diff = parseFloat(o.arg);
+	}
+	if (args.length == 0) {
+		print("Usage: mgutils-es6.js mergeindel [options] <stable.gaf>");
+		print("Options:");
+		print(`  -q INT     min mapq [${min_mapq}]`);
+		print(`  -c INT     min read count [${min_cnt}]`);
+		print(`  -d FLOAT   max length difference [${max_diff}]`);
+		return;
+	}
+	let h = {};
+	for (const line of k8_readline(args[0])) {
+		let t = line.split("\t");
+		t[1] = parseInt(t[1]);
+		t[2] = parseInt(t[2]);
+		t[4] = parseInt(t[4]);
+		t[6] = parseInt(t[6]);
+		const ctg = t.shift();
+		if (h[ctg] == null) h[ctg] = [];
+		h[ctg].push(t);
+	}
+
+	function print_bed(ctg, t) {
+		let len = 0, mapq = 0, n = t[6].length;
+		for (let i = 0; i < n; ++i)
+			len += t[6][i], mapq += t[7][i];
+		len = Math.floor(len / n + .499);
+		mapq = Math.floor(mapq / n + .499);
+		print(ctg, t[0], t[1], ".", mapq, ".", len, n, t[8].join(","));
+	}
+
+	for (const ctg in h) {
+		h[ctg].sort(function(x,y) { return x[0]-y[0]; });
+		const a = h[ctg];
+		let b = [];
+		for (let i = 0; i < a.length; ++i) {
+			const ai = a[i];
+			while (b.length) {
+				if (ai[0] - b[0][1] > win_size) {
+					const t = b.shift();
+					print_bed(ctg, t);
+				} else break;
+			}
+			let merge_j = -1;
+			for (let j = b.length - 1; j >= 0; --j) {
+				let bj = b[j];
+				if (bj[5] * ai[5] <= 0) continue; // not the same sign
+				const la = ai[5] > 0? ai[5] : -ai[5];
+				const lb = bj[5] > 0? bj[5] : -bj[5];
+				const diff = la > lb? la - lb : lb - la;
+				if (diff > (la > lb? la : lb) * max_diff) continue;
+				bj[6].push(ai[5]); // length
+				bj[7].push(ai[3]); // mapQ
+				bj[8].push(`${ai[4]}${ai[2]}`); // read name
+				bj[1] = bj[1] > ai[1]? bj[1] : ai[1];
+				merge_j = j;
+				break;
+			}
+			if (merge_j < 0)
+				b.push([ai[0], ai[1], ".", ai[3], ".", ai[5], [ai[5]], [ai[3]], [`${ai[4]}${ai[2]}`]]);
+		}
+		while (b.length) {
+			const t = b.shift();
+			print_bed(ctg, t);
+		}
+	}
+}
 /*****************
  * Main function *
  *****************/
@@ -227,13 +405,17 @@ function main(args)
 		print("Usage: mgutils-es6.js <command> [arguments]");
 		print("Commands:");
 		print("  merge2vcf    convert merge BED output to VCF");
-		print("  addsample    add samples to merged BED (as a fix)");
+		print("  addsample    add sample names to merged BED (as a fix)");
+		print("  getindel     extract long INDELs from GAF");
+		print("  mergeindel   merge long INDELs from getindel");
 		exit(1);
 	}
 
 	var cmd = args.shift();
 	if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
 	else if (cmd == 'addsample') mg_cmd_addsample(args);
+	else if (cmd == 'getindel') mg_cmd_getindel(args);
+	else if (cmd == 'mergeindel') mg_cmd_mergeindel(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
