@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const version = "r563";
+const version = "r564";
 
 /**************
  * From k8.js *
@@ -250,6 +250,7 @@ function mg_cmd_getindel(args) {
 	let re = /(\d+)([=XIDM])/g, re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g;
 	for (const line of k8_readline(args[0])) {
 		let t = line.split("\t");
+		if (t.length < 12) continue;
 		for (let i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
 		for (let i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
 		if (t[11] < min_mapq) continue;
@@ -323,7 +324,7 @@ function mg_cmd_getindel(args) {
 }
 
 function mg_cmd_mergeindel(args) {
-	let min_mapq = 5, min_cnt = 3, win_size = 100, max_diff = 0.05;
+	let min_mapq = 5, min_cnt = 1, win_size = 100, max_diff = 0.05;
 	for (const o of getopt(args, "q:c:w:d:", [])) {
 		if (o.opt == "-q") min_mapq = parseInt(o.arg);
 		else if (o.opt == "-c") min_cnt = parseInt(o.arg);
@@ -333,9 +334,10 @@ function mg_cmd_mergeindel(args) {
 	if (args.length == 0) {
 		print("Usage: mgutils-es6.js mergeindel [options] <stable.gaf>");
 		print("Options:");
-		print(`  -q INT     min mapq [${min_mapq}]`);
+		print(`  -q INT     min average mapq [${min_mapq}]`);
 		print(`  -c INT     min read count [${min_cnt}]`);
-		print(`  -d FLOAT   max length difference [${max_diff}]`);
+		print(`  -w INT     window size [${win_size}]`);
+		print(`  -d FLOAT   max allele length difference ratio [${max_diff}]`);
 		return;
 	}
 	let h = {};
@@ -352,10 +354,12 @@ function mg_cmd_mergeindel(args) {
 
 	function print_bed(ctg, t) {
 		let len = 0, mapq = 0, n = t[6].length;
+		if (n < min_cnt) return;
 		for (let i = 0; i < n; ++i)
 			len += t[6][i], mapq += t[7][i];
 		len = Math.floor(len / n + .499);
 		mapq = Math.floor(mapq / n + .499);
+		if (mapq < min_mapq) return;
 		print(ctg, t[0], t[1], ".", mapq, ".", len, n, t[8].join(","));
 	}
 
@@ -395,6 +399,7 @@ function mg_cmd_mergeindel(args) {
 		}
 	}
 }
+
 /*****************
  * Main function *
  *****************/
