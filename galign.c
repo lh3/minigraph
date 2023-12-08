@@ -142,6 +142,35 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 
 #define mg_get_nucl(s, i) (seq_nt4_table[(uint8_t)(s)[(i)]])
 
+static void write_indel(void *km, kstring_t *str, int64_t len, const char *seq, int64_t ll, int64_t lr)
+{
+	int64_t i;
+	if (ll + lr >= len) {
+		mg_sprintf_km(km, str, "[");
+		for (i = 0; i < len; ++i)
+			mg_sprintf_km(km, str, "%c", "acgtn"[mg_get_nucl(seq, i)]);
+		mg_sprintf_km(km, str, "]");
+	} else {
+		int64_t k = 0;
+		if (ll > 0) {
+			mg_sprintf_km(km, str, "[");
+			for (i = 0; i < ll; ++i)
+				mg_sprintf_km(km, str, "%c", "acgtn"[mg_get_nucl(seq, k+i)]);
+			mg_sprintf_km(km, str, "]");
+			k += ll;
+		}
+		for (i = 0; i < len - lr - ll; ++i)
+			mg_sprintf_km(km, str, "%c", "acgtn"[mg_get_nucl(seq, k+i)]);
+		k += len - lr - ll;
+		if (lr > 0) {
+			mg_sprintf_km(km, str, "[");
+			for (i = 0; i < lr; ++i)
+				mg_sprintf_km(km, str, "%c", "acgtn"[mg_get_nucl(seq, k+i)]);
+			mg_sprintf_km(km, str, "]");
+		}
+	}
+}
+
 void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt)
 {
 	int32_t i;
@@ -193,6 +222,8 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 					if (y + len + z >= gc->qe || qseq[y + len + z] != qseq[y + z])
 						break;
 				ll = z;
+				mg_sprintf_km(km2, &str, "+");
+				write_indel(km2, &str, len, &qseq[y], ll, lr);
 				y += len;
 			} else if (op == 2) { // deletion
 				int64_t z, ll, lr;
@@ -203,7 +234,9 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 				for (z = 0; z < len; ++z)
 					if (x + len + z >= gc->p->aplen || seq.s[x + z] != seq.s[x + len + z])
 						break;
-				lr = z;
+				ll = z;
+				mg_sprintf_km(km2, &str, "-");
+				write_indel(km2, &str, len, &seq.s[y], ll, lr);
 				x += len;
 			}
 		}
