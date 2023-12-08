@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-extern unsigned char gfa_comp_table[256];
-
 struct mg_bseq_file_s;
 typedef struct mg_bseq_file_s mg_bseq_file_t;
 

@@ -129,6 +129,7 @@ typedef struct {
 	int32_t subsc, n_sub;
 	uint32_t mapq:8, flt:1, dummy:23;
 	mg_cigar_t *p;
+	char *ds;
 } mg_gchain_t;
 
 typedef struct {

@@ -32,7 +32,7 @@ static void append_cigar(void *km, mg64_v *c, int32_t n_cigar, const uint32_t *c
 	c->n += n_cigar - 1;
 }
 
-void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt, const char *qname)
+void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt, const char *qname) // qname for debugging only
 {
 	int32_t i, l_seq = 0, m_seq = 0;
 	char *seq = 0;
@@ -132,9 +132,83 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 			if (op != 1) gc->p->aplen += len;
 			if (op != 2) l += len;
 		}
+		gc->ds = 0;
 		assert(l == gc->qe - gc->qs && gc->p->aplen == gc->pe - gc->ps);
 	}
 	km_destroy(km2);
 	kfree(km, seq);
 	kfree(km, cigar.a);
+}
+
+#define mg_get_nucl(s, i) (seq_nt4_table[(uint8_t)(s)[(i)]])
+
+void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt)
+{
+	int32_t i;
+	void *km2;
+	kstring_t str = {0,0,0}, seq = {0,0,0};
+	km2 = km_init2(km, 0);
+	for (i = 0; i < gt->n_gc; ++i) {
+		mg_gchain_t *gc = &gt->gc[i];
+		int32_t j;
+		int64_t x, y;
+		if (gc->p->aplen > seq.m) {
+			seq.s = Krealloc(km2, char, seq.s, gc->p->aplen);
+			seq.m = gc->p->aplen;
+		}
+		for (j = 0, seq.l = 0; j < gc->cnt; ++j) {
+			int32_t k = gc->off + j;
+			uint32_t v = gt->lc[k].v;
+			int32_t slen = es[v].len;
+			int32_t st = j > 0? 0 : gc->p->ss;
+			int32_t en = j < gc->cnt - 1? slen : gc->p->ee;
+			assert(seq.l + (en - st) <= gc->p->aplen);
+			memcpy(&seq.s[seq.l], &es[v].seq[st], en - st);
+			seq.l += en - st;
+		}
+		assert(seq.l == gc->p->aplen);
+		for (j = 0, x = 0, y = gc->qs; j < gc->p->n_cigar; ++j) {
+			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
+			if (op == 0 || op == 7 || op == 8) { // alignment match
+				int64_t z;
+				int32_t l = 0;
+				for (z = 0; z < len; ++z) {
+					uint8_t cx = mg_get_nucl(seq.s, x+z);
+					uint8_t cy = mg_get_nucl(qseq, y+z);
+					if (cx != cy) {
+						if (l > 0) mg_sprintf_km(km2, &str, ":%d", l);
+						mg_sprintf_km(km2, &str, "*%c%c", "acgtn"[cx], "acgtn"[cy]);
+						l = 0;
+					} else ++l;
+				}
+				if (l > 0) mg_sprintf_km(km2, &str, ":%d", l);
+				x += len, y += len;
+			} else if (op == 1) { // insertion
+				int64_t z, ll, lr;
+				for (z = 1; z <= len; ++z)
+					if (y - z < gc->qs || qseq[y + len - z] != qseq[y - z])
+						break;
+				lr = z - 1;
+				for (z = 0; z < len; ++z)
+					if (y + len + z >= gc->qe || qseq[y + len + z] != qseq[y + z])
+						break;
+				ll = z;
+				y += len;
+			} else if (op == 2) { // deletion
+				int64_t z, ll, lr;
+				for (z = 1; z <= len; ++z)
+					if (x - z < 0 || seq.s[x + len - z] != seq.s[x - z])
+						break;
+				lr = z - 1;
+				for (z = 0; z < len; ++z)
+					if (x + len + z >= gc->p->aplen || seq.s[x + z] != seq.s[x + len + z])
+						break;
+				lr = z;
+				x += len;
+			}
+		}
+		gc->ds = Kcalloc(0, char, str.l + 1);
+		memcpy(gc->ds, str.s, str.l);
+	}
+	km_destroy(km2);
 }

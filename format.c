@@ -7,31 +7,39 @@
 #include "kalloc.h"
 #include "mgpriv.h"
 
-static inline void str_enlarge(kstring_t *s, int l)
+static inline void str_enlarge(void *km, kstring_t *s, int l)
 {
 	if (s->l + l + 1 > s->m) {
 		s->m = s->l + l + 1;
 		kroundup32(s->m);
-		s->s = (char*)realloc(s->s, s->m);
+		s->s = Krealloc(km, char, s->s, s->m);
 	}
 }
 
-static inline void str_copy(kstring_t *s, const char *st, const char *en)
+static inline void str_copy(void *km, kstring_t *s, const char *st, const char *en)
 {
-	str_enlarge(s, en - st);
+	str_enlarge(km, s, en - st);
 	memcpy(&s->s[s->l], st, en - st);
 	s->l += en - st;
 }
 
-void mg_sprintf_lite(kstring_t *s, const char *fmt, ...)
+void mg_str_write(void *km, kstring_t *s, int32_t len, char *str)
+{
+	str_copy(km, s, str, str + len);
+}
+
+void mg_str_reserve(void *km, kstring_t *s, int32_t len)
+{
+	str_enlarge(km, s, len);
+}
+
+void mg_sprintf_core(void *km, kstring_t *s, const char *fmt, va_list ap)
 {
 	char buf[16]; // for integer to string conversion
 	const char *p, *q;
-	va_list ap;
-	va_start(ap, fmt);
 	for (q = p = fmt; *p; ++p) {
 		if (*p == '%') {
-			if (p > q) str_copy(s, q, p);
+			if (p > q) str_copy(km, s, q, p);
 			++p;
 			if (*p == 'd') {
 				int c, i, l = 0;
@@ -40,28 +48,43 @@ void mg_sprintf_lite(kstring_t *s, const char *fmt, ...)
 				x = c >= 0? c : -c;
 				do { buf[l++] = x%10 + '0'; x /= 10; } while (x > 0);
 				if (c < 0) buf[l++] = '-';
-				str_enlarge(s, l);
+				str_enlarge(km, s, l);
 				for (i = l - 1; i >= 0; --i) s->s[s->l++] = buf[i];
 			} else if (*p == 'u') {
 				int i, l = 0;
 				uint32_t x;
 				x = va_arg(ap, uint32_t);
 				do { buf[l++] = x%10 + '0'; x /= 10; } while (x > 0);
-				str_enlarge(s, l);
+				str_enlarge(km, s, l);
 				for (i = l - 1; i >= 0; --i) s->s[s->l++] = buf[i];
 			} else if (*p == 's') {
 				char *r = va_arg(ap, char*);
-				str_copy(s, r, r + strlen(r));
+				str_copy(km, s, r, r + strlen(r));
 			} else if (*p == 'c') {
-				str_enlarge(s, 1);
+				str_enlarge(km, s, 1);
 				s->s[s->l++] = va_arg(ap, int);
 			} else abort();
 			q = p + 1;
 		}
 	}
-	if (p > q) str_copy(s, q, p);
-	va_end(ap);
+	if (p > q) str_copy(km, s, q, p);
 	s->s[s->l] = 0;
+}
+
+void mg_sprintf_lite(kstring_t *s, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	mg_sprintf_core(0, s, fmt, ap);
+	va_end(ap);
+}
+
+void mg_sprintf_km(void *km, kstring_t *s, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	mg_sprintf_core(km, s, fmt, ap);
+	va_end(ap);
 }
 
 void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_lchain_t *lc, const mg128_t *a, const char *qname)
@@ -198,6 +221,7 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 				for (j = 0; j < p->p->n_cigar; ++j)
 					mg_sprintf_lite(s, "%d%c", (int32_t)(p->p->cigar[j]>>4), "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
 		}
+		if (p->ds) mg_sprintf_lite(s, "\tds:Z:%s", p->ds);
 		mg_sprintf_lite(s, "\n");
 		if ((mg_dbg_flag & MG_DBG_LCHAIN) || (flag & MG_M_WRITE_LCHAIN)) {
 			char buf[16];
