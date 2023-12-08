@@ -180,7 +180,7 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 	for (i = 0; i < gt->n_gc; ++i) {
 		mg_gchain_t *gc = &gt->gc[i];
 		int32_t j;
-		int64_t x, y;
+		int64_t x, y, ds_len;
 		if (gc->p->aplen > seq.m) {
 			seq.s = Krealloc(km2, char, seq.s, gc->p->aplen);
 			seq.m = gc->p->aplen;
@@ -196,6 +196,24 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 			seq.l += en - st;
 		}
 		assert(seq.l == gc->p->aplen);
+		for (j = 0, x = 0, y = gc->qs, ds_len = 0; j < gc->p->n_cigar; ++j) { // estimate the approximate length of ds
+			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4, z;
+			if (op == 0 || op == 7 || op == 8) { // alignment match
+				int32_t l = 0;
+				for (z = 0; z < len; ++z) {
+					if (mg_get_nucl(seq.s, x+z) != mg_get_nucl(qseq, y+z))
+						ds_len += 3, ds_len += 6, l = 0;
+					else ++l;
+				}
+				ds_len += 6;
+				x += len, y += len;
+			} else if (op == 1) { // insertion
+				ds_len += len + 1, y += len;
+			} else if (op == 2) { // deletion
+				ds_len += len + 1, x += len;
+			}
+		}
+		mg_str_reserve(km2, &str, ds_len);
 		for (j = 0, x = 0, y = gc->qs; j < gc->p->n_cigar; ++j) {
 			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
 			if (op == 0 || op == 7 || op == 8) { // alignment match
