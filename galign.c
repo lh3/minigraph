@@ -236,7 +236,7 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 						break;
 				ll = z;
 				mg_sprintf_km(km2, &str, "-");
-				write_indel(km2, &str, len, &seq.s[y], ll, lr);
+				write_indel(km2, &str, len, &seq.s[x], ll, lr);
 				x += len;
 			}
 		}
