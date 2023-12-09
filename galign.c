@@ -4,6 +4,10 @@
 #include "kalloc.h"
 #include "miniwfa.h"
 
+/******************
+ * Generate cigar *
+ ******************/
+
 static void append_cigar1(void *km, mg64_v *c, int32_t op, int32_t len)
 {
 	if (c->n > 0 && (c->a[c->n - 1]&0xf) == op) {
@@ -140,9 +144,13 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 	kfree(km, cigar.a);
 }
 
-#define mg_get_nucl(s, i) (seq_nt4_table[(uint8_t)(s)[(i)]])
+/***********************
+ * Generate the ds tag *
+ ***********************/
 
-static void write_indel(void *km, kstring_t *str, int64_t len, const char *seq, int64_t ll, int64_t lr)
+#define mg_get_nucl(s, i) (seq_nt4_table[(uint8_t)(s)[(i)]]) // get the base in the "nt4" encoding
+
+static void write_indel(void *km, kstring_t *str, int64_t len, const char *seq, int64_t ll, int64_t lr) // write an indel to ds
 {
 	int64_t i;
 	if (ll + lr >= len) {
@@ -181,11 +189,12 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 		mg_gchain_t *gc = &gt->gc[i];
 		int32_t j;
 		int64_t x, y, ds_len;
+		str.l = seq.l = 0;
 		if (gc->p->aplen > seq.m) {
 			seq.s = Krealloc(km2, char, seq.s, gc->p->aplen);
 			seq.m = gc->p->aplen;
 		}
-		for (j = 0, seq.l = 0; j < gc->cnt; ++j) {
+		for (j = 0, seq.l = 0; j < gc->cnt; ++j) { // extract the aligned sequence in the graph
 			int32_t k = gc->off + j;
 			uint32_t v = gt->lc[k].v;
 			int32_t slen = es[v].len;
@@ -214,7 +223,7 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 			}
 		}
 		mg_str_reserve(km2, &str, ds_len);
-		for (j = 0, x = 0, y = gc->qs; j < gc->p->n_cigar; ++j) {
+		for (j = 0, x = 0, y = gc->qs; j < gc->p->n_cigar; ++j) { // write ds
 			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
 			if (op == 0 || op == 7 || op == 8) { // alignment match
 				int64_t z;
@@ -258,8 +267,8 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 				x += len;
 			}
 		}
-		gc->ds = Kcalloc(0, char, str.l + 1);
+		gc->ds = Kcalloc(gt->km, char, str.l + 1);
 		memcpy(gc->ds, str.s, str.l);
 	}
-	km_destroy(km2);
+	km_destroy(km2); // this frees both str.s and seq.s
 }
