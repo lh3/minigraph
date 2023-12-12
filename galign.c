@@ -224,12 +224,13 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 			}
 		}
 		if (n_off > m_off) {
-			m_off += (m_off>>1) + 16;
+			m_off = n_off + (n_off>>1) + 16;
 			off = Krealloc(km2, int32_t, off, m_off);
 		}
 		mg_str_reserve(km2, &str, ds_len);
 		for (j = 0, x = 0, y = gc->qs, n_off = 0; j < gc->p->n_cigar; ++j) { // write ds
 			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
+			assert(n_off < m_off);
 			if (op == 0 || op == 7 || op == 8) { // alignment match
 				int64_t z;
 				int32_t l = 0;
