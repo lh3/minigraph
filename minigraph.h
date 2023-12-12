@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "gfa.h"
 
-#define MG_VERSION "0.20-r572-dirty"
+#define MG_VERSION "0.20-r573-dirty"
 
 #define MG_M_SPLICE       0x10
 #define MG_M_SR           0x20
@@ -118,6 +118,11 @@ typedef struct {
 } mg_cigar_t;
 
 typedef struct {
+	int32_t len, n_off, *off;
+	char *ds;
+} mg_ds_t;
+
+typedef struct {
 	int32_t id, parent;
 	int32_t off, cnt;
 	int32_t n_anchor, score;
@@ -129,7 +134,7 @@ typedef struct {
 	int32_t subsc, n_sub;
 	uint32_t mapq:8, flt:1, dummy:23;
 	mg_cigar_t *p;
-	char *ds;
+	mg_ds_t ds;
 } mg_gchain_t;
 
 typedef struct {

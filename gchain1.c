@@ -527,7 +527,8 @@ void mg_gchain_free(mg_gchains_t *gs)
 	km = gs->km;
 	for (i = 0; i < gs->n_gc; ++i) {
 		if (gs->gc[i].p) kfree(km, gs->gc[i].p);
-		if (gs->gc[i].ds) kfree(km, gs->gc[i].ds);
+		if (gs->gc[i].ds.ds) kfree(km, gs->gc[i].ds.ds);
+		if (gs->gc[i].ds.off) kfree(km, gs->gc[i].ds.off);
 	}
 	kfree(km, gs->gc); kfree(km, gs->a); kfree(km, gs->lc);
 	kfree(km, gs);

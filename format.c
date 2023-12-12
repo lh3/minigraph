@@ -221,7 +221,33 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 				for (j = 0; j < p->p->n_cigar; ++j)
 					mg_sprintf_lite(s, "%d%c", (int32_t)(p->p->cigar[j]>>4), "MIDNSHP=XB"[p->p->cigar[j]&0xf]);
 		}
-		if (p->ds) mg_sprintf_lite(s, "\tds:Z:%s", p->ds);
+		if (p->ds.ds) {
+			mg_sprintf_lite(s, "\tds:Z:");
+			if (rev_sign) {
+				const char *ds = p->ds.ds;
+				int32_t i, j;
+				for (i = p->ds.n_off - 1; i >= 0; --i) {
+					int32_t off = p->ds.off[i], en;
+					mg_sprintf_lite(s, "%c", ds[off]); // print the operator
+					en = i < p->ds.n_off - 1? p->ds.off[i+1] : p->ds.len;
+					if (ds[off] == ':') {
+						for (j = off + 1; j < en; ++j)
+							mg_sprintf_lite(s, "%c", ds[j]);
+					} else if (ds[off] == '*') {
+						for (j = off + 1; j < en; ++j)
+							mg_sprintf_lite(s, "%c", gfa_comp_table[(uint8_t)ds[j]]);
+					} else {
+						for (j = en - 1; j >= off + 1; --j) {
+							if (ds[j] == '[') mg_sprintf_lite(s, "]");
+							else if (ds[j] == ']') mg_sprintf_lite(s, "[");
+							else mg_sprintf_lite(s, "%c", gfa_comp_table[(uint8_t)ds[j]]);
+						}
+					}
+				}
+			} else {
+				mg_sprintf_lite(s, "%s", p->ds.ds);
+			}
+		}
 		mg_sprintf_lite(s, "\n");
 		if ((mg_dbg_flag & MG_DBG_LCHAIN) || (flag & MG_M_WRITE_LCHAIN)) {
 			char buf[16];

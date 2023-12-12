@@ -136,7 +136,7 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 			if (op != 1) gc->p->aplen += len;
 			if (op != 2) l += len;
 		}
-		gc->ds = 0;
+		memset(&gc->ds, 0, sizeof(gc->ds));
 		assert(l == gc->qe - gc->qs && gc->p->aplen == gc->pe - gc->ps);
 	}
 	km_destroy(km2);
@@ -181,7 +181,7 @@ static void write_indel(void *km, kstring_t *str, int64_t len, const char *seq, 
 
 void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt)
 {
-	int32_t i;
+	int32_t i, m_off = 0, n_off = 0, *off = 0;
 	void *km2;
 	kstring_t str = {0,0,0}, seq = {0,0,0};
 	km2 = km_init2(km, 0);
@@ -189,7 +189,7 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 		mg_gchain_t *gc = &gt->gc[i];
 		int32_t j;
 		int64_t x, y, ds_len;
-		str.l = seq.l = 0;
+		str.l = seq.l = n_off = 0;
 		if (gc->p->aplen > seq.m) {
 			seq.s = Krealloc(km2, char, seq.s, gc->p->aplen);
 			seq.m = gc->p->aplen;
@@ -205,25 +205,30 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 			seq.l += en - st;
 		}
 		assert(seq.l == gc->p->aplen);
-		for (j = 0, x = 0, y = gc->qs, ds_len = 0; j < gc->p->n_cigar; ++j) { // estimate the approximate length of ds
+		for (j = 0, x = 0, y = gc->qs, ds_len = 0, n_off = 0; j < gc->p->n_cigar; ++j) { // estimate the approximate length of ds
 			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4, z;
 			if (op == 0 || op == 7 || op == 8) { // alignment match
 				int32_t l = 0;
+				++n_off;
 				for (z = 0; z < len; ++z) {
 					if (mg_get_nucl(seq.s, x+z) != mg_get_nucl(qseq, y+z))
-						ds_len += 3, ds_len += 6, l = 0;
+						ds_len += 3, ds_len += 6, n_off += 2, l = 0;
 					else ++l;
 				}
 				ds_len += 6;
 				x += len, y += len;
 			} else if (op == 1) { // insertion
-				ds_len += len + 1, y += len;
+				ds_len += len + 1, ++n_off, y += len;
 			} else if (op == 2) { // deletion
-				ds_len += len + 1, x += len;
+				ds_len += len + 1, ++n_off, x += len;
 			}
 		}
+		if (n_off > m_off) {
+			m_off += (m_off>>1) + 16;
+			off = Krealloc(km2, int32_t, off, m_off);
+		}
 		mg_str_reserve(km2, &str, ds_len);
-		for (j = 0, x = 0, y = gc->qs; j < gc->p->n_cigar; ++j) { // write ds
+		for (j = 0, x = 0, y = gc->qs, n_off = 0; j < gc->p->n_cigar; ++j) { // write ds
 			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
 			if (op == 0 || op == 7 || op == 8) { // alignment match
 				int64_t z;
@@ -232,12 +237,19 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 					uint8_t cx = mg_get_nucl(seq.s, x+z);
 					uint8_t cy = mg_get_nucl(qseq, y+z);
 					if (cx != cy) {
-						if (l > 0) mg_sprintf_km(km2, &str, ":%d", l);
+						if (l > 0) {
+							off[n_off++] = str.l;
+							mg_sprintf_km(km2, &str, ":%d", l);
+						}
+						off[n_off++] = str.l;
 						mg_sprintf_km(km2, &str, "*%c%c", "acgtn"[cx], "acgtn"[cy]);
 						l = 0;
 					} else ++l;
 				}
-				if (l > 0) mg_sprintf_km(km2, &str, ":%d", l);
+				if (l > 0) {
+					off[n_off++] = str.l;
+					mg_sprintf_km(km2, &str, ":%d", l);
+				}
 				x += len, y += len;
 			} else if (op == 1) { // insertion
 				int64_t z, ll, lr;
@@ -249,6 +261,7 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 					if (y + len + z >= gc->qe || qseq[y + len + z] != qseq[y + z])
 						break;
 				ll = z;
+				off[n_off++] = str.l;
 				mg_sprintf_km(km2, &str, "+");
 				write_indel(km2, &str, len, &qseq[y], ll, lr);
 				y += len;
@@ -262,13 +275,18 @@ void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const cha
 					if (x + len + z >= gc->p->aplen || seq.s[x + z] != seq.s[x + len + z])
 						break;
 				ll = z;
+				off[n_off++] = str.l;
 				mg_sprintf_km(km2, &str, "-");
 				write_indel(km2, &str, len, &seq.s[x], ll, lr);
 				x += len;
 			}
 		}
-		gc->ds = Kcalloc(gt->km, char, str.l + 1);
-		memcpy(gc->ds, str.s, str.l);
+		gc->ds.len = str.l;
+		gc->ds.ds = Kcalloc(gt->km, char, str.l + 1);
+		memcpy(gc->ds.ds, str.s, str.l);
+		gc->ds.n_off = n_off;
+		gc->ds.off = Kcalloc(gt->km, int32_t, n_off);
+		memcpy(gc->ds.off, off, n_off * sizeof(int32_t));
 	}
 	km_destroy(km2); // this frees both str.s and seq.s
 }
