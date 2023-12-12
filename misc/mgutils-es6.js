@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const version = "r565";
+const version = "r575";
 
 /**************
  * From k8.js *
@@ -230,13 +230,14 @@ function mg_cmd_addsample(args) {
 }
 
 function mg_cmd_getindel(args) {
-	let min_mapq = 5, min_frac = 0.7, min_len = 100, max_cnt = 5, dbg = false;
-	for (const o of getopt(args, "q:l:dc:", [])) {
+	let min_mapq = 5, min_frac = 0.7, min_len = 100, max_cnt = 5, dbg = false, polyA_pen = 5, polyA_drop = 100;
+	for (const o of getopt(args, "q:l:dc:a:", [])) {
 		if (o.opt == "-q") min_mapq = parseInt(o.arg);
 		else if (o.opt == "-l") min_len = parseInt(o.arg);
 		else if (o.opt == "-d") dbg = true;
 		else if (o.opt == "-f") min_frac = parseFloat(o.arg);
 		else if (o.opt == "-c") max_cnt = parseInt(o.arg);
+		else if (o.opt == "-a") polyA_pen = parseInt(o.arg);
 	}
 	if (args.length == 0) {
 		print("Usage: mgutils-es6.js getindel [options] <stable.gaf>");
@@ -245,32 +246,93 @@ function mg_cmd_getindel(args) {
 		print(`  -l INT     min INDEL len [${min_len}]`);
 		print(`  -f FLOAT   min mapped query fraction [${min_frac}]`);
 		print(`  -c INT     max count per read [${max_cnt}]`);
+		print(`  -a INT     penalty for non-polyA bases [${polyA_pen}]`);
 		return;
 	}
 	let re = /(\d+)([=XIDM])/g, re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g;
+	let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g;
+	let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/;
+	let lineno = 0;
 	for (const line of k8_readline(args[0])) {
+		++lineno;
 		let t = line.split("\t");
 		if (t.length < 12) continue;
 		for (let i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
 		for (let i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
 		if (t[11] < min_mapq) continue;
 		if (t[3] - t[2] < t[1] * min_frac) continue;
-		let cg = null;
-		for (let i = 12; i < t.length; ++i)
+		let cg = null, ds = null;
+		for (let i = 12; i < t.length; ++i) {
 			if (t[i].substr(0, 5) === "cg:Z:")
 				cg = t[i].substr(5);
+			else if (t[i].substr(0, 5) === "ds:Z:")
+				ds = t[i].substr(5);
+		}
 		if (cg == null) continue;
 		let m, a = [], x = t[7];
 		while ((m = re.exec(cg)) != null) {
 			const op = m[2], len = parseInt(m[1]);
 			if (len >= min_len) {
-				if (op === "I") a.push([x - 1, x + 1, len]);
-				else if (op === "D") a.push([x, x + len, -len]);
+				if (op === "I") a.push([x - 1, x + 1, len, 0, 0, "", ""]);
+				else if (op === "D") a.push([x, x + len, -len, 0, 0, "", ""]);
 			}
 			if (op == "M" || op == "=" || op == "X" || op == "D")
 				x += len;
 		}
 		if (a.length == 0 || a.length > max_cnt) continue;
+		if (ds) { // this MUST match CIGAR parsing
+			let i = 0, x = t[7], m;
+			while ((m = re_ds.exec(ds)) != null) {
+				const op = m[1], str = m[2];
+				const seq = op === "+" || op === "-"? str.replace(/[\[\]]/g, "") : "";
+				const len = op === ":"? parseInt(str) : op === "*"? 1 : op === "+" || op === "-"? seq.length : -1;
+				if (len < 0) throw Error("can't determine length from the ds tag");
+				if (len >= min_len) {
+					if (op === "+") {
+						if (a[i][0] != x - 1 || a[i][1] != x + 1 || a[i][2] != len)
+							throw Error(`inconsistent insertion at line ${lineno}`);
+						a[i++][5] = str;
+					} else if (op === "-") {
+						if (a[i][0] != x || a[i][1] != x + len || a[i][2] != -len)
+							throw Error(`inconsistent deletion at line ${lineno}`);
+						a[i++][5] = str;
+					}
+				}
+				if (op == "*" || op == ":" || op == "-")
+					x += len;
+			}
+			for (let i = 0; i < a.length; ++i) { // compute TSD and polyA lengths
+				if ((m = re_tsd.exec(a[i][5])) == null)
+					throw Error("Bug!");
+				const tsd = (m[5]? m[5] : "") + (m[2]? m[2] : "");
+				const int_seq = m[3]; // internal sequence
+				if (int_seq.length > 0) {
+					let polyA_len = 0, polyT_len = 0, polyA_max = 0, polyT_max;
+					let score, max, max_j;
+					score = max = 0, max_j = int_seq.length;
+					for (let j = int_seq.length - 1; j >= 0; --j) {
+						if (int_seq[j] == 'A' || int_seq[j] == 'a') ++score;
+						else score -= polyA_pen;
+						if (score > max) max = score, max_j = j;
+						else if (max - score > polyA_drop) break;
+						print(j, int_seq[j], score, max);
+					}
+					polyA_len = int_seq.length - max_j, polyA_max = max;
+					score = max = 0, max_j = -1;
+					for (let j = 0; j < int_seq.length; ++j) {
+						if (int_seq[j] == 'T' || int_seq[j] == 't') ++score;
+						else score -= polyA_pen;
+						if (score > max) max = score, max_j = j;
+						else if (max - score > polyA_drop) break;
+					}
+					polyT_len = max_j + 1, polyT_max = max;
+					a[i][4] = polyA_max >= polyT_max? polyA_len : -polyT_len;
+				}
+				a[i][3] = tsd.length;
+				a[i][5] = tsd.length > 0? tsd : ".";
+				a[i][6] = int_seq.length > 0? int_seq : ".";
+			}
+		}
 		if (dbg) print('X0', line);
 		let seg = [];
 		if (/[><]/.test(t[5])) { // with ><
@@ -308,7 +370,7 @@ function mg_cmd_getindel(args) {
 			if (st[i][0] == en[i][0]) { // on the same segment
 				const s = seg[st[i][0]];
 				const strand = s[3] > 0? t[4] : t[4] == '+'? '-' : '+';
-				print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], t[0], t[11], strand, a[i][2]);
+				print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], t[0], t[11], strand, a[i][2], a[i][3], a[i][4], a[i][6]);
 			} else { // on different segments
 				let path = [], len = 0;
 				for (let j = st[i][0]; j <= en[i][0]; ++j) {
@@ -317,7 +379,7 @@ function mg_cmd_getindel(args) {
 					path.push((s[3] > 0? '>' : '<') + s[0] + `:${s[1]}-${s[2]}`);
 				}
 				const off = seg[st[i][0]][4];
-				print(path.join(""), a[i][0] - off, a[i][1] - off, t[0], t[11], '+', a[i][2]);
+				print(path.join(""), a[i][0] - off, a[i][1] - off, t[0], t[11], '+', a[i][2], a[i][3], a[i][4], a[i][6]);
 			}
 		}
 	}
