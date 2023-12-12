@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const version = "r575";
+const version = "r576";
 
 /**************
  * From k8.js *
@@ -315,7 +315,6 @@ function mg_cmd_getindel(args) {
 						else score -= polyA_pen;
 						if (score > max) max = score, max_j = j;
 						else if (max - score > polyA_drop) break;
-						print(j, int_seq[j], score, max);
 					}
 					polyA_len = int_seq.length - max_j, polyA_max = max;
 					score = max = 0, max_j = -1;
