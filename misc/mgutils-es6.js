@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const version = "r576";
+const version = "r577";
 
 /**************
  * From k8.js *
@@ -245,31 +245,70 @@ function mg_cmd_getindel(args) {
 		print(`  -q INT     min mapq [${min_mapq}]`);
 		print(`  -l INT     min INDEL len [${min_len}]`);
 		print(`  -f FLOAT   min mapped query fraction [${min_frac}]`);
-		print(`  -c INT     max count per read [${max_cnt}]`);
+		print(`  -c INT     max number of long INDELs per read [${max_cnt}]`);
 		print(`  -a INT     penalty for non-polyA bases [${polyA_pen}]`);
 		return;
 	}
-	let re = /(\d+)([=XIDM])/g, re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g;
+	let re = /(\d+)([=XIDMSHN])/g, re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g;
 	let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g;
 	let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/;
 	let lineno = 0;
 	for (const line of k8_readline(args[0])) {
 		++lineno;
 		let t = line.split("\t");
-		if (t.length < 12) continue;
-		for (let i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
-		for (let i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
-		if (t[11] < min_mapq) continue;
-		if (t[3] - t[2] < t[1] * min_frac) continue;
-		let cg = null, ds = null;
-		for (let i = 12; i < t.length; ++i) {
-			if (t[i].substr(0, 5) === "cg:Z:")
-				cg = t[i].substr(5);
-			else if (t[i].substr(0, 5) === "ds:Z:")
-				ds = t[i].substr(5);
+		if (t.length < 11) continue;
+		// parse format
+		let mapq = 0, qst = -1, qen = -1, qlen = -1, tlen = -1, tst = -1, cg = null, ds = null, path = null, strand = null;
+		const qname = t[0];
+		if (t.length >= 12 && (t[4] === "+" || t[4] === "-")) { // PAF or GAF
+			mapq = parseInt(t[11]);
+			if (mapq < min_mapq) continue;
+			qlen = parseInt(t[1]);
+			qst = parseInt(t[2]);
+			qen = parseInt(t[3]);
+			if (qen - qst < qlen * min_frac) continue;
+			strand = t[4];
+			path = t[5];
+			tlen = parseInt(t[6]);
+			tst = parseInt(t[7]);
+			let tp = "";
+			for (let i = 12; i < t.length; ++i) {
+				if (t[i].substr(0, 5) === "cg:Z:")
+					cg = t[i].substr(5);
+				else if (t[i].substr(0, 5) === "ds:Z:")
+					ds = t[i].substr(5);
+				else if (t[i].substr(0, 5) === "tp:A:")
+					tp = t[i].substr(5);
+			}
+			if (tp != "P") continue;
+			if (cg == null) continue;
+		} else { // SAM
+			if (t[0][0] === "@") continue;
+			const flag = parseInt(t[1]);
+			if (flag & 0x100) continue;
+			mapq = parseInt(t[4]);
+			if (mapq < min_mapq) continue;
+			strand = (flag&0x10)? "-" : "+";
+			path = t[2];
+			tlen = 0xffffffff;
+			tst = parseInt(t[3]) - 1;
+			cg = t[5];
+			let m;
+			qst = (m = /^(\d+)[SH]/.exec(cg)) != null? parseInt(m[1]) : 0;
+			qlen = 0;
+			while ((m = re.exec(cg)) != null) {
+				const op = m[2];
+				if (op == "S" || op == "H" || op == "M" || op == "=" || op == "I")
+					qlen += parseInt(m[1]);
+			}
+			for (let i = 11; i < t.length; ++i)
+				if (t[i].substr(0, 5) === "ds:Z:")
+					ds = t[i].substr(5);
+			qen = qlen - ((m = /(\d+)[SH]$/.exec(cg)) != null? parseInt(m[1]) : 0);
+			if (qen - qst < qlen * min_frac) continue;
 		}
-		if (cg == null) continue;
-		let m, a = [], x = t[7];
+		// extract long INDELs
+		let m, a = [], x = tst;
 		while ((m = re.exec(cg)) != null) {
 			const op = m[2], len = parseInt(m[1]);
 			if (len >= min_len) {
@@ -280,8 +319,9 @@ function mg_cmd_getindel(args) {
 				x += len;
 		}
 		if (a.length == 0 || a.length > max_cnt) continue;
+		// parse ds:Z
 		if (ds) { // this MUST match CIGAR parsing
-			let i = 0, x = t[7], m;
+			let i = 0, x = tst, m;
 			while ((m = re_ds.exec(ds)) != null) {
 				const op = m[1], str = m[2];
 				const seq = op === "+" || op === "-"? str.replace(/[\[\]]/g, "") : "";
@@ -334,16 +374,16 @@ function mg_cmd_getindel(args) {
 		}
 		if (dbg) print('X0', line);
 		let seg = [];
-		if (/[><]/.test(t[5])) { // with ><
+		if (/[><]/.test(path)) { // with ><
 			let y = 0;
-			if (t[4] != '+') throw Error("reverse strand on path");
-			while ((m = re_path.exec(t[5])) != null) {
+			if (strand != '+') throw Error("reverse strand on path");
+			while ((m = re_path.exec(path)) != null) {
 				const st = parseInt(m[3]), en = parseInt(m[4]);
 				seg.push([m[2], st, en, m[1] == '>'? 1 : -1, y, y + (en - st)]);
 				y += en - st;
 			}
 		} else {
-			seg.push([t[5], 0, t[6], 1, 0, t[6]]);
+			seg.push([path, 0, tlen, 1, 0, tlen]);
 		}
 		let st = [], en = [];
 		for (let i = 0, k = 0; i < a.length; ++i) { // start
@@ -368,8 +408,8 @@ function mg_cmd_getindel(args) {
 			if (dbg) print('X2', a[i][0], a[i][1], st[i][0], en[i][0]);
 			if (st[i][0] == en[i][0]) { // on the same segment
 				const s = seg[st[i][0]];
-				const strand = s[3] > 0? t[4] : t[4] == '+'? '-' : '+';
-				print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], t[0], t[11], strand, a[i][2], a[i][3], a[i][4], a[i][6]);
+				const strand2 = s[3] > 0? strand : strand === '+'? '-' : '+';
+				print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], qname, mapq, strand2, a[i][2], a[i][3], a[i][4], a[i][6]);
 			} else { // on different segments
 				let path = [], len = 0;
 				for (let j = st[i][0]; j <= en[i][0]; ++j) {
@@ -378,7 +418,7 @@ function mg_cmd_getindel(args) {
 					path.push((s[3] > 0? '>' : '<') + s[0] + `:${s[1]}-${s[2]}`);
 				}
 				const off = seg[st[i][0]][4];
-				print(path.join(""), a[i][0] - off, a[i][1] - off, t[0], t[11], '+', a[i][2], a[i][3], a[i][4], a[i][6]);
+				print(path.join(""), a[i][0] - off, a[i][1] - off, qname, mapq, '+', a[i][2], a[i][3], a[i][4], a[i][6]);
 			}
 		}
 	}
