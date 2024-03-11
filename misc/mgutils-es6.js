@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const version = "r577";
+const version = "r578";
 
 /**************
  * From k8.js *
@@ -249,14 +249,15 @@ function mg_cmd_getindel(args) {
 		print(`  -a INT     penalty for non-polyA bases [${polyA_pen}]`);
 		return;
 	}
-	let re = /(\d+)([=XIDMSHN])/g, re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g;
-	let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g;
-	let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/;
+	let re = /(\d+)([=XIDMSHN])/g; // regex for CIGAR
+	let re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g; // regex for path/ctg
+	let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g; // regex for the ds tag
+	let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/; // regex for parsing TSD
 	let lineno = 0;
 	for (const line of k8_readline(args[0])) {
 		++lineno;
 		let t = line.split("\t");
-		if (t.length < 11) continue;
+		if (t.length < 11) continue; // SAM has 11 columns at least; PAF has 12 columns at least
 		// parse format
 		let mapq = 0, qst = -1, qen = -1, qlen = -1, tlen = -1, tst = -1, cg = null, ds = null, path = null, strand = null;
 		const qname = t[0];
@@ -266,7 +267,7 @@ function mg_cmd_getindel(args) {
 			qlen = parseInt(t[1]);
 			qst = parseInt(t[2]);
 			qen = parseInt(t[3]);
-			if (qen - qst < qlen * min_frac) continue;
+			if (qen - qst < qlen * min_frac) continue; // test earlier to reduce unnecessary parsing
 			strand = t[4];
 			path = t[5];
 			tlen = parseInt(t[6]);
@@ -280,7 +281,7 @@ function mg_cmd_getindel(args) {
 				else if (t[i].substr(0, 5) === "tp:A:")
 					tp = t[i].substr(5);
 			}
-			if (tp != "P") continue;
+			if (tp != "P") continue; // filter out secondary alignments
 			if (cg == null) continue;
 		} else { // SAM
 			if (t[0][0] === "@") continue;
@@ -290,7 +291,7 @@ function mg_cmd_getindel(args) {
 			if (mapq < min_mapq) continue;
 			strand = (flag&0x10)? "-" : "+";
 			path = t[2];
-			tlen = 0xffffffff;
+			tlen = 0xffffffff; // tlen doesn't need to be accurate for SAM or PAF
 			tst = parseInt(t[3]) - 1;
 			cg = t[5];
 			let m;
@@ -374,7 +375,7 @@ function mg_cmd_getindel(args) {
 		}
 		if (dbg) print('X0', line);
 		let seg = [];
-		if (/[><]/.test(path)) { // with ><
+		if (/[><]/.test(path)) { // with ><: this is a path
 			let y = 0;
 			if (strand != '+') throw Error("reverse strand on path");
 			while ((m = re_path.exec(path)) != null) {
@@ -382,7 +383,7 @@ function mg_cmd_getindel(args) {
 				seg.push([m[2], st, en, m[1] == '>'? 1 : -1, y, y + (en - st)]);
 				y += en - st;
 			}
-		} else {
+		} else { // this is a contig name
 			seg.push([path, 0, tlen, 1, 0, tlen]);
 		}
 		let st = [], en = [];
