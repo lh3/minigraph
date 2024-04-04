@@ -230,14 +230,16 @@ function mg_cmd_addsample(args) {
 }
 
 function mg_cmd_getsv(args) {
-	let opt = { min_mapq:5, min_frac:0.7, min_len:100, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100 };
-	for (const o of getopt(args, "q:l:dc:a:", [])) {
+	let opt = { min_mapq:5, min_frac:0.7, min_len:100, min_aln_len_end:2000, min_aln_len_mid:50, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100 };
+	for (const o of getopt(args, "q:l:dc:a:e:m:", [])) {
 		if (o.opt == "-q") opt.min_mapq = parseInt(o.arg);
 		else if (o.opt == "-l") opt.min_len = parseInt(o.arg);
 		else if (o.opt == "-d") opt.dbg = true;
 		else if (o.opt == "-f") opt.min_frac = parseFloat(o.arg);
 		else if (o.opt == "-c") opt.max_cnt = parseInt(o.arg);
 		else if (o.opt == "-a") opt.polyA_pen = parseInt(o.arg);
+		else if (o.opt == "-e") opt.min_aln_len_end = parseInt(o.arg);
+		else if (o.opt == "-m") opt.min_aln_len_mid = parseInt(o.arg);
 	}
 	if (args.length == 0) {
 		print("Usage: mgutils-es6.js getsv [options] <stable.gaf>");
@@ -247,16 +249,50 @@ function mg_cmd_getsv(args) {
 		print(`  -f FLOAT   min mapped query fraction [${opt.min_frac}]`);
 		print(`  -c INT     max number of long INDELs per read [${opt.max_cnt}]`);
 		print(`  -a INT     penalty for non-polyA bases [${opt.polyA_pen}]`);
+		print(`  -e INT     min alignment length at ends [${opt.min_aln_len_end}]`);
+		print(`  -m INT     min alignment length in the middle [${opt.min_aln_len_mid}]`);
 		return;
+	}
+
+	let re = /(\d+)([=XIDMSHN])/g; // regex for CIGAR
+	let re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g; // regex for path/ctg
+	let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g; // regex for the ds tag
+	let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/; // regex for parsing TSD
+
+	function get_end_coor(y) {
+		let r = [{}, {}];
+		if (/^[><]/.test(y.path)) { // a path
+			if (y.strand != '+') throw Error("reverse strand on path");
+			let x = 0, i = 0;
+			while ((m = re_path.exec(y.path)) != null) {
+				const st = parseInt(m[3]), en = parseInt(m[4]), len = en - st;
+				if (y.tst >= x && y.tst < x + len) {
+					r[0] = { ctg:m[2], ori:m[1], pos:-1 };
+					r[0].pos = m[1] === ">"? st + (y.tst - x) : st + (x + len - y.tst) - 1;
+				}
+				if (y.ten > x && y.ten <= x + len) {
+					r[1] = { ctg:m[2], ori:m[1], pos:-1 };
+					r[1].pos = m[1] === ">"? st + (y.ten - x) - 1 : st + (x + len - y.ten);
+				}
+				x += len;
+			}
+		} else { // a contig
+			r[0] = { ctg:y.path, ori: y.strand === "+"? ">" : "<", pos:-1 };
+			r[0].pos = y.strand === "+"? y.tst : y.ten - 1;
+			r[1] = { ctg:y.path, ori: y.strand === "+"? ">" : "<", pos:-1 };
+			r[1].pos = y.strand === "+"? y.ten - 1 : y.tst;
+		}
+		return r;
 	}
 
 	function process_z(opt, z) {
 		if (z.length == 0) return;
-		let re = /(\d+)([=XIDMSHN])/g; // regex for CIGAR
-		let re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g; // regex for path/ctg
-		let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g; // regex for the ds tag
-		let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/; // regex for parsing TSD
-		for (let j = 0; j < z.length; ++j) { // extract long indels contained in CIGARs
+
+		/*******************************************
+		 * Extract long indels contained in CIGARs *
+		 *******************************************/
+
+		for (let j = 0; j < z.length; ++j) {
 			const y = z[j];
 			if (y.qen - y.qst < y.qlen * opt.min_frac) continue; // ignore short alignments
 			let m, a = [], x = y.tst;
@@ -327,7 +363,7 @@ function mg_cmd_getsv(args) {
 					a[i].tsd_seq = tsd.length > 0? tsd : ".";
 					a[i].int_seq = int_seq.length > 0? int_seq : ".";
 				}
-			}
+			} // ~if(y.ds)
 			if (opt.dbg) print('X0', line);
 			let seg = []; // reference segments in the path
 			if (/[><]/.test(y.path)) { // with ><: this is a path
@@ -362,10 +398,11 @@ function mg_cmd_getsv(args) {
 			}
 			for (let i = 0; i < a.length; ++i) {
 				if (opt.dbg) print('X2', a[i].st, a[i].en, st[i][0], en[i][0]);
+				const info = `indel_len=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
 				if (st[i][0] == en[i][0]) { // on the same segment
 					const s = seg[st[i][0]];
 					const strand2 = s[3] > 0? y.strand : y.strand === '+'? '-' : '+';
-					print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], y.qname, y.mapq, strand2, a[i].len, a[i].tsd_len, a[i].polyA_len, a[i].int_seq);
+					print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], y.qname, y.mapq, strand2, info);
 				} else { // on different segments
 					let path = [], len = 0;
 					for (let j = st[i][0]; j <= en[i][0]; ++j) {
@@ -374,18 +411,62 @@ function mg_cmd_getsv(args) {
 						path.push((s[3] > 0? '>' : '<') + s[0] + `:${s[1]}-${s[2]}`);
 					}
 					const off = seg[st[i][0]][4];
-					print(path.join(""), a[i].st - off, a[i].en - off, y.qname, y.mapq, '+', a[i].len, a[i].tsd_len, a[i].polyA_len, a[i].int_seq);
+					print(path.join(""), a[i].st - off, a[i].en - off, y.qname, y.mapq, '+', info);
 				}
-			}
+			} // ~for(i)
+		} // ~for(j)
+
+		/*********************************
+		 * Extract alignment breakpoints *
+		 *********************************/
+
+		if (z.length < 2) return;
+		z.sort(function(a,b) { return a.qst - b.qst }); // sort by start position on the read
+		// filter out short alignment towards the end of the read
+		let zen = z.length;
+		for (let j = z.length - 1; j >= 0; --j) {
+			const y = z[j];
+			if (y.qen - y.qst < opt.min_aln_len_end) zen = j;
+			else break;
 		}
-	}
+		if (zen < 2) return;
+		// filter out short alignment towards the start of the read
+		let zst = 0;
+		for (let j = 0; j < zen; ++j) {
+			const y = z[j];
+			if (y.qen - y.qst < opt.min_aln_len_end) zst = j + 1;
+			else break;
+		}
+		if (zen - zst < 2) return;
+		// construct the final alignment list
+		let zz = [];
+		for (let j = zst; j < zen; ++j)
+			if (z[j].qen - z[j].qst >= opt.min_aln_len_mid)
+				zz.push(z[j]);
+		if (zz.length < 2) return; // shouldn't happen if mid<end; just in case
+		// calculate the end coordinates
+		for (let j = 0; j < zz.length; ++j) {
+			const r = get_end_coor(zz[j]);
+			zz[j].coor = r;
+		}
+		// extract alignment breakpoints
+		for (let j = 1; j < zz.length; ++j) {
+			const y0 = zz[j-1], y1 = zz[j];
+			const l2 = y1.qst - y0.qen;
+			let c0 = y0.coor[1], c1 = y1.coor[0], strand2 = "+", ori = c0.ori + c1.ori;
+			if (!(c0.ctg < c1.ctg || (c0.ctg === c1.ctg && c0.pos < c1.pos)))
+				c0 = y1.coor[0], c1 = y0.coor[1], strand2 = "-", ori = (c1.ori === ">"? "<" : ">") + (c0.ori === ">"? "<" : ">");
+			print(c0.ctg, c0.pos, ori, c1.ctg, c1.pos, y0.qname, y0.mapq < y1.mapq? y0.mapq : y1.mapq, strand2,
+				  `qgap=${l2};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst}`);
+		}
+	} // ~process_z()
 
 	let lineno = 0, z = [];
 	for (const line of k8_readline(args[0])) {
 		++lineno;
 		let t = line.split("\t");
 		if (t.length < 11) continue; // SAM has 11 columns at least; PAF has 12 columns at least
-		if (z.length > 0 && t[0] != z[0][0]) {
+		if (z.length > 0 && t[0] != z[0].qname) {
 			process_z(opt, z);
 			z = [];
 		}
@@ -401,6 +482,7 @@ function mg_cmd_getsv(args) {
 			y.path = t[5];
 			y.tlen = parseInt(t[6]);
 			y.tst = parseInt(t[7]);
+			y.ten = parseInt(t[8]);
 			let tp = "";
 			for (let i = 12; i < t.length; ++i) {
 				if (t[i].substr(0, 5) === "cg:Z:")
@@ -422,6 +504,7 @@ function mg_cmd_getsv(args) {
 			y.path = t[2];
 			y.tlen = 0xffffffff; // tlen doesn't need to be accurate for SAM or PAF
 			y.tst = parseInt(t[3]) - 1;
+			y.ten = -1;
 			y.cg = t[5];
 			let m;
 			y.qst = (m = /^(\d+)[SH]/.exec(cg)) != null? parseInt(m[1]) : 0;
@@ -535,7 +618,7 @@ function main(args)
 		print("  merge2vcf    convert merge BED output to VCF");
 		print("  addsample    add sample names to merged BED (as a fix)");
 		print("  getsv        extract long INDELs from GAF");
-		print("  mergeindel   merge long INDELs from getindel");
+//		print("  mergeindel   merge long INDELs from getindel"); // this doesn't work right now
 		exit(1);
 	}
 
