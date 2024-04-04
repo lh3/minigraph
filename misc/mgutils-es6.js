@@ -286,7 +286,34 @@ function mg_cmd_getsv(args) {
 			r[1] = { ctg:y.path, ori: y.strand === "+"? ">" : "<", pos:-1 };
 			r[1].pos = y.strand === "+"? y.ten - 1 : y.tst;
 		}
+		r[0].ql = r[1].ql = y.qen - y.qst;
 		return r;
+	}
+
+	function infer_svtype(opt, c0, c1, ori, qgap) { // NB: c0 MUST have the smaller coordinate
+		if (c0.ctg != c1.ctg) return "SVTYPE=BND";
+		const l = c1.pos - c0.pos + 1;
+		if (l < 0) throw Error("Bug!");
+		if (ori === ">>" && qgap < l && l - qgap >= opt.min_len) { // deletion
+			const st = qgap < 0? c0.pos + qgap : c0.pos;
+			const en = qgap < 0? c1.pos + 1 - qgap : c1.pos + 1;
+			return `SVTYPE=DEL;SVLEN=${-(l - qgap)};sv_region=${st},${en};tsd_len=${qgap < 0? -qgap : 0}`;
+		}
+		if (ori === ">>" && l < qgap && qgap - l >= opt.min_len) // insertion without TSD
+			return `SVTYPE=INS;SVLEN=${qgap - l};sv_region=${c0.pos},${c1.pos+1}`;
+		if (ori === "<<" && qgap > 0 && l < c0.ql && l < c1.ql && qgap + l >= opt.min_len) // insertion with TSD
+			return `SVTYPE=INS;SVLEN=${qgap + l};sv_region=${c0.pos},${c1.pos+1};tsd_len=${l}`; // TODO: is sv_region correct?
+		if (ori === "<<" && l > c0.ql && l > c1.ql && qgap + l >= opt.min_len) {// tandem duplication
+			const st = qgap < 0? c0.pos : c0.pos > qgap? c0.pos - qgap : 0;
+			const en = qgap < 0? c1.pos + 1 : c1.pos + 1 + qgap;
+			return `SVTYPE=DUP;SVLEN=${qgap + l};sv_region=${st},${en}`;
+		}
+		if ((ori === "<>" || ori === "><") && l >= opt.min_len) { // inversion
+			const st = qgap < 0? c0.pos + qgap : c0.pos;
+			const en = qgap < 0? c1.pos + 1 - qgap : c1.pos + 1;
+			return `SVTYPE=INV;SVLEN=${l - qgap};sv_region=${st},${en}`;
+		}
+		return "SVTYPE=BND";
 	}
 
 	function process_z(opt, z) {
@@ -402,7 +429,8 @@ function mg_cmd_getsv(args) {
 			}
 			for (let i = 0; i < a.length; ++i) {
 				if (opt.dbg) print('X2', a[i].st, a[i].en, st[i][0], en[i][0]);
-				const info = `indel_len=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len};source=${opt.name};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
+				const info = (a[i].len > 0? "SVTYPE=INS" : "SVTYPE=DEL")
+							 + `;SVLEN=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len};source=${opt.name};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
 				if (st[i][0] == en[i][0]) { // on the same segment
 					const s = seg[st[i][0]];
 					const strand2 = s[3] > 0? y.strand : y.strand === '+'? '-' : '+';
@@ -456,12 +484,13 @@ function mg_cmd_getsv(args) {
 		// extract alignment breakpoints
 		for (let j = 1; j < zz.length; ++j) {
 			const y0 = zz[j-1], y1 = zz[j];
-			const l2 = y1.qst - y0.qen;
+			const qgap = y1.qst - y0.qen;
 			let c0 = y0.coor[1], c1 = y1.coor[0], strand2 = "+", ori = c0.ori + c1.ori;
 			if (!(c0.ctg < c1.ctg || (c0.ctg === c1.ctg && c0.pos < c1.pos)))
 				c0 = y1.coor[0], c1 = y0.coor[1], strand2 = "-", ori = (c1.ori === ">"? "<" : ">") + (c0.ori === ">"? "<" : ">");
+			const sv_info = infer_svtype(opt, c0, c1, ori, qgap);
 			print(c0.ctg, c0.pos, ori, c1.ctg, c1.pos, y0.qname, y0.mapq < y1.mapq? y0.mapq : y1.mapq, strand2,
-				  `qgap=${l2};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst};source=${opt.name}`);
+				  `${sv_info};qgap=${qgap};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst};source=${opt.name}`);
 		}
 	} // ~process_z()
 
