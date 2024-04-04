@@ -230,9 +230,10 @@ function mg_cmd_addsample(args) {
 }
 
 function mg_cmd_getsv(args) {
-	let opt = { min_mapq:5, min_frac:0.7, min_len:100, min_aln_len_end:2000, min_aln_len_mid:50, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100 };
-	for (const o of getopt(args, "q:l:dc:a:e:m:", [])) {
+	let opt = { min_mapq:5, min_mapq_end:30, min_frac:0.7, min_len:100, min_aln_len_end:2000, min_aln_len_mid:50, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100, name:"foo" };
+	for (const o of getopt(args, "q:Q:l:dc:a:e:m:n:", [])) {
 		if (o.opt == "-q") opt.min_mapq = parseInt(o.arg);
+		else if (o.opt == "-Q") opt.min_mapq_end = parseInt(o.arg);
 		else if (o.opt == "-l") opt.min_len = parseInt(o.arg);
 		else if (o.opt == "-d") opt.dbg = true;
 		else if (o.opt == "-f") opt.min_frac = parseFloat(o.arg);
@@ -240,15 +241,18 @@ function mg_cmd_getsv(args) {
 		else if (o.opt == "-a") opt.polyA_pen = parseInt(o.arg);
 		else if (o.opt == "-e") opt.min_aln_len_end = parseInt(o.arg);
 		else if (o.opt == "-m") opt.min_aln_len_mid = parseInt(o.arg);
+		else if (o.opt == "-n") opt.name = o.arg;
 	}
 	if (args.length == 0) {
 		print("Usage: mgutils-es6.js getsv [options] <stable.gaf>");
 		print("Options:");
+		print(`  -n STR     sample name [${opt.name}]`);
 		print(`  -q INT     min mapq [${opt.min_mapq}]`);
 		print(`  -l INT     min INDEL len [${opt.min_len}]`);
 		print(`  -f FLOAT   min mapped query fraction [${opt.min_frac}]`);
 		print(`  -c INT     max number of long INDELs per read [${opt.max_cnt}]`);
 		print(`  -a INT     penalty for non-polyA bases [${opt.polyA_pen}]`);
+		print(`  -Q INT     min mapq for alignment ends [${opt.min_mapq_end}]`);
 		print(`  -e INT     min alignment length at ends [${opt.min_aln_len_end}]`);
 		print(`  -m INT     min alignment length in the middle [${opt.min_aln_len_mid}]`);
 		return;
@@ -398,7 +402,7 @@ function mg_cmd_getsv(args) {
 			}
 			for (let i = 0; i < a.length; ++i) {
 				if (opt.dbg) print('X2', a[i].st, a[i].en, st[i][0], en[i][0]);
-				const info = `indel_len=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
+				const info = `indel_len=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len};source=${opt.name};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
 				if (st[i][0] == en[i][0]) { // on the same segment
 					const s = seg[st[i][0]];
 					const strand2 = s[3] > 0? y.strand : y.strand === '+'? '-' : '+';
@@ -426,7 +430,7 @@ function mg_cmd_getsv(args) {
 		let zen = z.length;
 		for (let j = z.length - 1; j >= 0; --j) {
 			const y = z[j];
-			if (y.qen - y.qst < opt.min_aln_len_end) zen = j;
+			if (y.qen - y.qst < opt.min_aln_len_end || y.mapq < opt.min_mapq_end) zen = j;
 			else break;
 		}
 		if (zen < 2) return;
@@ -434,7 +438,7 @@ function mg_cmd_getsv(args) {
 		let zst = 0;
 		for (let j = 0; j < zen; ++j) {
 			const y = z[j];
-			if (y.qen - y.qst < opt.min_aln_len_end) zst = j + 1;
+			if (y.qen - y.qst < opt.min_aln_len_end || y.mapq < opt.min_mapq_end) zst = j + 1;
 			else break;
 		}
 		if (zen - zst < 2) return;
@@ -457,7 +461,7 @@ function mg_cmd_getsv(args) {
 			if (!(c0.ctg < c1.ctg || (c0.ctg === c1.ctg && c0.pos < c1.pos)))
 				c0 = y1.coor[0], c1 = y0.coor[1], strand2 = "-", ori = (c1.ori === ">"? "<" : ">") + (c0.ori === ">"? "<" : ">");
 			print(c0.ctg, c0.pos, ori, c1.ctg, c1.pos, y0.qname, y0.mapq < y1.mapq? y0.mapq : y1.mapq, strand2,
-				  `qgap=${l2};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst}`);
+				  `qgap=${l2};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst};source=${opt.name}`);
 		}
 	} // ~process_z()
 
