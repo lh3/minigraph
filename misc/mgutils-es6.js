@@ -229,200 +229,216 @@ function mg_cmd_addsample(args) {
 	buf.destroy();
 }
 
-function mg_cmd_getindel(args) {
-	let min_mapq = 5, min_frac = 0.7, min_len = 100, max_cnt = 5, dbg = false, polyA_pen = 5, polyA_drop = 100;
+function mg_cmd_getsv(args) {
+	let opt = { min_mapq:5, min_frac:0.7, min_len:100, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100 };
 	for (const o of getopt(args, "q:l:dc:a:", [])) {
-		if (o.opt == "-q") min_mapq = parseInt(o.arg);
-		else if (o.opt == "-l") min_len = parseInt(o.arg);
-		else if (o.opt == "-d") dbg = true;
-		else if (o.opt == "-f") min_frac = parseFloat(o.arg);
-		else if (o.opt == "-c") max_cnt = parseInt(o.arg);
-		else if (o.opt == "-a") polyA_pen = parseInt(o.arg);
+		if (o.opt == "-q") opt.min_mapq = parseInt(o.arg);
+		else if (o.opt == "-l") opt.min_len = parseInt(o.arg);
+		else if (o.opt == "-d") opt.dbg = true;
+		else if (o.opt == "-f") opt.min_frac = parseFloat(o.arg);
+		else if (o.opt == "-c") opt.max_cnt = parseInt(o.arg);
+		else if (o.opt == "-a") opt.polyA_pen = parseInt(o.arg);
 	}
 	if (args.length == 0) {
-		print("Usage: mgutils-es6.js getindel [options] <stable.gaf>");
+		print("Usage: mgutils-es6.js getsv [options] <stable.gaf>");
 		print("Options:");
-		print(`  -q INT     min mapq [${min_mapq}]`);
-		print(`  -l INT     min INDEL len [${min_len}]`);
-		print(`  -f FLOAT   min mapped query fraction [${min_frac}]`);
-		print(`  -c INT     max number of long INDELs per read [${max_cnt}]`);
-		print(`  -a INT     penalty for non-polyA bases [${polyA_pen}]`);
+		print(`  -q INT     min mapq [${opt.min_mapq}]`);
+		print(`  -l INT     min INDEL len [${opt.min_len}]`);
+		print(`  -f FLOAT   min mapped query fraction [${opt.min_frac}]`);
+		print(`  -c INT     max number of long INDELs per read [${opt.max_cnt}]`);
+		print(`  -a INT     penalty for non-polyA bases [${opt.polyA_pen}]`);
 		return;
 	}
-	let re = /(\d+)([=XIDMSHN])/g; // regex for CIGAR
-	let re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g; // regex for path/ctg
-	let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g; // regex for the ds tag
-	let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/; // regex for parsing TSD
-	let lineno = 0;
+
+	function process_z(opt, z) {
+		if (z.length == 0) return;
+		let re = /(\d+)([=XIDMSHN])/g; // regex for CIGAR
+		let re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g; // regex for path/ctg
+		let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g; // regex for the ds tag
+		let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/; // regex for parsing TSD
+		for (let j = 0; j < z.length; ++j) { // extract long indels contained in CIGARs
+			const y = z[j];
+			if (y.qen - y.qst < y.qlen * opt.min_frac) continue; // ignore short alignments
+			let m, a = [], x = y.tst;
+			while ((m = re.exec(y.cg)) != null) { // collect the list of long indels
+				const op = m[2], len = parseInt(m[1]);
+				if (len >= opt.min_len) {
+					if (op === "I")
+						a.push({ st:x-1, en:x+1,   len:len,  indel_seq:".", tsd_len:0, tsd_seq:".", polyA_len:0, int_seq:"." });
+					else if (op === "D")
+						a.push({ st:x,   en:x+len, len:-len, indel_seq:".", tsd_len:0, tsd_seq:".", polyA_len:0, int_seq:"." });
+				}
+				if (op == "M" || op == "=" || op == "X" || op == "D")
+					x += len;
+			}
+			if (a.length == 0 || a.length > opt.max_cnt) continue;
+			// parse ds:Z
+			if (y.ds) { // this MUST match CIGAR parsing
+				let i = 0, x = y.tst, m;
+				while ((m = re_ds.exec(y.ds)) != null) {
+					const op = m[1], str = m[2];
+					const seq = op === "+" || op === "-"? str.replace(/[\[\]]/g, "") : "";
+					const len = op === ":"? parseInt(str) : op === "*"? 1 : op === "+" || op === "-"? seq.length : -1;
+					if (len < 0) throw Error("can't determine length from the ds tag");
+					if (len >= opt.min_len) { // extract INDEL sequence and check consistency with CIGAR
+						if (op === "+") {
+							if (a[i].st != x - 1 || a[i].en != x + 1 || a[i].len != len)
+								throw Error(`inconsistent insertion at line ${lineno}`);
+							a[i++].indel_seq = str;
+						} else if (op === "-") {
+							if (a[i].st != x || a[i].en != x + len || a[i].len != -len)
+								throw Error(`inconsistent deletion at line ${lineno}`);
+							a[i++].indel_seq = str;
+						}
+					}
+					if (op === "*" || op === ":" || op === "-")
+						x += len;
+				}
+				for (let i = 0; i < a.length; ++i) { // compute TSD and polyA lengths
+					if ((m = re_tsd.exec(a[i].indel_seq)) == null)
+						throw Error("Bug!");
+					const tsd = (m[5]? m[5] : "") + (m[2]? m[2] : "");
+					const int_seq = m[3]; // internal sequence
+					if (int_seq.length > 0) {
+						let polyA_len = 0, polyT_len = 0, polyA_max = 0, polyT_max = 0;
+						let score, max, max_j;
+						// look for polyA on the 3'-end
+						score = max = 0, max_j = int_seq.length;
+						for (let j = int_seq.length - 1; j >= 0; --j) {
+							if (int_seq[j] == 'A' || int_seq[j] == 'a') ++score;
+							else score -= opt.polyA_pen;
+							if (score > max) max = score, max_j = j;
+							else if (max - score > opt.polyA_drop) break;
+						}
+						polyA_len = int_seq.length - max_j, polyA_max = max;
+						// look for polyT on the 5'-end
+						score = max = 0, max_j = -1;
+						for (let j = 0; j < int_seq.length; ++j) {
+							if (int_seq[j] == 'T' || int_seq[j] == 't') ++score;
+							else score -= opt.polyA_pen;
+							if (score > max) max = score, max_j = j;
+							else if (max - score > opt.polyA_drop) break;
+						}
+						polyT_len = max_j + 1, polyT_max = max;
+						// choose the longer one
+						a[i].polyA_len = polyA_max >= polyT_max? polyA_len : -polyT_len;
+					}
+					a[i].tsd_len = tsd.length;
+					a[i].tsd_seq = tsd.length > 0? tsd : ".";
+					a[i].int_seq = int_seq.length > 0? int_seq : ".";
+				}
+			}
+			if (opt.dbg) print('X0', line);
+			let seg = []; // reference segments in the path
+			if (/[><]/.test(y.path)) { // with ><: this is a path
+				let x = 0;
+				if (y.strand != '+') throw Error("reverse strand on path");
+				while ((m = re_path.exec(y.path)) != null) {
+					const st = parseInt(m[3]), en = parseInt(m[4]);
+					seg.push([m[2], st, en, m[1] == '>'? 1 : -1, x, x + (en - st)]);
+					x += en - st;
+				}
+			} else { // this is a contig name
+				seg.push([y.path, 0, y.tlen, 1, 0, y.tlen]);
+			}
+			let st = [], en = [];
+			for (let i = 0, k = 0; i < a.length; ++i) { // start
+				while (k < seg.length && seg[k][5] <= a[i].st) ++k;
+				if (k == seg.length) throw Error("failed to find start");
+				const l = a[i].st - seg[k][4];
+				if (seg[k][3] > 0)
+					st.push([k, seg[k][1] + l, seg[k][1] + l]);
+				else
+					st.push([k, seg[k][2] - l, seg[k][1] + l]);
+			}
+			for (let i = 0, k = 0; i < a.length; ++i) { // end
+				while (k < seg.length && seg[k][5] <= a[i].en) ++k;
+				if (k == seg.length) throw Error("failed to find end");
+				const l = a[i].en - seg[k][4];
+				if (seg[k][3] > 0)
+					en.push([k, seg[k][1] + l, seg[k][1] + l]);
+				else
+					en.push([k, seg[k][2] - l, seg[k][1] + l]);
+			}
+			for (let i = 0; i < a.length; ++i) {
+				if (opt.dbg) print('X2', a[i].st, a[i].en, st[i][0], en[i][0]);
+				if (st[i][0] == en[i][0]) { // on the same segment
+					const s = seg[st[i][0]];
+					const strand2 = s[3] > 0? y.strand : y.strand === '+'? '-' : '+';
+					print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], y.qname, y.mapq, strand2, a[i].len, a[i].tsd_len, a[i].polyA_len, a[i].int_seq);
+				} else { // on different segments
+					let path = [], len = 0;
+					for (let j = st[i][0]; j <= en[i][0]; ++j) {
+						const s = seg[j];
+						len += s[2] - s[1];
+						path.push((s[3] > 0? '>' : '<') + s[0] + `:${s[1]}-${s[2]}`);
+					}
+					const off = seg[st[i][0]][4];
+					print(path.join(""), a[i].st - off, a[i].en - off, y.qname, y.mapq, '+', a[i].len, a[i].tsd_len, a[i].polyA_len, a[i].int_seq);
+				}
+			}
+		}
+	}
+
+	let lineno = 0, z = [];
 	for (const line of k8_readline(args[0])) {
 		++lineno;
 		let t = line.split("\t");
 		if (t.length < 11) continue; // SAM has 11 columns at least; PAF has 12 columns at least
+		if (z.length > 0 && t[0] != z[0][0]) {
+			process_z(opt, z);
+			z = [];
+		}
 		// parse format
-		let mapq = 0, qst = -1, qen = -1, qlen = -1, tlen = -1, tst = -1, cg = null, ds = null, path = null, strand = null;
-		const qname = t[0];
-		if (t.length >= 12 && (t[4] === "+" || t[4] === "-")) { // PAF or GAF
-			mapq = parseInt(t[11]);
-			if (mapq < min_mapq) continue;
-			qlen = parseInt(t[1]);
-			qst = parseInt(t[2]);
-			qen = parseInt(t[3]);
-			if (qen - qst < qlen * min_frac) continue; // test earlier to reduce unnecessary parsing
-			strand = t[4];
-			path = t[5];
-			tlen = parseInt(t[6]);
-			tst = parseInt(t[7]);
+		let y = { qname:t[0], mapq:0, qst:-1, qen:-1, qlen:-1, tlen:-1, tst:-1, cg:null, ds:null, path:null, strand:null };
+		if (t.length >= 12 && (t[4] === "+" || t[4] === "-")) { // parse PAF or GAF
+			y.mapq = parseInt(t[11]);
+			if (y.mapq < opt.min_mapq) continue;
+			y.qlen = parseInt(t[1]);
+			y.qst = parseInt(t[2]);
+			y.qen = parseInt(t[3]);
+			y.strand = t[4];
+			y.path = t[5];
+			y.tlen = parseInt(t[6]);
+			y.tst = parseInt(t[7]);
 			let tp = "";
 			for (let i = 12; i < t.length; ++i) {
 				if (t[i].substr(0, 5) === "cg:Z:")
-					cg = t[i].substr(5);
+					y.cg = t[i].substr(5);
 				else if (t[i].substr(0, 5) === "ds:Z:")
-					ds = t[i].substr(5);
+					y.ds = t[i].substr(5);
 				else if (t[i].substr(0, 5) === "tp:A:")
 					tp = t[i].substr(5);
 			}
 			if (tp != "P") continue; // filter out secondary alignments
-			if (cg == null) continue;
-		} else { // SAM
+			if (y.cg == null) continue;
+		} else { // parse SAM
 			if (t[0][0] === "@") continue;
 			const flag = parseInt(t[1]);
 			if (flag & 0x100) continue;
-			mapq = parseInt(t[4]);
-			if (mapq < min_mapq) continue;
-			strand = (flag&0x10)? "-" : "+";
-			path = t[2];
-			tlen = 0xffffffff; // tlen doesn't need to be accurate for SAM or PAF
-			tst = parseInt(t[3]) - 1;
-			cg = t[5];
+			y.mapq = parseInt(t[4]);
+			if (y.mapq < opt.min_mapq) continue;
+			y.strand = (flag&0x10)? "-" : "+";
+			y.path = t[2];
+			y.tlen = 0xffffffff; // tlen doesn't need to be accurate for SAM or PAF
+			y.tst = parseInt(t[3]) - 1;
+			y.cg = t[5];
 			let m;
-			qst = (m = /^(\d+)[SH]/.exec(cg)) != null? parseInt(m[1]) : 0;
-			qlen = 0;
+			y.qst = (m = /^(\d+)[SH]/.exec(cg)) != null? parseInt(m[1]) : 0;
+			y.qlen = 0;
 			while ((m = re.exec(cg)) != null) {
 				const op = m[2];
 				if (op == "S" || op == "H" || op == "M" || op == "=" || op == "I")
-					qlen += parseInt(m[1]);
+					y.qlen += parseInt(m[1]);
 			}
 			for (let i = 11; i < t.length; ++i)
 				if (t[i].substr(0, 5) === "ds:Z:")
-					ds = t[i].substr(5);
-			qen = qlen - ((m = /(\d+)[SH]$/.exec(cg)) != null? parseInt(m[1]) : 0);
-			if (qen - qst < qlen * min_frac) continue;
+					y.ds = t[i].substr(5);
+			y.qen = y.qlen - ((m = /(\d+)[SH]$/.exec(cg)) != null? parseInt(m[1]) : 0);
 		}
-		// extract long INDELs
-		let m, a = [], x = tst;
-		while ((m = re.exec(cg)) != null) {
-			const op = m[2], len = parseInt(m[1]);
-			if (len >= min_len) {
-				if (op === "I") a.push([x - 1, x + 1, len, 0, 0, "", ""]);
-				else if (op === "D") a.push([x, x + len, -len, 0, 0, "", ""]);
-			}
-			if (op == "M" || op == "=" || op == "X" || op == "D")
-				x += len;
-		}
-		if (a.length == 0 || a.length > max_cnt) continue;
-		// parse ds:Z
-		if (ds) { // this MUST match CIGAR parsing
-			let i = 0, x = tst, m;
-			while ((m = re_ds.exec(ds)) != null) {
-				const op = m[1], str = m[2];
-				const seq = op === "+" || op === "-"? str.replace(/[\[\]]/g, "") : "";
-				const len = op === ":"? parseInt(str) : op === "*"? 1 : op === "+" || op === "-"? seq.length : -1;
-				if (len < 0) throw Error("can't determine length from the ds tag");
-				if (len >= min_len) {
-					if (op === "+") {
-						if (a[i][0] != x - 1 || a[i][1] != x + 1 || a[i][2] != len)
-							throw Error(`inconsistent insertion at line ${lineno}`);
-						a[i++][5] = str;
-					} else if (op === "-") {
-						if (a[i][0] != x || a[i][1] != x + len || a[i][2] != -len)
-							throw Error(`inconsistent deletion at line ${lineno}`);
-						a[i++][5] = str;
-					}
-				}
-				if (op == "*" || op == ":" || op == "-")
-					x += len;
-			}
-			for (let i = 0; i < a.length; ++i) { // compute TSD and polyA lengths
-				if ((m = re_tsd.exec(a[i][5])) == null)
-					throw Error("Bug!");
-				const tsd = (m[5]? m[5] : "") + (m[2]? m[2] : "");
-				const int_seq = m[3]; // internal sequence
-				if (int_seq.length > 0) {
-					let polyA_len = 0, polyT_len = 0, polyA_max = 0, polyT_max;
-					let score, max, max_j;
-					score = max = 0, max_j = int_seq.length;
-					for (let j = int_seq.length - 1; j >= 0; --j) {
-						if (int_seq[j] == 'A' || int_seq[j] == 'a') ++score;
-						else score -= polyA_pen;
-						if (score > max) max = score, max_j = j;
-						else if (max - score > polyA_drop) break;
-					}
-					polyA_len = int_seq.length - max_j, polyA_max = max;
-					score = max = 0, max_j = -1;
-					for (let j = 0; j < int_seq.length; ++j) {
-						if (int_seq[j] == 'T' || int_seq[j] == 't') ++score;
-						else score -= polyA_pen;
-						if (score > max) max = score, max_j = j;
-						else if (max - score > polyA_drop) break;
-					}
-					polyT_len = max_j + 1, polyT_max = max;
-					a[i][4] = polyA_max >= polyT_max? polyA_len : -polyT_len;
-				}
-				a[i][3] = tsd.length;
-				a[i][5] = tsd.length > 0? tsd : ".";
-				a[i][6] = int_seq.length > 0? int_seq : ".";
-			}
-		}
-		if (dbg) print('X0', line);
-		let seg = [];
-		if (/[><]/.test(path)) { // with ><: this is a path
-			let y = 0;
-			if (strand != '+') throw Error("reverse strand on path");
-			while ((m = re_path.exec(path)) != null) {
-				const st = parseInt(m[3]), en = parseInt(m[4]);
-				seg.push([m[2], st, en, m[1] == '>'? 1 : -1, y, y + (en - st)]);
-				y += en - st;
-			}
-		} else { // this is a contig name
-			seg.push([path, 0, tlen, 1, 0, tlen]);
-		}
-		let st = [], en = [];
-		for (let i = 0, k = 0; i < a.length; ++i) { // start
-			while (k < seg.length && seg[k][5] <= a[i][0]) ++k;
-			if (k == seg.length) throw Error("failed to find start");
-			const l = a[i][0] - seg[k][4];
-			if (seg[k][3] > 0)
-				st.push([k, seg[k][1] + l, seg[k][1] + l]);
-			else
-				st.push([k, seg[k][2] - l, seg[k][1] + l]);
-		}
-		for (let i = 0, k = 0; i < a.length; ++i) { // end
-			while (k < seg.length && seg[k][5] <= a[i][1]) ++k;
-			if (k == seg.length) throw Error("failed to find end");
-			const l = a[i][1] - seg[k][4];
-			if (seg[k][3] > 0)
-				en.push([k, seg[k][1] + l, seg[k][1] + l]);
-			else
-				en.push([k, seg[k][2] - l, seg[k][1] + l]);
-		}
-		for (let i = 0; i < a.length; ++i) {
-			if (dbg) print('X2', a[i][0], a[i][1], st[i][0], en[i][0]);
-			if (st[i][0] == en[i][0]) { // on the same segment
-				const s = seg[st[i][0]];
-				const strand2 = s[3] > 0? strand : strand === '+'? '-' : '+';
-				print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], qname, mapq, strand2, a[i][2], a[i][3], a[i][4], a[i][6]);
-			} else { // on different segments
-				let path = [], len = 0;
-				for (let j = st[i][0]; j <= en[i][0]; ++j) {
-					const s = seg[j];
-					len += s[2] - s[1];
-					path.push((s[3] > 0? '>' : '<') + s[0] + `:${s[1]}-${s[2]}`);
-				}
-				const off = seg[st[i][0]][4];
-				print(path.join(""), a[i][0] - off, a[i][1] - off, qname, mapq, '+', a[i][2], a[i][3], a[i][4], a[i][6]);
-			}
-		}
+		z.push(y);
 	}
+	process_z(opt, z);
 }
 
 function mg_cmd_mergeindel(args) {
@@ -518,7 +534,7 @@ function main(args)
 		print("Commands:");
 		print("  merge2vcf    convert merge BED output to VCF");
 		print("  addsample    add sample names to merged BED (as a fix)");
-		print("  getindel     extract long INDELs from GAF");
+		print("  getsv        extract long INDELs from GAF");
 		print("  mergeindel   merge long INDELs from getindel");
 		exit(1);
 	}
@@ -526,7 +542,7 @@ function main(args)
 	var cmd = args.shift();
 	if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
 	else if (cmd == 'addsample') mg_cmd_addsample(args);
-	else if (cmd == 'getindel') mg_cmd_getindel(args);
+	else if (cmd == 'getsv') mg_cmd_getsv(args);
 	else if (cmd == 'mergeindel') mg_cmd_mergeindel(args);
 	else throw Error("unrecognized command: " + cmd);
 }
