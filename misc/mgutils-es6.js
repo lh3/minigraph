@@ -628,25 +628,28 @@ function mg_cmd_getsv(args) {
 
 function mg_cmd_mergesv(args) {
 	let opt = { min_cnt:2, min_cnt_te:1, min_te_tsd:10, min_te_polyA:10, win_size:100, max_diff:0.05 };
-	for (const o of getopt(arggs, "w:d:")) {
+	for (const o of getopt(args, "w:d:c:")) {
 		if (o.opt === "-w") opt.win_size = parseInt(o.arg);
+		else if (o.opt === "-d") opt.max_diff = parseInt(o.arg);
+		else if (o.opt === "-c") opt.min_cnt = parseInt(o.arg);
 	}
 	if (args.length == 0) {
 		print("Usage: sort -k1,1 -k2,2n getsv.txt | mgutils-es6.js mergesv [options] -");
 		print("Options:");
-		print(`  -c INT     min read count [${min_cnt}]`);
-		print(`  -w INT     window size [${win_size}]`);
-		print(`  -d FLOAT   max allele length difference ratio [${max_diff}]`);
+		print(`  -c INT     min read count [${opt.min_cnt}]`);
+		print(`  -w INT     window size [${opt.win_size}]`);
+		print(`  -d FLOAT   max allele length difference ratio [${opt.max_diff}]`);
 		return;
 	}
 
 	function parse_sv(t) {
 		const re_info = /([^;\s=]+)=([^;\s=]+)/g;
-		let v = { ctg:t[0], pos:parseInt(t[1]), st:-1, en:-1, ori:null, ctg2:null, pos2:null, mapq:0, strand:null, is_bp:false }
+		let v = { ctg:t[0], pos:parseInt(t[1]), st:-1, en:-1, ori:null, ctg2:null, pos2:null, _mapq:0, strand:null, is_bp:false, info:null }
 		v.is_bp = /[><]/.test(t[2]);
 		const off = v.is_bp? 6 : 4; // offset of the mapq column
-		v.mapq = parseInt(t[off]);
+		v._mapq = parseInt(t[off]);
 		v.strand = t[off+1];
+		v.info = t[off+2];
 		let m;
 		while ((m = re_info.exec(t[off+2])) != null) // parse INFO
 			v[m[1]] = m[2];
@@ -669,12 +672,12 @@ function mg_cmd_mergesv(args) {
 		if (v.is_bp != w.is_bp) return false;
 		if (v.ctg != w.ctg) return false; // not on the same contig
 		if (v.SVTYPE != w.SVTYPE) return false; // not the same type
-		if (v.pos - w.pos > opt.win_size || w.pos - s.pos > opt.win_size) return false; // pos differ too much
+		if (v.pos - w.pos > opt.win_size || w.pos - v.pos > opt.win_size) return false; // pos differ too much
 		if (!v.is_bp) {
-			if (v.en - w.en > opt.win_size || w.en - s.en > opt.win_size) return false; // end differ too much
+			if (v.en - w.en > opt.win_size || w.en - v.en > opt.win_size) return false; // end differ too much
 		} else {
 			if (v.ctg2 != w.ctg2) return false;
-			if (v.pos2 - w.pos2 > opt.win_size || w.pos2 - s.pos2 > opt.win_size) return false;
+			if (v.pos2 - w.pos2 > opt.win_size || w.pos2 - v.pos2 > opt.win_size) return false;
 		}
 		if (v.SVLEN != null && w.SVLEN != null) {
 			if (v.SVLEN * w.SVLEN <= 0) return false; // redundant but doesn't hurt to check
@@ -686,6 +689,24 @@ function mg_cmd_mergesv(args) {
 	}
 
 	function write_sv(opt, s) {
+		let mapq = 0, cnt = {}, cnt_arr = [];
+		for (let i = 0; i < s.length; ++i) {
+			mapq += s[i]._mapq;
+			if (cnt[s[i].source] == null) cnt[s[i].source] = [0, 0];
+			cnt[s[i].source][s[i].strand === "+"? 0 : 1]++;
+		}
+		mapq = (mapq / s.length).toFixed(0);
+		let info = `avg_mapq=${mapq};`;
+		for (const src in cnt)
+			cnt_arr.push(`${src}:${cnt[src][0]},${cnt[src][1]}`);
+		info += `count=${cnt_arr.join("|")};`;
+		const v = s[s.length>>1];
+		info += v.info.replace(/(;?)source=[^;\s=]+/, "");
+		if (!v.is_bp) {
+			print(v.ctg, v.st, v.en, ".", s.length, v.strand, info);
+		} else {
+			print(v.ctg, v.pos, v.ori, v.ctg2, v.pos2, ".", s.length, v.strand, info);
+		}
 	}
 
 	let last_ctg = null, sv = [];
@@ -694,7 +715,7 @@ function mg_cmd_mergesv(args) {
 		let v = parse_sv(t);
 		while (sv.length) {
 			if (sv[0].ctg != v.ctg || v.pos - sv[0].pos_max > opt.win_size)
-				write_sv(opt, sv.shift());
+				write_sv(opt, sv.shift().v);
 			else break;
 		}
 		let cnt_same = [];
@@ -710,96 +731,16 @@ function mg_cmd_mergesv(args) {
 		let max = 0, max_i = -1;
 		for (let i = 0; i < sv.length; ++i)
 			if (cnt_same[i] > max)
-				max = cnt_sam[i], max_i = i;
+				max = cnt_same[i], max_i = i;
 		if (max > 0 && max_i >= 0) { // add to an existing variant
-			sv[i].v.push(v);
-			sv[i].pos_max = sv[i].pos_max > v.pos? sv[i].pos_max : v.pos;
+			sv[max_i].v.push(v);
+			sv[max_i].pos_max = sv[max_i].pos_max > v.pos? sv[max_i].pos_max : v.pos;
 		} else { // create a new variant
 			sv.push({ ctg:v.ctg, pos_max:v.pos, SVTYPE:v.SVTYPE, is_bp:v.is_bp, v:[v] });
 		}
 	}
-}
-
-function mg_cmd_mergeindel(args) {
-	let min_mapq = 5, min_cnt = 1, win_size = 100, max_diff = 0.05;
-	for (const o of getopt(args, "q:c:w:d:", [])) {
-		if (o.opt == "-q") min_mapq = parseInt(o.arg);
-		else if (o.opt == "-c") min_cnt = parseInt(o.arg);
-		else if (o.opt == "-w") win_size = parseInt(o.arg);
-		else if (o.opt == "-d") max_diff = parseFloat(o.arg);
-	}
-	if (args.length == 0) {
-		print("Usage: mgutils-es6.js mergeindel [options] <stable.gaf>");
-		print("Options:");
-		print(`  -q INT     min average mapq [${min_mapq}]`);
-		print(`  -c INT     min read count [${min_cnt}]`);
-		print(`  -w INT     window size [${win_size}]`);
-		print(`  -d FLOAT   max allele length difference ratio [${max_diff}]`);
-		return;
-	}
-	let h = {};
-	for (const line of k8_readline(args[0])) {
-		let t = line.split("\t");
-		t[1] = parseInt(t[1]);
-		t[2] = parseInt(t[2]);
-		t[4] = parseInt(t[4]);
-		t[6] = parseInt(t[6]);
-		const ctg = t.shift();
-		if (h[ctg] == null) h[ctg] = [];
-		h[ctg].push(t);
-	}
-
-	function print_bed(ctg, t) {
-		let len = 0, mapq = 0, n = t[6].length, nf = 0, nr = 0;
-		if (n < min_cnt) return;
-		for (let i = 0; i < n; ++i) {
-			len += t[6][i];
-			mapq += t[7][i];
-			if (t[8][i][0] == '+') ++nf;
-			else ++nr;
-		}
-		len = Math.floor(len / n + .499);
-		const len_str = len > 0? "+" + len.toString() : len.toString();
-		mapq = Math.floor(mapq / n + .499);
-		if (mapq < min_mapq) return;
-		print(ctg, t[0], t[1], len_str, n, ".", `mq:i:${mapq}`, `cf:i:${nf}`, `cr:i:${nr}`, `rd:Z:${t[8].join(",")}`);
-	}
-
-	for (const ctg in h) {
-		h[ctg].sort(function(x,y) { return x[0]-y[0]; });
-		const a = h[ctg];
-		let b = [];
-		for (let i = 0; i < a.length; ++i) {
-			const ai = a[i];
-			while (b.length) {
-				if (ai[0] - b[0][1] > win_size) {
-					const t = b.shift();
-					print_bed(ctg, t);
-				} else break;
-			}
-			let merge_j = -1;
-			for (let j = b.length - 1; j >= 0; --j) {
-				let bj = b[j];
-				if (bj[5] * ai[5] <= 0) continue; // not the same sign
-				const la = ai[5] > 0? ai[5] : -ai[5];
-				const lb = bj[5] > 0? bj[5] : -bj[5];
-				const diff = la > lb? la - lb : lb - la;
-				if (diff > (la > lb? la : lb) * max_diff) continue;
-				bj[6].push(ai[5]); // length
-				bj[7].push(ai[3]); // mapQ
-				bj[8].push(`${ai[4]}${ai[2]}`); // read name
-				bj[1] = bj[1] > ai[1]? bj[1] : ai[1];
-				merge_j = j;
-				break;
-			}
-			if (merge_j < 0)
-				b.push([ai[0], ai[1], ".", ai[3], ".", ai[5], [ai[5]], [ai[3]], [`${ai[4]}${ai[2]}`]]);
-		}
-		while (b.length) {
-			const t = b.shift();
-			print_bed(ctg, t);
-		}
-	}
+	while (sv.length)
+		write_sv(opt, sv.shift().v);
 }
 
 /*****************
@@ -815,7 +756,6 @@ function main(args)
 		print("  addsample    add sample names to merged BED (as a fix)");
 		print("  getsv        extract long INDELs and breakpoints from GAF");
 		print("  mergesv      merge INDELs and breakpoints from getsv");
-//		print("  mergeindel   merge long INDELs from getindel"); // this doesn't work right now
 		exit(1);
 	}
 
@@ -823,7 +763,7 @@ function main(args)
 	if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
 	else if (cmd == 'addsample') mg_cmd_addsample(args);
 	else if (cmd == 'getsv') mg_cmd_getsv(args);
-	else if (cmd == 'mergeindel') mg_cmd_mergeindel(args);
+	else if (cmd == 'mergesv') mg_cmd_mergesv(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
