@@ -301,29 +301,29 @@ function mg_cmd_getsv(args) {
 	}
 
 	function infer_svtype(opt, c0, c1, ori, qgap) { // NB: c0 MUST have the smaller coordinate
-		if (c0.ctg != c1.ctg) return "SVTYPE=BND";
+		if (c0.ctg != c1.ctg) return { st:-1, en:-1, str:"SVTYPE=BND" };
 		const l = c1.pos - c0.pos + 1;
 		if (l < 0) throw Error("Bug!");
 		if (ori === ">>" && qgap < l && l - qgap >= opt.min_len) { // deletion
 			const st = qgap < 0? c0.pos + qgap : c0.pos;
 			const en = qgap < 0? c1.pos + 1 - qgap : c1.pos + 1;
-			return `SVTYPE=DEL;SVLEN=${-(l - qgap)};sv_region=${st},${en};tsd_len=${qgap < 0? -qgap : 0}`;
+			return { st:st, en:en, str:`SVTYPE=DEL;SVLEN=${-(l - qgap)};sv_region=${st},${en};tsd_len=${qgap < 0? -qgap : 0}` };
 		}
 		if (ori === ">>" && l < qgap && qgap - l >= opt.min_len) // insertion without TSD
-			return `SVTYPE=INS;SVLEN=${qgap - l};sv_region=${c0.pos},${c1.pos+1}`;
+			return { st:c0.pos, en:c1.pos+1, str:`SVTYPE=INS;SVLEN=${qgap - l};sv_region=${c0.pos},${c1.pos+1}` };
 		if (ori === "<<" && qgap > 0 && l < c0.ql && l < c1.ql && qgap + l >= opt.min_len) // insertion with TSD
-			return `SVTYPE=INS;SVLEN=${qgap + l};sv_region=${c0.pos},${c1.pos+1};tsd_len=${l}`; // TODO: is sv_region correct?
+			return { st:c0.pos, en:c1.pos+1, str:`SVTYPE=INS;SVLEN=${qgap + l};sv_region=${c0.pos},${c1.pos+1};tsd_len=${l}` }; // TODO: is sv_region correct?
 		if (ori === "<<" && l > c0.ql && l > c1.ql && qgap + l >= opt.min_len) {// tandem duplication
 			const st = qgap < 0? c0.pos : c0.pos > qgap? c0.pos - qgap : 0;
 			const en = qgap < 0? c1.pos + 1 : c1.pos + 1 + qgap;
-			return `SVTYPE=DUP;SVLEN=${qgap + l};sv_region=${st},${en}`;
+			return { st:st, en:en, str:`SVTYPE=DUP;SVLEN=${qgap + l};sv_region=${st},${en}` };
 		}
 		if ((ori === "<>" || ori === "><") && l >= opt.min_len) { // inversion
 			const st = qgap < 0? c0.pos + qgap : c0.pos;
 			const en = qgap < 0? c1.pos + 1 - qgap : c1.pos + 1;
-			return `SVTYPE=INV;SVLEN=${l - qgap};sv_region=${st},${en}`;
+			return { st:st, en:en, str:`SVTYPE=INV;SVLEN=${l - qgap};sv_region=${st},${en}` };
 		}
-		return "SVTYPE=BND";
+		return { st:-1, en:-1, str:"SVTYPE=BND" };
 	}
 
 	function cal_cen_dist(opt, ctg, pos) {
@@ -337,7 +337,7 @@ function mg_cmd_getsv(args) {
 		return min;
 	}
 
-	function cal_cen_ov(opt, ctg, st0, en0) {
+	function cal_cen_overlap(opt, ctg, st0, en0) {
 		if (opt.cen[ctg] == null) return 0;
 		let cov_st = 0, cov_en = 0, cov = 0;
 		for (let i = 0; i < opt.cen[ctg].length; ++i) { // TODO: binary search would be better
@@ -532,8 +532,18 @@ function mg_cmd_getsv(args) {
 			if (!(c0.ctg < c1.ctg || (c0.ctg === c1.ctg && c0.pos < c1.pos)))
 				c0 = y1.coor[0], c1 = y0.coor[1], strand2 = "-", ori = (c1.ori === ">"? "<" : ">") + (c0.ori === ">"? "<" : ">");
 			const sv_info = infer_svtype(opt, c0, c1, ori, qgap);
+			let cen_str = "";
+			if (opt.cen[c0.ctg] != null || opt.cen[c1.ctg] != null) {
+				const dist0 = cal_cen_dist(opt, c0.ctg, c0.pos);
+				const dist1 = cal_cen_dist(opt, c1.ctg, c1.pos);
+				cen_str = `;cen_dist=${dist0<dist1?dist0:dist1}`;
+				if (sv_info.st >= 0 && sv_info.en >= sv_info.st) {
+					const ov = cal_cen_overlap(opt, c0.ctg, sv_info.st, sv_info.en);
+					cen_str += `;cen_overlap=${ov}`;
+				}
+			}
 			print(c0.ctg, c0.pos, ori, c1.ctg, c1.pos, y0.qname, y0.mapq < y1.mapq? y0.mapq : y1.mapq, strand2,
-				  `${sv_info};qgap=${qgap};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst};source=${opt.name}`);
+				  `${sv_info.str};qgap=${qgap};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst}${cen_str};source=${opt.name}`);
 		}
 	} // ~process_z()
 
