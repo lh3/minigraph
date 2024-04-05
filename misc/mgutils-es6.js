@@ -310,6 +310,31 @@ function mg_cmd_getsv(args) {
 	 * Extract long indels contained in CIGARs *
 	 *******************************************/
 
+	function cal_polyA_len(opt, int_seq) {
+		let polyA_len = 0, polyT_len = 0, polyA_max = 0, polyT_max = 0;
+		let score, max, max_j;
+		// look for polyA on the 3'-end
+		score = max = 0, max_j = int_seq.length;
+		for (let j = int_seq.length - 1; j >= 0; --j) {
+			if (int_seq[j] == 'A' || int_seq[j] == 'a') ++score;
+			else score -= opt.polyA_pen;
+			if (score > max) max = score, max_j = j;
+			else if (max - score > opt.polyA_drop) break;
+		}
+		polyA_len = int_seq.length - max_j, polyA_max = max;
+		// look for polyT on the 5'-end
+		score = max = 0, max_j = -1;
+		for (let j = 0; j < int_seq.length; ++j) {
+			if (int_seq[j] == 'T' || int_seq[j] == 't') ++score;
+			else score -= opt.polyA_pen;
+			if (score > max) max = score, max_j = j;
+			else if (max - score > opt.polyA_drop) break;
+		}
+		polyT_len = max_j + 1, polyT_max = max;
+		// choose the longer one
+		return polyA_max >= polyT_max? polyA_len : -polyT_len;
+	}
+
 	function get_indel(opt, z) {
 		if (z.length == 0) return;
 		for (let j = 0; j < z.length; ++j) {
@@ -355,33 +380,11 @@ function mg_cmd_getsv(args) {
 						throw Error("Bug!");
 					const tsd = (m[5]? m[5] : "") + (m[2]? m[2] : "");
 					const int_seq = m[3]; // internal sequence
-					if (int_seq.length > 0) {
-						let polyA_len = 0, polyT_len = 0, polyA_max = 0, polyT_max = 0;
-						let score, max, max_j;
-						// look for polyA on the 3'-end
-						score = max = 0, max_j = int_seq.length;
-						for (let j = int_seq.length - 1; j >= 0; --j) {
-							if (int_seq[j] == 'A' || int_seq[j] == 'a') ++score;
-							else score -= opt.polyA_pen;
-							if (score > max) max = score, max_j = j;
-							else if (max - score > opt.polyA_drop) break;
-						}
-						polyA_len = int_seq.length - max_j, polyA_max = max;
-						// look for polyT on the 5'-end
-						score = max = 0, max_j = -1;
-						for (let j = 0; j < int_seq.length; ++j) {
-							if (int_seq[j] == 'T' || int_seq[j] == 't') ++score;
-							else score -= opt.polyA_pen;
-							if (score > max) max = score, max_j = j;
-							else if (max - score > opt.polyA_drop) break;
-						}
-						polyT_len = max_j + 1, polyT_max = max;
-						// choose the longer one
-						a[i].polyA_len = polyA_max >= polyT_max? polyA_len : -polyT_len;
-					}
 					a[i].tsd_len = tsd.length;
 					a[i].tsd_seq = tsd.length > 0? tsd : ".";
 					a[i].int_seq = int_seq.length > 0? int_seq : ".";
+					if (int_seq.length > 0)
+						a[i].polyA_len = cal_polyA_len(opt, int_seq);
 				}
 			} // ~if(y.ds)
 			if (opt.dbg) print('X0', line);
