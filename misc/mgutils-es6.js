@@ -273,59 +273,6 @@ function mg_cmd_getsv(args) {
 	let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g; // regex for the ds tag
 	let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/; // regex for parsing TSD
 
-	function get_end_coor(y) {
-		let r = [{}, {}];
-		if (/^[><]/.test(y.path)) { // a path
-			if (y.strand != '+') throw Error("reverse strand on path");
-			let x = 0, i = 0;
-			while ((m = re_path.exec(y.path)) != null) {
-				const st = parseInt(m[3]), en = parseInt(m[4]), len = en - st;
-				if (y.tst >= x && y.tst < x + len) {
-					r[0] = { ctg:m[2], ori:m[1], pos:-1 };
-					r[0].pos = m[1] === ">"? st + (y.tst - x) : st + (x + len - y.tst) - 1;
-				}
-				if (y.ten > x && y.ten <= x + len) {
-					r[1] = { ctg:m[2], ori:m[1], pos:-1 };
-					r[1].pos = m[1] === ">"? st + (y.ten - x) - 1 : st + (x + len - y.ten);
-				}
-				x += len;
-			}
-		} else { // a contig
-			r[0] = { ctg:y.path, ori: y.strand === "+"? ">" : "<", pos:-1 };
-			r[0].pos = y.strand === "+"? y.tst : y.ten - 1;
-			r[1] = { ctg:y.path, ori: y.strand === "+"? ">" : "<", pos:-1 };
-			r[1].pos = y.strand === "+"? y.ten - 1 : y.tst;
-		}
-		r[0].ql = r[1].ql = y.qen - y.qst;
-		return r;
-	}
-
-	function infer_svtype(opt, c0, c1, ori, qgap) { // NB: c0 MUST have the smaller coordinate
-		if (c0.ctg != c1.ctg) return { st:-1, en:-1, str:"SVTYPE=BND" };
-		const l = c1.pos - c0.pos + 1;
-		if (l < 0) throw Error("Bug!");
-		if (ori === ">>" && qgap < l && l - qgap >= opt.min_len) { // deletion
-			const st = qgap < 0? c0.pos + qgap : c0.pos;
-			const en = qgap < 0? c1.pos + 1 - qgap : c1.pos + 1;
-			return { st:st, en:en, str:`SVTYPE=DEL;SVLEN=${-(l - qgap)};sv_region=${st},${en};tsd_len=${qgap < 0? -qgap : 0}` };
-		}
-		if (ori === ">>" && l < qgap && qgap - l >= opt.min_len) // insertion without TSD
-			return { st:c0.pos, en:c1.pos+1, str:`SVTYPE=INS;SVLEN=${qgap - l};sv_region=${c0.pos},${c1.pos+1}` };
-		if (ori === "<<" && qgap > 0 && l < c0.ql && l < c1.ql && qgap + l >= opt.min_len) // insertion with TSD
-			return { st:c0.pos, en:c1.pos+1, str:`SVTYPE=INS;SVLEN=${qgap + l};sv_region=${c0.pos},${c1.pos+1};tsd_len=${l}` }; // TODO: is sv_region correct?
-		if (ori === "<<" && l > c0.ql && l > c1.ql && qgap + l >= opt.min_len) {// tandem duplication
-			const st = qgap < 0? c0.pos : c0.pos > qgap? c0.pos - qgap : 0;
-			const en = qgap < 0? c1.pos + 1 : c1.pos + 1 + qgap;
-			return { st:st, en:en, str:`SVTYPE=DUP;SVLEN=${qgap + l};sv_region=${st},${en}` };
-		}
-		if ((ori === "<>" || ori === "><") && l >= opt.min_len) { // inversion
-			const st = qgap < 0? c0.pos + qgap : c0.pos;
-			const en = qgap < 0? c1.pos + 1 - qgap : c1.pos + 1;
-			return { st:st, en:en, str:`SVTYPE=INV;SVLEN=${l - qgap};sv_region=${st},${en}` };
-		}
-		return { st:-1, en:-1, str:"SVTYPE=BND" };
-	}
-
 	function cal_cen_dist(opt, ctg, pos) {
 		if (opt.cen[ctg] == null) return 1e9;
 		let min = 1e9;
@@ -354,13 +301,12 @@ function mg_cmd_getsv(args) {
 		return cov;
 	}
 
-	function process_z(opt, z) {
+	/*******************************************
+	 * Extract long indels contained in CIGARs *
+	 *******************************************/
+
+	function get_indel(opt, z) {
 		if (z.length == 0) return;
-
-		/*******************************************
-		 * Extract long indels contained in CIGARs *
-		 *******************************************/
-
 		for (let j = 0; j < z.length; ++j) {
 			const y = z[j];
 			if (y.qen - y.qst < y.qlen * opt.min_frac) continue; // ignore short alignments
@@ -490,11 +436,66 @@ function mg_cmd_getsv(args) {
 				}
 			} // ~for(i)
 		} // ~for(j)
+	} // ~get_indel()
 
-		/*********************************
-		 * Extract alignment breakpoints *
-		 *********************************/
+	/*********************************
+	 * Extract alignment breakpoints *
+	 *********************************/
 
+	function get_end_coor(y) {
+		let r = [{}, {}];
+		if (/^[><]/.test(y.path)) { // a path
+			if (y.strand != '+') throw Error("reverse strand on path");
+			let x = 0, i = 0;
+			while ((m = re_path.exec(y.path)) != null) {
+				const st = parseInt(m[3]), en = parseInt(m[4]), len = en - st;
+				if (y.tst >= x && y.tst < x + len) {
+					r[0] = { ctg:m[2], ori:m[1], pos:-1 };
+					r[0].pos = m[1] === ">"? st + (y.tst - x) : st + (x + len - y.tst) - 1;
+				}
+				if (y.ten > x && y.ten <= x + len) {
+					r[1] = { ctg:m[2], ori:m[1], pos:-1 };
+					r[1].pos = m[1] === ">"? st + (y.ten - x) - 1 : st + (x + len - y.ten);
+				}
+				x += len;
+			}
+		} else { // a contig
+			r[0] = { ctg:y.path, ori: y.strand === "+"? ">" : "<", pos:-1 };
+			r[0].pos = y.strand === "+"? y.tst : y.ten - 1;
+			r[1] = { ctg:y.path, ori: y.strand === "+"? ">" : "<", pos:-1 };
+			r[1].pos = y.strand === "+"? y.ten - 1 : y.tst;
+		}
+		r[0].ql = r[1].ql = y.qen - y.qst;
+		return r;
+	}
+
+	function infer_svtype(opt, c0, c1, ori, qgap) { // NB: c0 MUST have the smaller coordinate
+		if (c0.ctg != c1.ctg) return { st:-1, en:-1, str:"SVTYPE=BND" };
+		const l = c1.pos - c0.pos + 1;
+		if (l < 0) throw Error("Bug!");
+		if (ori === ">>" && qgap < l && l - qgap >= opt.min_len) { // deletion
+			const st = qgap < 0? c0.pos + qgap : c0.pos;
+			const en = qgap < 0? c1.pos + 1 - qgap : c1.pos + 1;
+			return { st:st, en:en, str:`SVTYPE=DEL;SVLEN=${-(l - qgap)};sv_region=${st},${en};tsd_len=${qgap < 0? -qgap : 0}` };
+		}
+		if (ori === ">>" && l < qgap && qgap - l >= opt.min_len) // insertion without TSD
+			return { st:c0.pos, en:c1.pos+1, str:`SVTYPE=INS;SVLEN=${qgap - l};sv_region=${c0.pos},${c1.pos+1}` };
+		if (ori === "<<" && qgap > 0 && l < c0.ql && l < c1.ql && qgap + l >= opt.min_len) // insertion with TSD
+			return { st:c0.pos, en:c1.pos+1, str:`SVTYPE=INS;SVLEN=${qgap + l};sv_region=${c0.pos},${c1.pos+1};tsd_len=${l}` }; // TODO: is sv_region correct?
+		if (ori === "<<" && l > c0.ql && l > c1.ql && qgap + l >= opt.min_len) {// tandem duplication
+			const st = qgap < 0? c0.pos : c0.pos > qgap? c0.pos - qgap : 0;
+			const en = qgap < 0? c1.pos + 1 : c1.pos + 1 + qgap;
+			return { st:st, en:en, str:`SVTYPE=DUP;SVLEN=${qgap + l};sv_region=${st},${en}` };
+		}
+		if ((ori === "<>" || ori === "><") && l >= opt.min_len) { // inversion
+			const st = qgap < 0? c0.pos + qgap : c0.pos;
+			const en = qgap < 0? c1.pos + 1 - qgap : c1.pos + 1;
+			return { st:st, en:en, str:`SVTYPE=INV;SVLEN=${l - qgap};sv_region=${st},${en}` };
+		}
+		return { st:-1, en:-1, str:"SVTYPE=BND" };
+	}
+
+	function get_breakpoint(opt, z) {
 		if (z.length < 2) return;
 		z.sort(function(a,b) { return a.qst - b.qst }); // sort by start position on the read
 		// filter out short alignment towards the end of the read
@@ -545,7 +546,7 @@ function mg_cmd_getsv(args) {
 			print(c0.ctg, c0.pos, ori, c1.ctg, c1.pos, y0.qname, y0.mapq < y1.mapq? y0.mapq : y1.mapq, strand2,
 				  `${sv_info.str};qgap=${qgap};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst}${cen_str};source=${opt.name}`);
 		}
-	} // ~process_z()
+	} // ~get_breakpoint()
 
 	let lineno = 0, z = [];
 	for (const line of k8_readline(args[0])) {
@@ -553,7 +554,8 @@ function mg_cmd_getsv(args) {
 		let t = line.split("\t");
 		if (t.length < 11) continue; // SAM has 11 columns at least; PAF has 12 columns at least
 		if (z.length > 0 && t[0] != z[0].qname) {
-			process_z(opt, z);
+			get_indel(opt, z);
+			get_breakpoint(opt, z);
 			z = [];
 		}
 		// parse format
@@ -607,7 +609,27 @@ function mg_cmd_getsv(args) {
 		}
 		z.push(y);
 	}
-	process_z(opt, z);
+	get_indel(opt, z);
+	get_breakpoint(opt, z);
+}
+
+function mg_cmd_mergesv(args) {
+	let opt = { min_cnt:2, min_cnt_te:1, min_te_tsd:10, min_te_polyA:10, win_size:100, max_diff:0.05 };
+	for (const o of getopt(arggs, "w:d:")) {
+		if (o.opt === "-w") opt.win_size = parseInt(o.arg);
+	}
+	if (args.length == 0) {
+		print("Usage: sort -k1,1 -k2,2n getsv.txt | mgutils-es6.js mergesv [options] -");
+		print("Options:");
+		print(`  -c INT     min read count [${min_cnt}]`);
+		print(`  -w INT     window size [${win_size}]`);
+		print(`  -d FLOAT   max allele length difference ratio [${max_diff}]`);
+		return;
+	}
+
+	let last_ctg = null;
+	for (const line of k8_readline(args[0])) {
+	}
 }
 
 function mg_cmd_mergeindel(args) {
