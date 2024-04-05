@@ -229,6 +229,11 @@ function mg_cmd_addsample(args) {
 	buf.destroy();
 }
 
+function mg_revcomp(s) {
+	function complement(x) { return { a:'t', t:'a', g:'c', c:'g' }[x] }
+	return s.split('').reverse().map(complement).join('');
+}
+
 function mg_cmd_getsv(args) {
 	let opt = { min_mapq:5, min_mapq_end:30, min_frac:0.7, min_len:100, min_aln_len_end:2000, min_aln_len_mid:50, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100, name:"foo", cen:{} };
 	for (const o of getopt(args, "q:Q:l:dc:a:e:m:n:b:", [])) {
@@ -413,6 +418,11 @@ function mg_cmd_getsv(args) {
 			}
 			for (let i = 0; i < a.length; ++i) {
 				if (opt.dbg) print('X2', a[i].st, a[i].en, st[i][0], en[i][0]);
+				if (st[i][0] === en[i][0] && seg[st[i][0]][3] < 0) { // then reverse complement tsd, polyA and insert
+					a[i].polyA_len = -a[i].polyA_len;
+					a[i].tsd_seq = mg_revcomp(a[i].tsd_seq);
+					a[i].int_seq = mg_revcomp(a[i].int_seq);
+				}
 				let info1 = (a[i].len > 0? "SVTYPE=INS" : "SVTYPE=DEL") + `;SVLEN=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len}`;
 				const info2 = `source=${opt.name};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
 				if (st[i][0] == en[i][0]) { // on the same segment
@@ -627,8 +637,83 @@ function mg_cmd_mergesv(args) {
 		return;
 	}
 
-	let last_ctg = null;
+	function parse_sv(t) {
+		const re_info = /([^;\s=]+)=([^;\s=]+)/g;
+		let v = { ctg:t[0], pos:parseInt(t[1]), st:-1, en:-1, ori:null, ctg2:null, pos2:null, mapq:0, strand:null, is_bp:false }
+		v.is_bp = /[><]/.test(t[2]);
+		const off = v.is_bp? 6 : 4; // offset of the mapq column
+		v.mapq = parseInt(t[off]);
+		v.strand = t[off+1];
+		let m;
+		while ((m = re_info.exec(t[off+2])) != null) // parse INFO
+			v[m[1]] = m[2];
+		if (v.SVTYPE == null || v.source == null)
+			throw Error("missing SVTYPE or source");
+		if (v.SVLEN != null) v.SVLEN = parseInt(v.SVLEN);
+		if (v.cen_dist != null) v.cen_dist = parseInt(v.cen_dist);
+		if (v.cen_overlap != null) v.cen_overlap = parseInt(v.cen_overlap);
+		if (!v.is_bp) {
+			v.st = v.pos, v.en = parseInt(t[2]);
+		} else {
+			v.ori = t[2], v.ctg2 = t[3], v.pos2 = parseInt(t[4]);
+			if (v.sv_region != null && (m = /(\d+),(\d+)/.exec(v.sv_region)) != null)
+				v.st = parseInt(m[1]), v.en = parseInt(m[2]);
+		}
+		return v;
+	}
+
+	function same_sv(opt, v, w) {
+		if (v.is_bp != w.is_bp) return false;
+		if (v.ctg != w.ctg) return false; // not on the same contig
+		if (v.SVTYPE != w.SVTYPE) return false; // not the same type
+		if (v.pos - w.pos > opt.win_size || w.pos - s.pos > opt.win_size) return false; // pos differ too much
+		if (!v.is_bp) {
+			if (v.en - w.en > opt.win_size || w.en - s.en > opt.win_size) return false; // end differ too much
+		} else {
+			if (v.ctg2 != w.ctg2) return false;
+			if (v.pos2 - w.pos2 > opt.win_size || w.pos2 - s.pos2 > opt.win_size) return false;
+		}
+		if (v.SVLEN != null && w.SVLEN != null) {
+			if (v.SVLEN * w.SVLEN <= 0) return false; // redundant but doesn't hurt to check
+			const vl = Math.abs(v.SVLEN);
+			const wl = Math.abs(w.SVLEN);
+			if (Math.abs(vl - wl) > .5 * (vl + wl) * opt.max_diff) return false; // SVLEN differ too much
+		}
+		return true; // TODO: probably we don't want to check tsd_len as it may be cut short by a sequencing error
+	}
+
+	function write_sv(opt, s) {
+	}
+
+	let last_ctg = null, sv = [];
 	for (const line of k8_readline(args[0])) {
+		let t = line.split("\t");
+		let v = parse_sv(t);
+		while (sv.length) {
+			if (sv[0].ctg != v.ctg || v.pos - sv[0].pos_max > opt.win_size)
+				write_sv(opt, sv.shift());
+			else break;
+		}
+		let cnt_same = [];
+		for (let i = 0; i < sv.length; ++i) {
+			let c = 0;
+			if (sv[i].SVTYPE === v.SVTYPE) {
+				for (let j = 0; j < sv[i].v.length; ++j)
+					if (same_sv(opt, sv[i].v[j], v))
+						++c;
+			}
+			cnt_same[i] = c;
+		}
+		let max = 0, max_i = -1;
+		for (let i = 0; i < sv.length; ++i)
+			if (cnt_same[i] > max)
+				max = cnt_sam[i], max_i = i;
+		if (max > 0 && max_i >= 0) { // add to an existing variant
+			sv[i].v.push(v);
+			sv[i].pos_max = sv[i].pos_max > v.pos? sv[i].pos_max : v.pos;
+		} else { // create a new variant
+			sv.push({ ctg:v.ctg, pos_max:v.pos, SVTYPE:v.SVTYPE, is_bp:v.is_bp, v:[v] });
+		}
 	}
 }
 
@@ -725,7 +810,8 @@ function main(args)
 		print("Commands:");
 		print("  merge2vcf    convert merge BED output to VCF");
 		print("  addsample    add sample names to merged BED (as a fix)");
-		print("  getsv        extract long INDELs from GAF");
+		print("  getsv        extract long INDELs and breakpoints from GAF");
+		print("  mergesv      merge INDELs and breakpoints from getsv");
 //		print("  mergeindel   merge long INDELs from getindel"); // this doesn't work right now
 		exit(1);
 	}
