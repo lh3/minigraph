@@ -230,8 +230,8 @@ function mg_cmd_addsample(args) {
 }
 
 function mg_cmd_getsv(args) {
-	let opt = { min_mapq:5, min_mapq_end:30, min_frac:0.7, min_len:100, min_aln_len_end:2000, min_aln_len_mid:50, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100, name:"foo" };
-	for (const o of getopt(args, "q:Q:l:dc:a:e:m:n:", [])) {
+	let opt = { min_mapq:5, min_mapq_end:30, min_frac:0.7, min_len:100, min_aln_len_end:2000, min_aln_len_mid:50, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100, name:"foo", cen:{} };
+	for (const o of getopt(args, "q:Q:l:dc:a:e:m:n:b:", [])) {
 		if (o.opt == "-q") opt.min_mapq = parseInt(o.arg);
 		else if (o.opt == "-Q") opt.min_mapq_end = parseInt(o.arg);
 		else if (o.opt == "-l") opt.min_len = parseInt(o.arg);
@@ -242,6 +242,15 @@ function mg_cmd_getsv(args) {
 		else if (o.opt == "-e") opt.min_aln_len_end = parseInt(o.arg);
 		else if (o.opt == "-m") opt.min_aln_len_mid = parseInt(o.arg);
 		else if (o.opt == "-n") opt.name = o.arg;
+		else if (o.opt == "-b") {
+			for (const line of k8_readline(o.arg)) {
+				const t = line.split("\t");
+				if (opt.cen[t[0]] == null) opt.cen[t[0]] = [];
+				opt.cen[t[0]].push([parseInt(t[1]), parseInt(t[2])]);
+			}
+			for (const ctg in opt.cen)
+				opt.cen[ctg].sort(function(a,b) { return a[0]-b[0] });
+		}
 	}
 	if (args.length == 0) {
 		print("Usage: mgutils-es6.js getsv [options] <stable.gaf>");
@@ -255,6 +264,7 @@ function mg_cmd_getsv(args) {
 		print(`  -Q INT     min mapq for alignment ends [${opt.min_mapq_end}]`);
 		print(`  -e INT     min alignment length at ends [${opt.min_aln_len_end}]`);
 		print(`  -m INT     min alignment length in the middle [${opt.min_aln_len_mid}]`);
+		print(`  -b FILE    BED for centromeres []`);
 		return;
 	}
 
@@ -314,6 +324,34 @@ function mg_cmd_getsv(args) {
 			return `SVTYPE=INV;SVLEN=${l - qgap};sv_region=${st},${en}`;
 		}
 		return "SVTYPE=BND";
+	}
+
+	function cal_cen_dist(opt, ctg, pos) {
+		if (opt.cen[ctg] == null) return 1e9;
+		let min = 1e9;
+		for (let i = 0; i < opt.cen[ctg].length; ++i) { // TODO: binary search would be better
+			const b = opt.cen[ctg][i];
+			const d = pos < b[0]? b[0] - pos : pos < b[1]? 0 : pos - b[1];
+			min = min < d? min : d;
+		}
+		return min;
+	}
+
+	function cal_cen_ov(opt, ctg, st0, en0) {
+		if (opt.cen[ctg] == null) return 0;
+		let cov_st = 0, cov_en = 0, cov = 0;
+		for (let i = 0; i < opt.cen[ctg].length; ++i) { // TODO: binary search would be better
+			const b = opt.cen[ctg][i];
+			if (b[1] <= st0 || b[0] >= en0) continue; // not overlapping with [st0, en0)
+			const st1 = b[0] > st0? b[0] : st0;
+			const en1 = b[1] < en0? b[1] : en0;
+			if (st1 > cov_en) {
+				cov += cov_en - cov_st;
+				cov_st = st1, cov_en = en1;
+			} else cov_en = cov_en > en1? cov_en : en1;
+		}
+		cov += cov_en - cov_st;
+		return cov;
 	}
 
 	function process_z(opt, z) {
@@ -429,12 +467,17 @@ function mg_cmd_getsv(args) {
 			}
 			for (let i = 0; i < a.length; ++i) {
 				if (opt.dbg) print('X2', a[i].st, a[i].en, st[i][0], en[i][0]);
-				const info = (a[i].len > 0? "SVTYPE=INS" : "SVTYPE=DEL")
-							 + `;SVLEN=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len};source=${opt.name};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
+				let info1 = (a[i].len > 0? "SVTYPE=INS" : "SVTYPE=DEL") + `;SVLEN=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len}`;
+				const info2 = `source=${opt.name};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
 				if (st[i][0] == en[i][0]) { // on the same segment
 					const s = seg[st[i][0]];
 					const strand2 = s[3] > 0? y.strand : y.strand === '+'? '-' : '+';
-					print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], y.qname, y.mapq, strand2, info);
+					if (opt.cen[s[0]] != null) {
+						const dist_st = cal_cen_dist(opt, s[0], st[i][1]);
+						const dist_en = cal_cen_dist(opt, s[0], en[i][1]);
+						info1 += `;cen_dist=${dist_st < dist_en? dist_st : dist_en}`
+					}
+					print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], y.qname, y.mapq, strand2, `${info1};${info2}`);
 				} else { // on different segments
 					let path = [], len = 0;
 					for (let j = st[i][0]; j <= en[i][0]; ++j) {
@@ -443,7 +486,7 @@ function mg_cmd_getsv(args) {
 						path.push((s[3] > 0? '>' : '<') + s[0] + `:${s[1]}-${s[2]}`);
 					}
 					const off = seg[st[i][0]][4];
-					print(path.join(""), a[i].st - off, a[i].en - off, y.qname, y.mapq, '+', info);
+					print(path.join(""), a[i].st - off, a[i].en - off, y.qname, y.mapq, '+', `${info1};${info2}`);
 				}
 			} // ~for(i)
 		} // ~for(j)
