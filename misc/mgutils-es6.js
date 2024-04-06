@@ -493,9 +493,9 @@ function mg_cmd_getsv(args) {
 		}
 		if (ori === ">>" && l < qgap && qgap - l >= opt.min_len) // insertion without TSD
 			return { st:c0.pos, en:c1.pos+1, str:`SVTYPE=INS;SVLEN=${qgap - l};sv_region=${c0.pos},${c1.pos+1}` };
-		if (ori === "<<" && qgap > 0 && l < c0.ql && l < c1.ql && qgap + l >= opt.min_len) // insertion with TSD
+		if (ori === "<<" && qgap > 0 && (l < c0.ql || l < c1.ql) && qgap + l >= opt.min_len) // insertion with TSD
 			return { st:c0.pos, en:c1.pos+1, str:`SVTYPE=INS;SVLEN=${qgap + l};sv_region=${c0.pos},${c1.pos+1};tsd_len=${l}` }; // TODO: is sv_region correct?
-		if (ori === "<<" && l > c0.ql && l > c1.ql && qgap + l >= opt.min_len) {// tandem duplication
+		if (ori === "<<" && qgap + l >= opt.min_len) { // tandem duplication; similar to insertion with TSD
 			const st = qgap < 0? c0.pos : c0.pos > qgap? c0.pos - qgap : 0;
 			const en = qgap < 0? c1.pos + 1 : c1.pos + 1 + qgap;
 			return { st:st, en:en, str:`SVTYPE=DUP;SVLEN=${qgap + l};sv_region=${st},${en}` };
@@ -676,6 +676,10 @@ function mg_cmd_mergesv(args) {
 		if (v.is_bp != w.is_bp) return false;
 		if (v.ctg != w.ctg) return false; // not on the same contig
 		if (v.SVTYPE != w.SVTYPE) return false; // not the same type
+		if (v.is_bp && w.is_bp && v.ori != w.ori) { // test inversions
+			if (!((v.ori === "><" && w.ori === "<>") || (v.ori === "<>" || w.ori === "><")))
+				return false;
+		}
 		if (v.pos - w.pos > opt.win_size || w.pos - v.pos > opt.win_size) return false; // pos differ too much
 		if (!v.is_bp) {
 			if (v.en - w.en > opt.win_size || w.en - v.en > opt.win_size) return false; // end differ too much
