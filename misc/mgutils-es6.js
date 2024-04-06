@@ -381,8 +381,8 @@ function mg_cmd_getsv(args) {
 					const tsd = (m[5]? m[5] : "") + (m[2]? m[2] : "");
 					const int_seq = m[3]; // internal sequence
 					a[i].tsd_len = tsd.length;
-					a[i].tsd_seq = tsd.length > 0? tsd : ".";
-					a[i].int_seq = int_seq.length > 0? int_seq : ".";
+					a[i].tsd_seq = tsd;
+					a[i].int_seq = int_seq;
 					if (int_seq.length > 0)
 						a[i].polyA_len = cal_polyA_len(opt, int_seq);
 				}
@@ -427,7 +427,7 @@ function mg_cmd_getsv(args) {
 					a[i].int_seq = mg_revcomp(a[i].int_seq);
 				}
 				let info1 = (a[i].len > 0? "SVTYPE=INS" : "SVTYPE=DEL") + `;SVLEN=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len}`;
-				const info2 = `source=${opt.name};tsd_seq=${a[i].tsd_seq};insert=${a[i].int_seq}`;
+				const info2 = `source=${opt.name};tsd_seq=${a[i].tsd_seq.length>0?a[i].tsd_seq:"."};insert=${a[i].int_seq.length>0?a[i].int_seq:"."}`;
 				if (st[i][0] == en[i][0]) { // on the same segment
 					const s = seg[st[i][0]];
 					const strand2 = s[3] > 0? y.strand : y.strand === '+'? '-' : '+';
@@ -627,7 +627,7 @@ function mg_cmd_getsv(args) {
 }
 
 function mg_cmd_mergesv(args) {
-	let opt = { min_cnt:2, min_cnt_rt:1, min_rt_len:10, win_size:100, max_diff:0.05, min_cen_dist:500000 };
+	let opt = { min_cnt:3, min_cnt_rt:1, min_rt_len:10, win_size:100, max_diff:0.05, min_cen_dist:500000 };
 	for (const o of getopt(args, "w:d:c:e:r:")) {
 		if (o.opt === "-w") opt.win_size = parseInt(o.arg);
 		else if (o.opt === "-d") opt.max_diff = parseInt(o.arg);
