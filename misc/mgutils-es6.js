@@ -766,7 +766,7 @@ function mg_cmd_mergesv(args) {
 			sv[max_i].v.push(v);
 			sv[max_i].pos_max = sv[max_i].pos_max > v.pos? sv[max_i].pos_max : v.pos;
 		} else { // create a new variant
-			sv.push({ ctg:v.ctg, pos_max:v.pos, SVTYPE:v.SVTYPE, is_bp:v.is_bp, v:[v] });
+			sv.push({ ctg:v.ctg, pos_max:v.pos, SVTYPE: v.SVTYPE != "DUP"? v.SVTYPE : "INS", is_bp:v.is_bp, v:[v] });
 		}
 	}
 	while (sv.length)
