@@ -627,11 +627,13 @@ function mg_cmd_getsv(args) {
 }
 
 function mg_cmd_mergesv(args) {
-	let opt = { min_cnt:2, min_cnt_te:1, min_te_tsd:10, min_te_polyA:10, win_size:100, max_diff:0.05 };
-	for (const o of getopt(args, "w:d:c:")) {
+	let opt = { min_cnt:2, min_cnt_rt:1, min_rt_len:10, win_size:100, max_diff:0.05, min_cen_dist:500000 };
+	for (const o of getopt(args, "w:d:c:e:r:")) {
 		if (o.opt === "-w") opt.win_size = parseInt(o.arg);
 		else if (o.opt === "-d") opt.max_diff = parseInt(o.arg);
 		else if (o.opt === "-c") opt.min_cnt = parseInt(o.arg);
+		else if (o.opt === "-e") opt.min_cen_dist = parseInt(o.arg);
+		else if (o.opt === "-r") opt.min_rt_len = parseInt(o.arg);
 	}
 	if (args.length == 0) {
 		print("Usage: sort -k1,1 -k2,2n getsv.txt | mgutils-es6.js mergesv [options] -");
@@ -639,6 +641,8 @@ function mg_cmd_mergesv(args) {
 		print(`  -c INT     min read count [${opt.min_cnt}]`);
 		print(`  -w INT     window size [${opt.win_size}]`);
 		print(`  -d FLOAT   max allele length difference ratio [${opt.max_diff}]`);
+		print(`  -e INT     min distance to centromeres [${opt.min_cen_dist}]`);
+		print(`  -r INT     min min(TSD_len,polyA_len) to tag a candidate RT [${opt.min_rt_len}]`);
 		return;
 	}
 
@@ -689,6 +693,27 @@ function mg_cmd_mergesv(args) {
 	}
 
 	function write_sv(opt, s) {
+		if (s.length == 0) return;
+		const v = s[s.length>>1];
+		// filter by cen_dist
+		if (opt.min_cen_dist > 0) {
+			if (v.cen_overlap != null && v.cen_overlap > 0) return;
+			if (v.cen_dist != null && v.cen_dist <= opt.min_cen_dist) return;
+		}
+		// calculate rt_len
+		let rt_len_arr = [], rt_len = 0;
+		for (let i = 0; i < s.length; ++i)
+			if (s[i].tsd_len != null && s[i].polyA_len != null)
+				rt_len_arr.push(s[i].tsd_len < Math.abs(s[i].polyA_len)? s[i].tsd_len : Math.abs(s[i].polyA_len));
+		if (rt_len_arr.length > 0)
+			rt_len = rt_len_arr[rt_len_arr.length>>1];
+		// filter by count
+		if (rt_len >= opt.min_rt_len) {
+			if (s.length < opt.min_cnt_rt) return;
+		} else {
+			if (s.length < opt.min_cnt) return;
+		}
+		// count
 		let mapq = 0, cnt = {}, cnt_arr = [];
 		for (let i = 0; i < s.length; ++i) {
 			mapq += s[i]._mapq;
@@ -700,8 +725,9 @@ function mg_cmd_mergesv(args) {
 		for (const src in cnt)
 			cnt_arr.push(`${src}:${cnt[src][0]},${cnt[src][1]}`);
 		info += `count=${cnt_arr.join("|")};`;
-		const v = s[s.length>>1];
+		info += `rt_len=${rt_len};`;
 		info += v.info.replace(/(;?)source=[^;\s=]+/, "");
+
 		if (!v.is_bp) {
 			print(v.ctg, v.st, v.en, ".", s.length, v.strand, info);
 		} else {
