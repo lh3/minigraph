@@ -773,6 +773,45 @@ function mg_cmd_mergesv(args) {
 		write_sv(opt, sv.shift().v);
 }
 
+function mg_cmd_sv2vcf(args) {
+	let opt = { };
+	for (const o of getopt(args, "")) {
+	}
+	if (args.length == 0) {
+		print("Usage: mgutils-es6.js sv2vcf [options] <sv>");
+		return;
+	}
+
+	const re_info = /([^;\s=]+)=([^;\s=]+)/g;
+	const key = { SVTYPE:1, SVLEN:1 };
+	print(`##fileformat=VCFv4.3`);
+	print(`##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">`);
+	print(`##INFO=<ID=SVLEN,Number=.,Type=Integer,Description="Difference in length between REF and ALT alleles">`);
+	print(`##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">`);
+	print(`##ALT=<ID=DEL,Description="Deletion">`);
+	print(`##ALT=<ID=INS,Description="Insertion">`);
+	print(`##ALT=<ID=DUP,Description="Duplication">`);
+	print(`##ALT=<ID=INV,Description="Inversion">`);
+	print(`#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO`);
+	for (const line of k8_readline(args[0])) {
+		let t = line.split("\t");
+		const is_bp = /[><]/.test(t[2]);
+		if (is_bp && t[0] !== t[3]) continue;
+		const off_info = is_bp? 8 : 6;
+		let m, type = null, info = "";
+		while ((m = re_info.exec(t[off_info])) != null) {
+			if (key[m[1]]) {
+				if (info.length) info += `;`;
+				info += `${m[1]}=${m[2]}`;
+			}
+			if (m[1] === "SVTYPE") type = m[2];
+		}
+		if (type == null || type === "BND") continue;
+		info += is_bp? `;END=${t[4]}` : `;END=${t[2]}`;
+		print(t[0], t[1], ".", "N", `<${type}>`, t[off_info-2], `.`, info);
+	}
+}
+
 /*****************
  * Main function *
  *****************/
@@ -784,16 +823,18 @@ function main(args)
 		print("Commands:");
 		print("  merge2vcf    convert merge BED output to VCF");
 		print("  addsample    add sample names to merged BED (as a fix)");
-		print("  getsv        extract long INDELs and breakpoints from GAF");
-		print("  mergesv      merge INDELs and breakpoints from getsv");
+		print("  svget        extract long INDELs and breakpoints from GAF");
+		print("  svmerge      merge svget INDELs and breakpoints");
+		print("  sv2vcf       convert svmerge output to VCF");
 		exit(1);
 	}
 
 	var cmd = args.shift();
-	if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
-	else if (cmd == 'addsample') mg_cmd_addsample(args);
-	else if (cmd == 'getsv') mg_cmd_getsv(args);
-	else if (cmd == 'mergesv') mg_cmd_mergesv(args);
+	if (cmd === "merge2vcf") mg_cmd_merge2vcf(args);
+	else if (cmd === "addsample") mg_cmd_addsample(args);
+	else if (cmd === "getsv" || cmd === "svget") mg_cmd_getsv(args);
+	else if (cmd === "mergesv" || cmd === "svmerge") mg_cmd_mergesv(args);
+	else if (cmd === "sv2vcf") mg_cmd_sv2vcf(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
