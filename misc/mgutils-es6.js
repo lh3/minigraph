@@ -277,6 +277,7 @@ function mg_cmd_getsv(args) {
 	let re_path = /([><])([^><:\s]+):(\d+)-(\d+)/g; // regex for path/ctg
 	let re_ds = /([\+\-\*:])([A-Za-z\[\]0-9]+)/g; // regex for the ds tag
 	let re_tsd = /(\[([A-Za-z]+)\])?([A-Za-z]+)(\[([A-Za-z]+)\])?/; // regex for parsing TSD
+	let global_qname = "N/A";
 
 	function cal_cen_dist(opt, ctg, pos) {
 		if (opt.cen[ctg] == null) return 1e9;
@@ -335,11 +336,15 @@ function mg_cmd_getsv(args) {
 		return polyA_max >= polyT_max? polyA_len : -polyT_len;
 	}
 
-	function path2ctg(seg, path_off) {
+	function path2ctg(seg, path_off, is_end) {
 		let b = [];
 		for (let i = 0, k = 0; i < path_off.length; ++i) {
-			while (k < seg.length && seg[k].path_en <= path_off[i]) ++k;
-			if (k == seg.length) throw Error("failed to convert path offset to contig offset");
+			if (is_end) {
+				while (k < seg.length && seg[k].path_en < path_off[i]) ++k;
+			} else {
+				while (k < seg.length && seg[k].path_en <= path_off[i]) ++k;
+			}
+			if (k == seg.length) throw Error(`failed to convert path offset to contig offset for read ${global_qname}`);
 			const l = path_off[i] - seg[k].path_st;
 			if (seg[k].strand > 0)
 				b.push({ seg:k, pos:seg[k].ctg_st + l });
@@ -431,10 +436,11 @@ function mg_cmd_getsv(args) {
 				off_stl[i] = a[i].stl, off_enl[i] = a[i].enl;
 				off_str[i] = a[i].str, off_enr[i] = a[i].enr;
 			}
-			const stl = path2ctg(seg, off_stl);
-			const enl = path2ctg(seg, off_enl);
-			const str = path2ctg(seg, off_str);
-			const enr = path2ctg(seg, off_enr);
+			global_qname = y.qname;
+			const stl = path2ctg(seg, off_stl, false);
+			const enl = path2ctg(seg, off_enl, true);
+			const str = path2ctg(seg, off_str, false);
+			const enr = path2ctg(seg, off_enr, true);
 			for (let i = 0; i < a.length; ++i) {
 				if (!(stl[i].seg == str[i].seg && stl[i].seg == enl[i].seg && str[i].seg == enr[i].seg)) continue; // all on the same segment
 				const s = seg[stl[i].seg];
@@ -634,11 +640,12 @@ function mg_cmd_getsv(args) {
 }
 
 function mg_cmd_mergesv(args) {
-	let opt = { min_cnt:3, min_cnt_rt:1, min_rt_len:10, win_size:100, max_diff:0.05, min_cen_dist:500000 };
-	for (const o of getopt(args, "w:d:c:e:r:")) {
+	let opt = { min_cnt:3, min_cnt_strand:2, min_cnt_rt:1, min_rt_len:10, win_size:100, max_diff:0.05, min_cen_dist:500000 };
+	for (const o of getopt(args, "w:d:c:e:r:s:")) {
 		if (o.opt === "-w") opt.win_size = parseInt(o.arg);
 		else if (o.opt === "-d") opt.max_diff = parseInt(o.arg);
 		else if (o.opt === "-c") opt.min_cnt = parseInt(o.arg);
+		else if (o.opt === "-s") opt.min_cnt_strand = parseInt(o.arg);
 		else if (o.opt === "-e") opt.min_cen_dist = parseInt(o.arg);
 		else if (o.opt === "-r") opt.min_rt_len = parseInt(o.arg);
 	}
@@ -646,6 +653,7 @@ function mg_cmd_mergesv(args) {
 		print("Usage: sort -k1,1 -k2,2n getsv.txt | mgutils-es6.js mergesv [options] -");
 		print("Options:");
 		print(`  -c INT     min read count [${opt.min_cnt}]`);
+		print(`  -s INT     min read count on each strand [${opt.min_cnt_strand}]`);
 		print(`  -w INT     window size [${opt.win_size}]`);
 		print(`  -d FLOAT   max allele length difference ratio [${opt.max_diff}]`);
 		print(`  -e INT     min distance to centromeres [${opt.min_cen_dist}]`);
@@ -718,21 +726,23 @@ function mg_cmd_mergesv(args) {
 				rt_len_arr.push(s[i].tsd_len < Math.abs(s[i].polyA_len)? s[i].tsd_len : Math.abs(s[i].polyA_len));
 		if (rt_len_arr.length > 0)
 			rt_len = rt_len_arr[rt_len_arr.length>>1];
+		// count
+		let mapq = 0, cnt = {}, cnt_strand = [0, 0];
+		for (let i = 0; i < s.length; ++i) {
+			mapq += s[i]._mapq;
+			if (cnt[s[i].source] == null) cnt[s[i].source] = [0, 0];
+			cnt[s[i].source][s[i].strand === "+"? 0 : 1]++;
+			cnt_strand[s[i].strand === "+"? 0 : 1]++;
+		}
+		mapq = (mapq / s.length).toFixed(0);
 		// filter by count
 		if (rt_len >= opt.min_rt_len) {
 			if (s.length < opt.min_cnt_rt) return;
 		} else {
 			if (s.length < opt.min_cnt) return;
+			if (cnt_strand[0] < opt.min_cnt_strand || cnt_strand[1] < opt.min_cnt_strand) return;
 		}
-		// count
-		let mapq = 0, cnt = {}, cnt_arr = [];
-		for (let i = 0; i < s.length; ++i) {
-			mapq += s[i]._mapq;
-			if (cnt[s[i].source] == null) cnt[s[i].source] = [0, 0];
-			cnt[s[i].source][s[i].strand === "+"? 0 : 1]++;
-		}
-		mapq = (mapq / s.length).toFixed(0);
-		let info = `avg_mapq=${mapq};`;
+		let info = `avg_mapq=${mapq};`, cnt_arr = [];
 		for (const src in cnt)
 			cnt_arr.push(`${src}:${cnt[src][0]},${cnt[src][1]}`);
 		info += `count=${cnt_arr.join("|")};`;
@@ -758,7 +768,7 @@ function mg_cmd_mergesv(args) {
 		let cnt_same = [];
 		for (let i = 0; i < sv.length; ++i) {
 			let c = 0;
-			if (sv[i].SVTYPE === v.SVTYPE) {
+			if (sv[i].SVTYPE === v.SVTYPE || (sv[i].SVTYPE === "INS" && v.SVTYPE === "DUP")) {
 				for (let j = 0; j < sv[i].v.length; ++j)
 					if (same_sv(opt, sv[i].v[j], v))
 						++c;
