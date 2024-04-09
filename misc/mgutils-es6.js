@@ -353,6 +353,11 @@ function mg_cmd_getsv(args) {
 					x += len;
 			}
 			if (a.length == 0 || a.length > opt.max_cnt) continue;
+			// set stl/enl and str/enr
+			for (let i = 0; i < a.length; ++i) {
+				a[i].stl = a[i].str = a[i].st;
+				a[i].enl = a[i].enr = a[i].en;
+			}
 			// parse ds:Z
 			if (y.ds) { // this MUST match CIGAR parsing
 				let i = 0, x = y.tst, m;
@@ -385,6 +390,12 @@ function mg_cmd_getsv(args) {
 					a[i].int_seq = int_seq;
 					if (int_seq.length > 0)
 						a[i].polyA_len = cal_polyA_len(opt, int_seq);
+					const llen = m[2]? m[2].length : 0;
+					const rlen = m[5]? m[5].length : 0;
+					a[i].stl = a[i].st - rlen;
+					a[i].enl = a[i].en - rlen;
+					a[i].str = a[i].st + llen;
+					a[i].enr = a[i].en + llen;
 				}
 			} // ~if(y.ds)
 			if (opt.dbg) print('X0', line);
@@ -394,57 +405,59 @@ function mg_cmd_getsv(args) {
 				if (y.strand != '+') throw Error("reverse strand on path");
 				while ((m = re_path.exec(y.path)) != null) {
 					const st = parseInt(m[3]), en = parseInt(m[4]);
-					seg.push([m[2], st, en, m[1] == '>'? 1 : -1, x, x + (en - st)]);
+					//seg.push([m[2], st, en, m[1] == '>'? 1 : -1, x, x + (en - st)]);
+					const strand = m[1] === '>'? 1 : -1;
+					seg.push({ ctg:m[2], ctg_st:st, ctg_en:en, strand:strand, path_st:x, path_en:x + (en - st) });
 					x += en - st;
 				}
 			} else { // this is a contig name
-				seg.push([y.path, 0, y.tlen, 1, 0, y.tlen]);
+				//seg.push([y.path, 0, y.tlen, 1, 0, y.tlen]);
+				seg.push({ ctg:y.path, ctg_st:0, ctg_en:y.tlen, strand:1, path_st:0, path_en:y.tlen });
 			}
 			let st = [], en = [];
 			for (let i = 0, k = 0; i < a.length; ++i) { // start
-				while (k < seg.length && seg[k][5] <= a[i].st) ++k;
+				while (k < seg.length && seg[k].path_en <= a[i].st) ++k;
 				if (k == seg.length) throw Error("failed to find start");
-				const l = a[i].st - seg[k][4];
-				if (seg[k][3] > 0)
-					st.push([k, seg[k][1] + l, seg[k][1] + l]);
+				const l = a[i].st - seg[k].path_st;
+				if (seg[k].strand > 0)
+					st.push({ seg:k, pos:seg[k].ctg_st + l });
 				else
-					st.push([k, seg[k][2] - l, seg[k][1] + l]);
+					st.push({ seg:k, pos:seg[k].ctg_en - l });
 			}
 			for (let i = 0, k = 0; i < a.length; ++i) { // end
-				while (k < seg.length && seg[k][5] <= a[i].en) ++k;
+				while (k < seg.length && seg[k].path_en <= a[i].en) ++k;
 				if (k == seg.length) throw Error("failed to find end");
-				const l = a[i].en - seg[k][4];
-				if (seg[k][3] > 0)
-					en.push([k, seg[k][1] + l, seg[k][1] + l]);
+				const l = a[i].en - seg[k].path_st;
+				if (seg[k].strand > 0)
+					en.push({ seg:k, pos:seg[k].ctg_st + l });
 				else
-					en.push([k, seg[k][2] - l, seg[k][1] + l]);
+					en.push({ seg:k, pos:seg[k].ctg_en - l });
 			}
 			for (let i = 0; i < a.length; ++i) {
-				if (opt.dbg) print('X2', a[i].st, a[i].en, st[i][0], en[i][0]);
-				if (st[i][0] === en[i][0] && seg[st[i][0]][3] < 0) { // then reverse complement tsd, polyA and insert
+				if (st[i].seg == en[i].seg && seg[st[i].seg].strand < 0) { // then reverse complement tsd, polyA and insert
 					a[i].polyA_len = -a[i].polyA_len;
 					a[i].tsd_seq = mg_revcomp(a[i].tsd_seq);
 					a[i].int_seq = mg_revcomp(a[i].int_seq);
 				}
 				let info1 = (a[i].len > 0? "SVTYPE=INS" : "SVTYPE=DEL") + `;SVLEN=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len}`;
 				const info2 = `source=${opt.name};tsd_seq=${a[i].tsd_seq.length>0?a[i].tsd_seq:"."};insert=${a[i].int_seq.length>0?a[i].int_seq:"."}`;
-				if (st[i][0] == en[i][0]) { // on the same segment
-					const s = seg[st[i][0]];
-					const strand2 = s[3] > 0? y.strand : y.strand === '+'? '-' : '+';
-					if (opt.cen[s[0]] != null) {
-						const dist_st = cal_cen_dist(opt, s[0], st[i][1]);
-						const dist_en = cal_cen_dist(opt, s[0], en[i][1]);
+				if (st[i].seg == en[i].seg) { // on the same segment
+					const s = seg[st[i].seg];
+					const strand2 = s.strand > 0? y.strand : y.strand === '+'? '-' : '+';
+					if (opt.cen[s.ctg] != null) {
+						const dist_st = cal_cen_dist(opt, s.ctg, st[i].pos);
+						const dist_en = cal_cen_dist(opt, s.ctg, en[i].pos);
 						info1 += `;cen_dist=${dist_st < dist_en? dist_st : dist_en}`
 					}
-					print(s[0], st[i][1] < en[i][1]? st[i][1] : en[i][1], st[i][1] > en[i][1]? st[i][1] : en[i][1], y.qname, y.mapq, strand2, `${info1};${info2}`);
+					print(s.ctg, st[i].pos < en[i].pos? st[i].pos : en[i].pos, st[i].pos > en[i].pos? st[i].pos : en[i].pos, y.qname, y.mapq, strand2, `${info1};${info2}`);
 				} else { // on different segments
 					let path = [], len = 0;
-					for (let j = st[i][0]; j <= en[i][0]; ++j) {
+					for (let j = st[i].seg; j <= en[i].seg; ++j) {
 						const s = seg[j];
-						len += s[2] - s[1];
-						path.push((s[3] > 0? '>' : '<') + s[0] + `:${s[1]}-${s[2]}`);
+						len += s.ctg_en - s.ctg_st;
+						path.push((s.strand > 0? '>' : '<') + s.ctg + `:${s.ctg_st}-${s.ctg_en}`);
 					}
-					const off = seg[st[i][0]][4];
+					const off = seg[st[i].seg].path_st;
 					print(path.join(""), a[i].st - off, a[i].en - off, y.qname, y.mapq, '+', `${info1};${info2}`);
 				}
 			} // ~for(i)
