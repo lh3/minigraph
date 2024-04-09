@@ -792,7 +792,8 @@ function mg_cmd_sv2vcf(args) {
 	print(`##ALT=<ID=INS,Description="Insertion">`);
 	print(`##ALT=<ID=DUP,Description="Duplication">`);
 	print(`##ALT=<ID=INV,Description="Inversion">`);
-	print(`#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO`);
+	print(`##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">`);
+	print(`#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample`);
 	for (const line of k8_readline(args[0])) {
 		let t = line.split("\t");
 		const is_bp = /[><]/.test(t[2]);
@@ -808,7 +809,7 @@ function mg_cmd_sv2vcf(args) {
 		}
 		if (type == null || type === "BND") continue;
 		info += is_bp? `;END=${t[4]}` : `;END=${t[2]}`;
-		print(t[0], t[1], ".", "N", `<${type}>`, t[off_info-2], `.`, info);
+		print(t[0], t[1], ".", "N", `<${type}>`, t[off_info-2], `.`, info, "GT", "1/1");
 	}
 }
 
