@@ -644,7 +644,7 @@ function mg_cmd_mergesv(args) {
 	let opt = { min_cnt:3, min_cnt_strand:2, min_cnt_rt:1, min_rt_len:10, win_size:100, max_diff:0.05, min_cen_dist:500000, max_allele:100, max_check:500 };
 	for (const o of getopt(args, "w:d:c:e:r:R:s:A:C:")) {
 		if (o.opt === "-w") opt.win_size = parseInt(o.arg);
-		else if (o.opt === "-d") opt.max_diff = parseInt(o.arg);
+		else if (o.opt === "-d") opt.max_diff = parseFloat(o.arg);
 		else if (o.opt === "-c") opt.min_cnt = parseInt(o.arg);
 		else if (o.opt === "-s") opt.min_cnt_strand = parseInt(o.arg);
 		else if (o.opt === "-e") opt.min_cen_dist = parseInt(o.arg);
@@ -710,7 +710,7 @@ function mg_cmd_mergesv(args) {
 		if (v.ctg != w.ctg) return false; // not on the same contig
 		if (v.SVTYPE != w.SVTYPE) return false; // not the same type
 		if (v.is_bp && w.is_bp && v.ori != w.ori) { // test inversions
-			if (!((v.ori === "><" && w.ori === "<>") || (v.ori === "<>" || w.ori === "><")))
+			if (!((v.ori === "><" && w.ori === "<>") || (v.ori === "<>" && w.ori === "><")))
 				return false;
 		}
 		if (v.pos - w.pos > opt.win_size || w.pos - v.pos > opt.win_size) return false; // pos differ too much
