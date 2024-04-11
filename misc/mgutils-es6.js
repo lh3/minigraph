@@ -235,14 +235,15 @@ function mg_revcomp(s) {
 }
 
 function mg_cmd_getsv(args) {
-	let opt = { min_mapq:5, min_mapq_end:30, min_frac:0.7, min_len:100, min_aln_len_end:2000, min_aln_len_mid:50, max_cnt:5, dbg:false, polyA_pen:5, polyA_drop:100, name:"foo", cen:{} };
+	let opt = { min_mapq:5, min_mapq_end:30, min_frac:0.7, min_len:100, min_aln_len_end:2000, min_aln_len_mid:50, max_cnt_10k:3,
+				dbg:false, polyA_pen:5, polyA_drop:100, name:"foo", cen:{} };
 	for (const o of getopt(args, "q:Q:l:dc:a:e:m:n:b:", [])) {
 		if (o.opt == "-q") opt.min_mapq = parseInt(o.arg);
 		else if (o.opt == "-Q") opt.min_mapq_end = parseInt(o.arg);
 		else if (o.opt == "-l") opt.min_len = parseInt(o.arg);
 		else if (o.opt == "-d") opt.dbg = true;
 		else if (o.opt == "-f") opt.min_frac = parseFloat(o.arg);
-		else if (o.opt == "-c") opt.max_cnt = parseInt(o.arg);
+		else if (o.opt == "-c") opt.max_cnt_10k = parseInt(o.arg);
 		else if (o.opt == "-a") opt.polyA_pen = parseInt(o.arg);
 		else if (o.opt == "-e") opt.min_aln_len_end = parseInt(o.arg);
 		else if (o.opt == "-m") opt.min_aln_len_mid = parseInt(o.arg);
@@ -264,7 +265,7 @@ function mg_cmd_getsv(args) {
 		print(`  -q INT     min mapq [${opt.min_mapq}]`);
 		print(`  -l INT     min INDEL len [${opt.min_len}]`);
 		print(`  -f FLOAT   min mapped query fraction [${opt.min_frac}]`);
-		print(`  -c INT     max number of long INDELs per read [${opt.max_cnt}]`);
+		print(`  -c INT     max number of long INDELs per 10kb [${opt.max_cnt_10k}]`);
 		print(`  -a INT     penalty for non-polyA bases [${opt.polyA_pen}]`);
 		print(`  -Q INT     min mapq for alignment ends [${opt.min_mapq_end}]`);
 		print(`  -e INT     min alignment length at ends [${opt.min_aln_len_end}]`);
@@ -371,7 +372,7 @@ function mg_cmd_getsv(args) {
 				if (op == "M" || op == "=" || op == "X" || op == "D")
 					x += len;
 			}
-			if (a.length == 0 || a.length > opt.max_cnt) continue;
+			if (a.length == 0 || a.length > y.qlen * 1e-4 * opt.max_cnt) continue;
 			// set stl/enl and str/enr
 			for (let i = 0; i < a.length; ++i) {
 				a[i].stl = a[i].str = a[i].st;
