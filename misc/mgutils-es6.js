@@ -640,14 +640,17 @@ function mg_cmd_getsv(args) {
 }
 
 function mg_cmd_mergesv(args) {
-	let opt = { min_cnt:3, min_cnt_strand:2, min_cnt_rt:1, min_rt_len:10, win_size:100, max_diff:0.05, min_cen_dist:500000 };
-	for (const o of getopt(args, "w:d:c:e:r:s:")) {
+	let opt = { min_cnt:3, min_cnt_strand:2, min_cnt_rt:1, min_rt_len:10, win_size:100, max_diff:0.05, min_cen_dist:500000, max_allele:100, max_check:500 };
+	for (const o of getopt(args, "w:d:c:e:r:R:s:A:C:")) {
 		if (o.opt === "-w") opt.win_size = parseInt(o.arg);
 		else if (o.opt === "-d") opt.max_diff = parseInt(o.arg);
 		else if (o.opt === "-c") opt.min_cnt = parseInt(o.arg);
 		else if (o.opt === "-s") opt.min_cnt_strand = parseInt(o.arg);
 		else if (o.opt === "-e") opt.min_cen_dist = parseInt(o.arg);
 		else if (o.opt === "-r") opt.min_rt_len = parseInt(o.arg);
+		else if (o.opt === "-R") opt.min_cnt_rt = parseInt(o.arg);
+		else if (o.opt === "-A") opt.max_allele = parseInt(o.arg);
+		else if (o.opt === "-C") opt.max_check = parseInt(o.arg);
 	}
 	if (args.length == 0) {
 		print("Usage: sort -k1,1 -k2,2n getsv.txt | mgutils-es6.js mergesv [options] -");
@@ -658,7 +661,21 @@ function mg_cmd_mergesv(args) {
 		print(`  -d FLOAT   max allele length difference ratio [${opt.max_diff}]`);
 		print(`  -e INT     min distance to centromeres [${opt.min_cen_dist}]`);
 		print(`  -r INT     min min(TSD_len,polyA_len) to tag a candidate RT [${opt.min_rt_len}]`);
+		print(`  -R INT     min read count for a candidate RT [${opt.min_cnt_rt}]`);
+		print(`  -A INT     check up to INT nearby alleles [${opt.max_allele}]`);
+		print(`  -C INT     compare up to INT reads per allele [${opt.max_check}]`);
 		return;
+	}
+
+	function splitmix32(a) { // random number generator as we can't set seeds in Javascript
+		return function() {
+			a |= 0; a = a + 0x9e3779b9 | 0;
+			let t = a ^ a >>> 16;
+			t = Math.imul(t, 0x21f0aaad);
+			t = t ^ t >>> 15;
+			t = Math.imul(t, 0x735a2d97);
+			return ((t = t ^ t >>> 15) >>> 0) / 4294967296;
+		}
 	}
 
 	function parse_sv(t) {
@@ -756,12 +773,12 @@ function mg_cmd_mergesv(args) {
 		}
 	}
 
-	let last_ctg = null, sv = [];
+	let last_ctg = null, sv = [], rng = splitmix32(11);
 	for (const line of k8_readline(args[0])) {
 		let t = line.split("\t");
 		let v = parse_sv(t);
 		while (sv.length) {
-			if (sv[0].ctg != v.ctg || v.pos - sv[0].pos_max > opt.win_size)
+			if (sv[0].ctg != v.ctg || v.pos - sv[0].pos_max > opt.win_size || sv.length > opt.max_allele)
 				write_sv(opt, sv.shift().v);
 			else break;
 		}
@@ -769,9 +786,21 @@ function mg_cmd_mergesv(args) {
 		for (let i = 0; i < sv.length; ++i) {
 			let c = 0;
 			if (sv[i].SVTYPE === v.SVTYPE || (sv[i].SVTYPE === "INS" && v.SVTYPE === "DUP")) {
-				for (let j = 0; j < sv[i].v.length; ++j)
-					if (same_sv(opt, sv[i].v[j], v))
-						++c;
+				if (sv[i].v.length <= opt.max_check) {
+					for (let j = 0; j < sv[i].v.length; ++j)
+						if (same_sv(opt, sv[i].v[j], v))
+							++c;
+				} else { // use reservior sampling to samplg a subset of reads
+					let p = [];
+					for (let j = 0; j < sv[i].v.length; ++j) {
+						let k = j < opt.max_check? j : Math.floor(j * rng());
+						if (k < opt.max_check) p[k] = j;
+					}
+					for (let k = 0; k < opt.max_check; ++k)
+						if (same_sv(opt, sv[i].v[p[k]], v))
+							++c;
+					c = Math.floor(c / opt.max_check * sv[i].v.length + .499);
+				}
 			}
 			cnt_same[i] = c;
 		}
