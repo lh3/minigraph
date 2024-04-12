@@ -372,7 +372,7 @@ function mg_cmd_getsv(args) {
 				if (op == "M" || op == "=" || op == "X" || op == "D")
 					x += len;
 			}
-			if (a.length == 0 || a.length > y.qlen * 1e-4 * opt.max_cnt) continue;
+			if (a.length == 0 || a.length > y.qlen * 1e-4 * opt.max_cnt_10k) continue;
 			// set stl/enl and str/enr
 			for (let i = 0; i < a.length; ++i) {
 				a[i].stl = a[i].str = a[i].st;
