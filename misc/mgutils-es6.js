@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const version = "r578";
+const version = "r605";
 
 /**************
  * From k8.js *
@@ -125,7 +125,7 @@ function mg_cmd_merge2vcf(args) {
 				for (let i = 0; i < opt.sample.length; ++i)
 					a.push(opt.sample[i]);
 			} else {
-				for (let i = 6; i < t.length; ++i)
+				for (let i = 5; i < t.length; ++i)
 					a.push(t[i]);
 			}
 			for (let i = 0; i < hdr.length; ++i)
