@@ -1,3 +1,21 @@
+Release 0.21-r606 (21 April 2024)
+---------------------------------
+
+Notable changes:
+
+ * New feature: added `mgutils-es6.js` for converting merged BED to VCF. This
+   replaces the older BED-to-VCF converter. This script requires k8 v1.0.
+
+ * New feature: output a new `ds:Z` tag. `ds` is similar to `cs` but it
+   additionally indicates microhomology around INDELs.
+
+ * New experimental feature: added `gafcall.js` for calling structural
+   variants. This script will be moved a separate repo in future.
+
+(21 April 2024, r606)
+
+
+
 Release 0.20-r559 (20 November 2022)
 ------------------------------------
 
