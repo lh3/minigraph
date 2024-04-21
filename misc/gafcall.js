@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const gc_version = "r93";
+const gc_version = "r112";
 
 /**************
  * From k8.js *
@@ -189,14 +189,14 @@ function gc_cmd_extract(args) {
 		print("Usage: gafcall.js extract [options] <stable.gaf>");
 		print("Options:");
 		print(`  -n STR     sample name [${opt.name}]`);
-		print(`  -q INT     min mapq [${opt.min_mapq}]`);
 		print(`  -l INT     min INDEL len [${opt.min_len}]`);
 		print(`  -f FLOAT   min mapped query fraction [${opt.min_frac}]`);
 		print(`  -c INT     max number of long INDELs per 10kb [${opt.max_cnt_10k}]`);
-		print(`  -a INT     penalty for non-polyA bases [${opt.polyA_pen}]`);
+		print(`  -q INT     min mapq [${opt.min_mapq}]`);
 		print(`  -Q INT     min mapq for alignment ends [${opt.min_mapq_end}]`);
 		print(`  -e INT     min alignment length at ends [${opt.min_aln_len_end}]`);
 		print(`  -m INT     min alignment length in the middle [${opt.min_aln_len_mid}]`);
+		print(`  -a INT     penalty for non-polyA bases [${opt.polyA_pen}]`);
 		print(`  -b FILE    BED for centromeres []`);
 		return;
 	}
@@ -754,13 +754,14 @@ function gc_cmd_merge(args) {
 		write_sv(opt, sv.shift().v);
 }
 
-/**************
- * Evaluation *
- **************/
+/*************************
+ * Parse and reformat SV *
+ *************************/
 
-function gc_parse_sv(opt, fn) {
-	const min_read_len = Math.floor(opt.min_len * opt.read_len_ratio + .499);
+function gc_parse_sv(min_len, fn, ignore_flt, check_gt) {
 	let sv = [], ignore_id = {};
+	ignore_flt = typeof ignore_flt !== "undefined"? ignore_flt : true;
+	check_gt = typeof check_gt !== "undefined"? check_gt : false;
 	for (const line of k8_readline(fn)) {
 		if (line[0] === "#") continue;
 		let m, t = line.split("\t");
@@ -780,33 +781,39 @@ function gc_parse_sv(opt, fn) {
 		if (type == 2) { // BED line
 			t[2] = parseInt(t[2]);
 			if (t[1] > t[2]) throw("incorrected BED?");
-			sv.push({ ctg:t[0], pos:t[1], ctg2:t[0], pos2:t[2], ori:">>", svtype:svtype, svlen:svlen });
+			if (Math.abs(svlen) < min_len) continue;
+			sv.push({ ctg:t[0], pos:t[1], ctg2:t[0], pos2:t[2], ori:">>", svtype:svtype, svlen:svlen, vaf:1 });
 		} else if (type == 3) { // breakpoint line
 			t[4] = parseInt(t[4]);
-			sv.push({ ctg:t[0], pos:t[1], ctg2:t[3], pos2:t[4], ori:t[2], svtype:svtype, svlen:svlen });
+			if (t[0] === t[3] && Math.abs(svlen) < min_len) continue;
+			sv.push({ ctg:t[0], pos:t[1], ctg2:t[3], pos2:t[4], ori:t[2], svtype:svtype, svlen:svlen, vaf:1 });
 		} else if (type == 1) { // VCF line
+			if (!ignore_flt && t[6] !== "PASS" && t[6] !== ".") continue; // ignore filtered calls
+			if (check_gt && t.length >= 9 && /^0[\/\|]0/.test(t[9])) continue; // not a variant
 			let rlen = t[3].length, en = t[1] + rlen - 1;
-			let s = { ctg:t[0], pos:t[1]-1, ctg2:t[0], pos2:en, ori:">>" };
-			if (/^[A-Z,]+$/.test(t[4])) { // assume full allele sequence; override SVTYPE/SVLEN even if present
+			let s = { ctg:t[0], pos:t[1]-1, ctg2:t[0], pos2:en, ori:">>", vaf:1 };
+			if ((m = /\bVAF=([^\s;]+)/.exec(info)) != null)
+				s.vaf = parseFloat(m[1]);
+			if (/^[A-Z,\*]+$/.test(t[4])) { // assume full allele sequence; override SVTYPE/SVLEN even if present
 				let alt = t[4].split(",");
 				for (let i = 0; i < alt.length; ++i) {
 					const a = alt[i], len = a.length - rlen;
-					if (Math.abs(len) < min_read_len) continue;
+					if (Math.abs(len) < min_len) continue;
 					if (len < 0)
-						sv.push({ ctg:s.ctg, pos:s.pos, ctg2:s.ctg, pos2:en, svtype:"DEL", svlen:len, ori:">>" });
+						sv.push({ ctg:s.ctg, pos:s.pos, ctg2:s.ctg, pos2:en, svtype:"DEL", svlen:len, ori:">>", vaf:s.vaf });
 					else
-						sv.push({ ctg:s.ctg, pos:s.pos, ctg2:s.ctg, pos2:en, svtype:"INS", svlen:len, ori:">>" });
+						sv.push({ ctg:s.ctg, pos:s.pos, ctg2:s.ctg, pos2:en, svtype:"INS", svlen:len, ori:">>", vaf:s.vaf });
 				}
 			} else { // other SV encoding
 				if (t[2] !== ".") {
 					if (ignore_id[t[2]]) continue; // ignore previously visited ID
 					ignore_id[t[2]] = 1;
 				}
-				if ((m = /\b(MATE_ID|MATEID)=(\d+)/.exec(info)) != null)
+				if ((m = /\b(MATE_ID|MATEID)=([^\s;]+)/.exec(info)) != null)
 					ignore_id[m[2]] = 1;
-				if (svtype == null) throw Error("can't determine SVTYPE"); // we don't infer SVTYPE from breakpoint
+				if (svtype == null) throw Error(`can't determine SVTYPE: ${t.join("\t")}`); // we don't infer SVTYPE from breakpoint
 				s.svtype = svtype;
-				if (svtype !== "BND" && Math.abs(svlen) < min_read_len) continue; // too short
+				if (svtype !== "BND" && Math.abs(svlen) < min_len) continue; // too short
 				if (svtype === "DEL" && svlen > 0) svlen = -svlen; // correct SVLEN as some VCF encodes this differently
 				s.svlen = svlen;
 				if ((m = /\bEND=(\d+)/.exec(info)) != null) {
@@ -816,12 +823,12 @@ function gc_parse_sv(opt, fn) {
 					if (svtype === "DEL" || svtype === "DUP" || svtype === "INV")
 						s.pos2 = s.pos + Math.abs(svlen);
 				}
-				if ((m = /^[A-Z]+\[([^s:]+):(\d+)\[$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = ">>";
-				else if ((m = /^\]([^s:]+):(\d+)\][A-Z]+$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "<<";
-				else if ((m = /^\[([^s:]+):(\d+)\[[A-Z]+$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "><";
-				else if ((m = /^[A-Z]+\]([^s:]+):(\d+)\]$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "<>";
+				if ((m = /^[A-Z]+\[([^\s:]+):(\d+)\[$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = ">>";
+				else if ((m = /^\]([^\s:]+):(\d+)\][A-Z]+$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "<<";
+				else if ((m = /^\[([^\s:]+):(\d+)\[[A-Z]+$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "<>";
+				else if ((m = /^[A-Z]+\]([^\s:]+):(\d+)\]$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "><";
 				if (svtype !== "BND" && s.ctg !== s.ctg2) throw Error("different contigs for non-BND type");
-				if (svtype === "BND" && s.ctg === s.ctg2 && Math.abs(svlen) < min_read_len) continue;
+				if (svtype === "BND" && s.ctg === s.ctg2 && Math.abs(svlen) < min_len) continue;
 				if (s.ctg === s.ctg2 && s.pos > s.pos2) {
 					let tmp = s.pos;
 					s.pos = s.pos2, s.pos2 = tmp;
@@ -830,14 +837,74 @@ function gc_parse_sv(opt, fn) {
 			}
 		}
 	}
-	if (opt.dbg) {
-		for (let i = 0; i < sv.length; ++i) {
-			const s = sv[i];
-			print(s.ctg, s.pos, s.ori, s.ctg2, s.pos2, s.svtype, s.svlen);
-		}
-	}
 	return sv;
 }
+
+function gc_read_bed(fn) {
+	let h = {};
+	for (const line of k8_readline(fn)) {
+		let t = line.split("\t");
+		if (t.length < 3) continue;
+		if (h[t[0]] == null) h[t[0]] = [];
+		h[t[0]].push({ st:parseInt(t[1]), en:parseInt(t[2]), data:null });
+	}
+	for (const ctg in h) {
+		h[ctg] = iit_sort_copy(h[ctg]);
+		iit_index(h[ctg]);
+	}
+	return h;
+}
+
+function gc_cmd_view(args) {
+	let min_read_len = 100, ignore_flt = false, check_gt = false, count_long = false, bed = null;
+	for (const o of getopt(args, "l:FGCb:")) {
+		if (o.opt === "-l") min_read_len = parseNum(o.arg);
+		else if (o.opt === "-F") ignore_flt = true;
+		else if (o.opt === "-G") check_gt = true;
+		else if (o.opt === "-C") count_long = true;
+		else if (o.opt === "-b") bed = gc_read_bed(o.arg);
+	}
+	if (args.length == 0) {
+		print("Usage: gafcall.js view [options] <in.vcf>");
+		print("Options:");
+		print(`  -l NUM       min length [${min_read_len}]`);
+		print(`  -b FILE      regions to include []`);
+		print(`  -F           ignore FILTER field in VCF`);
+		print(`  -G           check GT in VCF`);
+		print(`  -C           count 20kb, 100kb, 1Mb and translocations`);
+		return;
+	}
+	for (let j = 0; j < args.length; ++j) {
+		const sv = gc_parse_sv(min_read_len, args[j], ignore_flt, check_gt);
+		let cnt = [ 0, 0, 0, 0 ];
+		for (let i = 0; i < sv.length; ++i) {
+			const s = sv[i];
+			if (bed != null) {
+				if (bed[s.ctg] == null || bed[s.ctg2] == null) continue;
+				if (iit_overlap(bed[s.ctg],  s.pos,  s.pos  + 1).length === 0) continue;
+				if (iit_overlap(bed[s.ctg2], s.pos2, s.pos2 + 1).length === 0) continue;
+			}
+			if (count_long) {
+				if (s.ctg != s.ctg2) {
+					++cnt[0], ++cnt[1], ++cnt[2], ++cnt[3];
+				} else {
+					const len = Math.abs(s.svlen);
+					if (len >= 1000000) ++cnt[1];
+					if (len >= 100000) ++cnt[2];
+					if (len >= 20000) ++cnt[3];
+				}
+			} else {
+				print(s.ctg, s.pos, s.ori, s.ctg2, s.pos2, s.svtype, s.svlen);
+			}
+		}
+		if (count_long)
+			print(cnt.join("\t"), args[j]);
+	}
+}
+
+/**************
+ * Evaluation *
+ **************/
 
 function gc_cmp_sv(opt, base, test, label) {
 	let h = {};
@@ -896,6 +963,12 @@ function gc_cmp_sv(opt, base, test, label) {
 		const t = test[j];
 		if (t.svtype !== "BND" && Math.abs(t.svlen) < opt.min_len) continue; // not long enough for non-BND type; note that t.ctg === t.ctg2 MUST stand due to assertion in parsing
 		if (t.svtype === "BND" && t.ctg === t.ctg2 && Math.abs(t.svlen) < opt.min_len) continue; // not long enough; in principle, this can be merged to the line above
+		if (t.vaf != null && t.vaf < opt.min_vaf) continue; // filter by VAF
+		if (opt.bed != null) {
+			if (opt.bed[t.ctg] == null || opt.bed[t.ctg2] == null) continue;
+			if (iit_overlap(opt.bed[t.ctg],  t.pos,  t.pos  + 1).length === 0) continue;
+			if (iit_overlap(opt.bed[t.ctg2], t.pos2, t.pos2 + 1).length === 0) continue;
+		}
 		++tot;
 		const n = eval1(opt, h, t.ctg, t.pos, t) + eval1(opt, h, t.ctg2, t.pos2, t);
 		if (n == 0) {
@@ -908,29 +981,99 @@ function gc_cmp_sv(opt, base, test, label) {
 }
 
 function gc_cmd_eval(args) {
-	let opt = { min_len:100, read_len_ratio:0.8, win_size:500, min_len_ratio:0.6, dbg:false, print_err:false };
-	for (const o of getopt(args, "dr:l:w:e")) {
+	let opt = { min_len:100, read_len_ratio:0.8, win_size:500, min_len_ratio:0.6, min_vaf:0, bed:null, dbg:false, print_err:false, ignore_flt:false, check_gt:false };
+	for (const o of getopt(args, "dr:l:w:em:v:b:FG")) {
 		if (o.opt === "-d") opt.dbg = true;
+		else if (o.opt === "-b") opt.bed = gc_read_bed(o.arg);
 		else if (o.opt === "-l") opt.min_len = parseNum(o.arg);
-		else if (o.opt === "-r") opt.min_read_ratio = parseFloat(o.arg);
+		else if (o.opt === "-m") opt.min_len_ratio = parseFloat(o.arg);
+		else if (o.opt === "-r") opt.read_len_ratio = parseFloat(o.arg);
 		else if (o.opt === "-w") opt.win_size = parseNum(o.arg);
+		else if (o.opt === "-v") opt.min_vaf = parseFloat(o.arg);
+		else if (o.opt === "-F") opt.ignore_flt = true;
+		else if (o.opt === "-G") opt.check_gt = true;
 		else if (o.opt === "-e") opt.print_err = true;
 	}
 	if (args.length < 2) {
 		print("Usgae: gafcall.js eval [options] <base.vcf> <test.vcf>");
 		print("Options:");
+		print(`  -b FILE     confident regions in BED []`);
 		print(`  -l NUM      min SVLEN [${opt.min_len}]`);
 		print(`  -w NUM      fuzzy window size [${opt.win_size}]`);
 		print(`  -r FLOAT    read SVs longer than {-l}*FLOAT [${opt.read_len_ratio}]`);
+		print(`  -m FLOAT    two SVs regarded the same if length ratio above [${opt.min_len_ratio}]`);
+		print(`  -v FLOAT    ignore VAF below FLOAT (requiring VAF in VCF) [${opt.min_vaf}]`);
+		print(`  -F          ignore FILTER in VCF`);
+		print(`  -G          check GT in VCF`);
 		print(`  -e          print errors`);
 		return;
 	}
-	const base = gc_parse_sv(opt, args[0]);
-	const test = gc_parse_sv(opt, args[1]);
-	const [tot_fn, fn] = gc_cmp_sv(opt, test, base, "FN");
-	const [tot_fp, fp] = gc_cmp_sv(opt, base, test, "FP");
-	print("RN", tot_fn, fn, (fn / tot_fn).toFixed(4));
-	print("RP", tot_fp, fp, (fp / tot_fp).toFixed(4));
+	const min_read_len = Math.floor(opt.min_len * opt.read_len_ratio + .499);
+
+	if (args.length === 2) { // two-sample mode
+		const base = gc_parse_sv(min_read_len, args[0], opt.ignore_flt, opt.check_gt);
+		const test = gc_parse_sv(min_read_len, args[1], opt.ignore_flt, opt.check_gt);
+		const [tot_fn, fn] = gc_cmp_sv(opt, test, base, "FN");
+		const [tot_fp, fp] = gc_cmp_sv(opt, base, test, "FP");
+		print("RN", tot_fn, fn, (fn / tot_fn).toFixed(4), args[0]);
+		print("RP", tot_fp, fp, (fp / tot_fp).toFixed(4), args[1]);
+	} else { // multi-sample mode
+		let vcf = [];
+		for (let i = 0; i < args.length; ++i)
+			vcf[i] = gc_parse_sv(min_read_len, args[i], opt.ignore_flt, opt.check_gt);
+		for (let i = 0; i < args.length; ++i) {
+			let a = [ "SN" ];
+			for (let j = 0; j < args.length; ++j) {
+				const [cnt, err] = gc_cmp_sv(opt, vcf[i], vcf[j], "XX");
+				if (i != j) a.push((1 - err/cnt).toFixed(4));
+				else a.push(cnt);
+			}
+			print(a.join("\t"), args[i]);
+		}
+	}
+}
+
+/**********************
+ * Join two GSV files *
+ **********************/
+
+function gc_cmd_join(args) {
+	for (const o of getopt(args, "")) {
+	}
+	if (args.length < 2) {
+		print("Usgae: gafcall.js join <filter.gsv> <out.gsv>");
+		return;
+	}
+
+	function get_type(t, col_info) {
+		const info = t[col_info];
+		let m;
+		if ((m = /\bSVTYPE=([^\s;]+)/.exec(info)) != null) {
+			if (m[1] === "INS" || m[1] === "DUP") return 1;
+			else if (m[1] === "DEL") return 2;
+			else if (m[1] === "INV") return 4;
+			else if (m[1] === "BND" && col_info === 8 && t[0] !== t[3]) return 8;
+		}
+		return 0;
+	}
+
+	let h = {}
+	for (const line of k8_readline(args[0])) {
+		let t = line.split("\t");
+		const col_info = /^[><]+$/.test(t[2])? 8 : 6;
+		const name = t[col_info - 3];
+		if (h[name] == null) h[name] = 0;
+		h[name] |= get_type(t, col_info);
+	}
+	for (const line of k8_readline(args[1])) {
+		let t = line.split("\t");
+		const col_info = /^[><]+$/.test(t[2])? 8 : 6;
+		const name = t[col_info - 3];
+		if (h[name] == null) continue;
+		const type = get_type(t, col_info);
+		if (type === 0 || (h[name]&type) || (h[name]&8))
+			print(line);
+	}
 }
 
 /*******************************
@@ -989,6 +1132,8 @@ function main(args)
 		print("  extract      extract long INDELs and breakpoints from GAF");
 		print("  merge        merge extracted INDELs and breakpoints");
 		print("  eval         evaluate SV calls");
+		print("  view         print in the gafcall format");
+		print("  join         join two 'extract' outputs");
 		print("  version      print version number");
 		exit(1);
 	}
@@ -997,6 +1142,8 @@ function main(args)
 	if (cmd === "extract" || cmd === "getsv") gc_cmd_extract(args);
 	else if (cmd === "merge" || cmd === "mergesv") gc_cmd_merge(args);
 	else if (cmd === "eval") gc_cmd_eval(args);
+	else if (cmd === "view" || cmd === "format") gc_cmd_view(args);
+	else if (cmd === "join") gc_cmd_join(args);
 	else if (cmd === "version") {
 		print(gc_version);
 		return;
