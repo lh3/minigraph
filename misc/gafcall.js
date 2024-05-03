@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const gc_version = "r112";
+const gc_version = "r119";
 
 /**************
  * From k8.js *
@@ -167,7 +167,7 @@ function gc_cmd_extract(args) {
 	for (const o of getopt(args, "q:Q:l:dc:a:e:m:n:b:", [])) {
 		if (o.opt == "-q") opt.min_mapq = parseInt(o.arg);
 		else if (o.opt == "-Q") opt.min_mapq_end = parseInt(o.arg);
-		else if (o.opt == "-l") opt.min_len = parseInt(o.arg);
+		else if (o.opt == "-l") opt.min_len = parseNum(o.arg);
 		else if (o.opt == "-d") opt.dbg = true;
 		else if (o.opt == "-f") opt.min_frac = parseFloat(o.arg);
 		else if (o.opt == "-c") opt.max_cnt_10k = parseInt(o.arg);
@@ -185,6 +185,8 @@ function gc_cmd_extract(args) {
 				opt.cen[ctg].sort(function(a,b) { return a[0]-b[0] });
 		}
 	}
+	if (opt.min_mapq > opt.min_mapq_end)
+		opt.min_mapq = opt.min_mapq_end;
 	if (args.length == 0) {
 		print("Usage: gafcall.js extract [options] <stable.gaf>");
 		print("Options:");
@@ -287,17 +289,23 @@ function gc_cmd_extract(args) {
 		for (let j = 0; j < z.length; ++j) {
 			const y = z[j];
 			if (y.qen - y.qst < y.qlen * opt.min_frac) continue; // ignore short alignments
-			let m, a = [], x = y.tst;
+			const is_rev = (y.strand === "-");
+			let m, a = [], x = y.tst, q = 0;
 			while ((m = re.exec(y.cg)) != null) { // collect the list of long indels
 				const op = m[2], len = parseInt(m[1]);
 				if (len >= opt.min_len) {
-					if (op === "I")
-						a.push({ st:x, en:x,     len:len,  indel_seq:".", tsd_len:0, tsd_seq:".", polyA_len:0, int_seq:"." });
-					else if (op === "D")
-						a.push({ st:x, en:x+len, len:-len, indel_seq:".", tsd_len:0, tsd_seq:".", polyA_len:0, int_seq:"." });
+					if (op === "I") {
+						const qoff = is_rev? y.qen - (q + len) : q + y.qst;
+						a.push({ st:x, en:x,     len:len,  indel_seq:".", tsd_len:0, tsd_seq:".", polyA_len:0, int_seq:".", qoff:qoff, qoff_l:qoff, qoff_r:qoff+len });
+					} else if (op === "D") {
+						const qoff = is_rev? y.qen - q : q + y.qst;
+						a.push({ st:x, en:x+len, len:-len, indel_seq:".", tsd_len:0, tsd_seq:".", polyA_len:0, int_seq:".", qoff:qoff, qoff_l:qoff, qoff_r:qoff });
+					}
 				}
-				if (op == "M" || op == "=" || op == "X" || op == "D")
+				if (op == "M" || op == "=" || op == "X" || op == "D" || op === "N")
 					x += len;
+				if (op == "M" || op == "=" || op == "X" || op == "I" || op === "S" || op === "H")
+					q += len;
 			}
 			if (a.length == 0 || a.length > y.qlen * 1e-4 * opt.max_cnt_10k) continue;
 			// set stl/enl and str/enr
@@ -343,6 +351,13 @@ function gc_cmd_extract(args) {
 					a[i].enl = a[i].en - rlen;
 					a[i].str = a[i].st + llen;
 					a[i].enr = a[i].en + llen;
+					if (is_rev) {
+						a[i].qoff_l -= llen;
+						a[i].qoff_r += rlen;
+					} else {
+						a[i].qoff_l -= rlen;
+						a[i].qoff_r += llen;
+					}
 				}
 			} // ~if(y.ds)
 			if (opt.dbg) print('X0', line);
@@ -380,7 +395,7 @@ function gc_cmd_extract(args) {
 					st = enr[i].pos, en = str[i].pos;
 					strand = y.strand === "+"? "-" : "+";
 				}
-				let info1 = (a[i].len > 0? "SVTYPE=INS" : "SVTYPE=DEL") + `;SVLEN=${a[i].len};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len}`;
+				let info1 = (a[i].len > 0? "SVTYPE=INS" : "SVTYPE=DEL") + `;SVLEN=${a[i].len};qoff_l=${a[i].qoff_l};qoff_r=${a[i].qoff_r};tsd_len=${a[i].tsd_len};polyA_len=${a[i].polyA_len}`;
 				const info2 = `source=${opt.name};tsd_seq=${a[i].tsd_seq.length>0?a[i].tsd_seq:"."};insert=${a[i].int_seq.length>0?a[i].int_seq:"."}`;
 				if (opt.cen[s.ctg] != null) {
 					const dist_st = cal_cen_dist(opt, s.ctg, st);
@@ -497,8 +512,10 @@ function gc_cmd_extract(args) {
 					cen_str += `;cen_overlap=${ov}`;
 				}
 			}
+			const qoff_l = y0.qen < y1.qst? y0.qen : y1.qst;
+			const qoff_r = y0.qen > y1.qst? y0.qen : y1.qst;
 			print(c0.ctg, c0.pos, ori, c1.ctg, c1.pos, y0.qname, y0.mapq < y1.mapq? y0.mapq : y1.mapq, strand2,
-				  `${sv_info.str};qgap=${qgap};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst}${cen_str};source=${opt.name}`);
+				  `${sv_info.str};qoff_l=${qoff_l};qoff_r=${qoff_r};qgap=${qgap};mapq=${y0.mapq},${y1.mapq};aln_len=${y0.qen-y0.qst},${y1.qen-y1.qst}${cen_str};source=${opt.name}`);
 		}
 	} // ~get_breakpoint()
 
@@ -1038,23 +1055,36 @@ function gc_cmd_eval(args) {
  **********************/
 
 function gc_cmd_join(args) {
-	for (const o of getopt(args, "")) {
+	let opt = { win_size:1000 };
+	for (const o of getopt(args, "w:")) {
+		if (o.opt === "-w") opt.win_size = parseNum(o.arg);
 	}
 	if (args.length < 2) {
-		print("Usgae: gafcall.js join <filter.gsv> <out.gsv>");
+		print("Usgae: gafcall.js join [options] <filter.gsv> <out.gsv>");
+		print("Options:");
+		print(`  -w NUM     fuzzy window size [${opt.win_size}]`);
 		return;
 	}
 
 	function get_type(t, col_info) {
 		const info = t[col_info];
-		let m;
-		if ((m = /\bSVTYPE=([^\s;]+)/.exec(info)) != null) {
-			if (m[1] === "INS" || m[1] === "DUP") return 1;
-			else if (m[1] === "DEL") return 2;
-			else if (m[1] === "INV") return 4;
-			else if (m[1] === "BND" && col_info === 8 && t[0] !== t[3]) return 8;
+		const re = /\b(SVTYPE|SVLEN|qoff_l|qoff_r)=([^\s;]+)/g
+		let m, type = null, qoff_l = -1, qoff_r = -1, len = 0, flag = 0;
+		while ((m = re.exec(info)) != null) {
+			if (m[1] === "SVTYPE") type = m[2];
+			else if (m[1] === "SVLEN") len = parseInt(m[2]);
+			else if (m[1] === "qoff_l") qoff_l = parseInt(m[2]);
+			else if (m[1] === "qoff_r") qoff_r = parseInt(m[2]);
 		}
-		return 0;
+		if (type == null || qoff_l < 0 || qoff_r < 0) {
+			warn(type, qoff_l, qoff_r);
+			throw Error("missing information");
+		}
+		if (type === "INS" || type === "DUP") flag = 1; // insertion
+		else if (type === "DEL") flag = 2; // deletion
+		else if (type === "INV") flag = 4; // inversion
+		else if (type === "BND" && col_info === 8 && t[0] !== t[3]) flag = 8; // translocation
+		return { type:type, len:len, st:qoff_l, en:qoff_r, flag:flag };
 	}
 
 	let h = {}
@@ -1062,17 +1092,25 @@ function gc_cmd_join(args) {
 		let t = line.split("\t");
 		const col_info = /^[><]+$/.test(t[2])? 8 : 6;
 		const name = t[col_info - 3];
-		if (h[name] == null) h[name] = 0;
-		h[name] |= get_type(t, col_info);
+		if (h[name] == null) h[name] = [];
+		h[name].push(get_type(t, col_info));
 	}
 	for (const line of k8_readline(args[1])) {
 		let t = line.split("\t");
 		const col_info = /^[><]+$/.test(t[2])? 8 : 6;
 		const name = t[col_info - 3];
 		if (h[name] == null) continue;
-		const type = get_type(t, col_info);
-		if (type === 0 || (h[name]&type) || (h[name]&8))
-			print(line);
+		const a = h[name];
+		const x = get_type(t, col_info);
+		let found = false;
+		for (let i = 0; i < a.length; ++i) {
+			if (x.st - opt.win_size < a[i].en && a[i].st < x.en + opt.win_size) { // overlap
+				if (x.flag === 0 || (x.flag & a[i].flag) || (a[i].flag & 8)) {
+					found = true;
+				}
+			}
+		}
+		if (found) print(line);
 	}
 }
 
