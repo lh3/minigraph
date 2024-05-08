@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const gc_version = "r119";
+const gc_version = "r125";
 
 /**************
  * From k8.js *
@@ -499,8 +499,10 @@ function gc_cmd_extract(args) {
 			const y0 = zz[j-1], y1 = zz[j];
 			const qgap = y1.qst - y0.qen;
 			let c0 = y0.coor[1], c1 = y1.coor[0], strand2 = "+", ori = c0.ori + c1.ori;
-			if (!(c0.ctg < c1.ctg || (c0.ctg === c1.ctg && c0.pos < c1.pos)))
-				c0 = y1.coor[0], c1 = y0.coor[1], strand2 = "-", ori = (c1.ori === ">"? "<" : ">") + (c0.ori === ">"? "<" : ">");
+			if (!(c0.ctg < c1.ctg || (c0.ctg === c1.ctg && c0.pos < c1.pos))) {
+				ori = (c1.ori === ">"? "<" : ">") + (c0.ori === ">"? "<" : ">");
+				c0 = y1.coor[0], c1 = y0.coor[1], strand2 = "-";
+			}
 			const sv_info = infer_svtype(opt, c0, c1, ori, qgap);
 			let cen_str = "";
 			if (opt.cen[c0.ctg] != null || opt.cen[c1.ctg] != null) {
@@ -608,7 +610,7 @@ function gc_cmd_merge(args) {
 		print(`  -s INT     min read count on each strand [${opt.min_cnt_strand}]`);
 		print(`  -w INT     window size [${opt.win_size}]`);
 		print(`  -d FLOAT   max allele length difference ratio [${opt.max_diff}]`);
-		print(`  -e NUM     min distance to centromeres [${opt.min_cen_dist}]`);
+		print(`  -e NUM     min distance to centromeres (0 to disable) [${opt.min_cen_dist}]`);
 		print(`  -r INT     min min(TSD,polyA) to tag a candidate RT; 0 to disable [${opt.min_rt_len}]`);
 		print(`  -R INT     min read count for a candidate RT [${opt.min_cnt_rt}]`);
 		print(`  -A INT     check up to INT nearby alleles [${opt.max_allele}]`);
@@ -694,13 +696,15 @@ function gc_cmd_merge(args) {
 		if (rt_len_arr.length > 0)
 			rt_len = rt_len_arr[rt_len_arr.length>>1];
 		// count
-		let mapq = 0, cnt = {}, cnt_strand = [0, 0], name = [];
+		let mapq = 0, cnt = {}, cnt_strand = [0, 0], name = [], cnt_fr = 0, cnt_rf = 0;
 		for (let i = 0; i < s.length; ++i) {
 			mapq += s[i]._mapq;
 			if (cnt[s[i].source] == null) cnt[s[i].source] = [0, 0];
 			cnt[s[i].source][s[i].strand === "+"? 0 : 1]++;
 			cnt_strand[s[i].strand === "+"? 0 : 1]++;
 			name.push(s[i].name);
+			if (s[i].ori === "><") ++cnt_fr;
+			else if (s[i].ori === "<>") ++cnt_rf;
 		}
 		mapq = (mapq / s.length).toFixed(0);
 		// filter by count
@@ -716,6 +720,11 @@ function gc_cmd_merge(args) {
 		info += `count=${cnt_arr.join("|")};`;
 		info += `rt_len=${rt_len};`;
 		info += v.info.replace(/(;?)source=[^;\s=]+/, "");
+		if (cnt_fr + cnt_rf > 0) {
+			info += `;count_fr=${cnt_fr};count_rf=${cnt_rf}`;
+			if (cnt_fr * cnt_rf == 0 && v.ctg === v.ctg2)
+				info += `;foldback`;
+		}
 		info += `;reads=${name.join(",")}`;
 
 		if (!v.is_bp) {
@@ -845,7 +854,10 @@ function gc_parse_sv(min_len, fn, ignore_flt, check_gt) {
 				else if ((m = /^\[([^\s:]+):(\d+)\[[A-Z]+$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "<>";
 				else if ((m = /^[A-Z]+\]([^\s:]+):(\d+)\]$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "><";
 				if (svtype !== "BND" && s.ctg !== s.ctg2) throw Error("different contigs for non-BND type");
-				if (svtype === "BND" && s.ctg === s.ctg2 && Math.abs(svlen) < min_len) continue;
+				if (svtype === "BND" && s.ctg === s.ctg2) {
+					if (svlen == 0 && Math.abs(s.pos2 - s.pos) < min_len) continue;
+					if (svlen != 0 && Math.abs(svlen) < min_len) continue;
+				}
 				if (s.ctg === s.ctg2 && s.pos > s.pos2) {
 					let tmp = s.pos;
 					s.pos = s.pos2, s.pos2 = tmp;
@@ -893,7 +905,7 @@ function gc_cmd_view(args) {
 	}
 	for (let j = 0; j < args.length; ++j) {
 		const sv = gc_parse_sv(min_read_len, args[j], ignore_flt, check_gt);
-		let cnt = [ 0, 0, 0, 0 ];
+		let cnt = [ 0, 0, 0, 0, 0 ];
 		for (let i = 0; i < sv.length; ++i) {
 			const s = sv[i];
 			if (bed != null) {
@@ -910,6 +922,7 @@ function gc_cmd_view(args) {
 					if (len >= 100000) ++cnt[2];
 					if (len >= 20000) ++cnt[3];
 				}
+				++cnt[4];
 			} else {
 				print(s.ctg, s.pos, s.ori, s.ctg2, s.pos2, s.svtype, s.svlen);
 			}
@@ -1114,16 +1127,44 @@ function gc_cmd_join(args) {
 	}
 }
 
+function gc_cmd_snfpair(args) {
+	let opt = { normal:2, tumor:1 };
+	for (const o of getopt(args, "n:t:")) {
+		if (o.opt === "-n") opt.normal = parseInt(o.arg);
+		else if (o.opt === "-t") opt.tumor = parseInt(o.arg);
+	}
+	if (args.length == 0) {
+		print("Usage: gafcall.js snfpair [-n INT] [-t INT] <sniffles-multi.vcf>");
+		return;
+	}
+	for (const line of k8_readline(args[0])) {
+		if (line[0] === "#") {
+			print(line);
+		} else {
+			let t = line.split("\t");
+			let sn = t[8+opt.normal].split(":");
+			let st = t[8+opt.tumor].split(":");
+			let fmt = t[8].split(":");
+			for (let i = 0; i < fmt.length; ++i) {
+				if (fmt[i] === "DV" && parseInt(sn[i]) == 0 && parseInt(st[i]) > 0) {
+					print(line);
+					continue;
+				}
+			}
+		}
+	}
+}
+
 /*******************************
  * Convert to VCF (unfinished) *
  *******************************/
 
-function mg_cmd_sv2vcf(args) {
+function gc_cmd_genvcf(args) {
 	let opt = { };
 	for (const o of getopt(args, "")) {
 	}
 	if (args.length == 0) {
-		print("Usage: mgutils-es6.js sv2vcf [options] <sv>");
+		print("Usage: gafcall.js genvcf [options] <in.gsv>");
 		return;
 	}
 
@@ -1133,28 +1174,57 @@ function mg_cmd_sv2vcf(args) {
 	print(`##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">`);
 	print(`##INFO=<ID=SVLEN,Number=.,Type=Integer,Description="Difference in length between REF and ALT alleles">`);
 	print(`##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">`);
+	print(`##INFO=<ID=MATEID,Number=.,Type=String,Description="ID of mate breakends">`);
+	print(`##INFO=<ID=SEQ,Number=1,Type=String,Description="INDEL sequence">`);
 	print(`##ALT=<ID=DEL,Description="Deletion">`);
 	print(`##ALT=<ID=INS,Description="Insertion">`);
 	print(`##ALT=<ID=DUP,Description="Duplication">`);
 	print(`##ALT=<ID=INV,Description="Inversion">`);
+	print(`##ALT=<ID=BND,Description="Breakend">`);
 	print(`##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">`);
 	print(`#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample`);
+	let cnt = {};
 	for (const line of k8_readline(args[0])) {
 		let t = line.split("\t");
 		const is_bp = /[><]/.test(t[2]);
-		if (is_bp && t[0] !== t[3]) continue;
 		const off_info = is_bp? 8 : 6;
-		let m, type = null, info = "";
+		let m, type = null, info = [], tsd_seq = null, insert = null;;
+		t[1] = parseInt(t[1]);
+		if (is_bp) t[4] = parseInt(t[4]);
+		else t[2] = parseInt(t[2]);
 		while ((m = re_info.exec(t[off_info])) != null) {
 			if (key[m[1]]) {
-				if (info.length) info += `;`;
-				info += `${m[1]}=${m[2]}`;
+				info.push(`${m[1]}=${m[2]}`);
+			} else if (m[1] === "tsd_seq") {
+				tsd_seq = m[2];
+			} else if (m[1] === "insert") {
+				insert = m[2];
 			}
 			if (m[1] === "SVTYPE") type = m[2];
 		}
-		if (type == null || type === "BND") continue;
-		info += is_bp? `;END=${t[4]}` : `;END=${t[2]}`;
-		print(t[0], t[1], ".", "N", `<${type}>`, t[off_info-2], `.`, info, "GT", "1/1");
+		info.push(is_bp? `END=${t[4]}` : `END=${t[2]}`);
+		if (cnt[type] == null) cnt[type] = 0;
+		++cnt[type];
+		if (tsd_seq != null && insert != null)
+			info.push(tsd_seq === "."? `SEQ=${insert}` : `SEQ=${tsd_seq}${insert}`);
+		const id0 = `${type.toLowerCase()}_${cnt[type]}`;
+		if (type === "BND") {
+			if (!is_bp) throw Error("bug");
+			let bnd, coor = `${t[3]}:${t[4]+1}`
+			if (t[2] === ">>") bnd = `N[${coor}[`;
+			else if (t[2] === "<<") bnd = `]${coor}]N`;
+			else if (t[2] === "><") bnd = `N]${coor}]`;
+			else if (t[2] === "<>") bnd = `[${coor}[N`;
+			print(t[0], t[1] + 1, `${id0}_1`, "N", bnd, t[off_info-2], "PASS", info.join(";") + `;MATEID=${id0}_2`, "GT", "1/1");
+			coor = `${t[0]}:${t[1]+1}`;
+			if (t[2] === ">>") bnd = `]${coor}]N`;
+			else if (t[2] === "<<") bnd = `N[${coor}[`;
+			else if (t[2] === "><") bnd = `N]${coor}]`;
+			else if (t[2] === "<>") bnd = `[${coor}[N`;
+			print(t[3], t[4] + 1, `${id0}_2`, "N", bnd, t[off_info-2], "PASS", info.join(";") + `;MATEID=${id0}_1`, "GT", "1/1");
+		} else {
+			print(t[0], t[1] + 1, id0, "N", `<${type}>`, t[off_info-2], "PASS", info.join(";"), "GT", "1/1");
+		}
 	}
 }
 
@@ -1172,6 +1242,8 @@ function main(args)
 		print("  eval         evaluate SV calls");
 		print("  view         print in the gafcall format");
 		print("  join         join two 'extract' outputs");
+		print("  genvcf       convert to VCF");
+		print("  snfpair      get tumor-specific SVs from Sniffles2 paired output");
 		print("  version      print version number");
 		exit(1);
 	}
@@ -1182,6 +1254,8 @@ function main(args)
 	else if (cmd === "eval") gc_cmd_eval(args);
 	else if (cmd === "view" || cmd === "format") gc_cmd_view(args);
 	else if (cmd === "join") gc_cmd_join(args);
+	else if (cmd === "genvcf") gc_cmd_genvcf(args);
+	else if (cmd === "snfpair") gc_cmd_snfpair(args);
 	else if (cmd === "version") {
 		print(gc_version);
 		return;
