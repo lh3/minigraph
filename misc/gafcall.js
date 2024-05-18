@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-const gc_version = "r125";
+const gc_version = "r133";
 
 /**************
  * From k8.js *
@@ -190,16 +190,19 @@ function gc_cmd_extract(args) {
 	if (args.length == 0) {
 		print("Usage: gafcall.js extract [options] <stable.gaf>");
 		print("Options:");
-		print(`  -n STR     sample name [${opt.name}]`);
-		print(`  -l INT     min INDEL len [${opt.min_len}]`);
-		print(`  -f FLOAT   min mapped query fraction [${opt.min_frac}]`);
-		print(`  -c INT     max number of long INDELs per 10kb [${opt.max_cnt_10k}]`);
-		print(`  -q INT     min mapq [${opt.min_mapq}]`);
-		print(`  -Q INT     min mapq for alignment ends [${opt.min_mapq_end}]`);
-		print(`  -e INT     min alignment length at ends [${opt.min_aln_len_end}]`);
-		print(`  -m INT     min alignment length in the middle [${opt.min_aln_len_mid}]`);
-		print(`  -a INT     penalty for non-polyA bases [${opt.polyA_pen}]`);
-		print(`  -b FILE    BED for centromeres []`);
+		print("  General:");
+		print(`    -n STR     sample name [${opt.name}]`);
+		print(`    -q INT     min mapq [${opt.min_mapq}]`);
+		print(`    -b FILE    BED for centromeres []`);
+		print("  Long INDELs:");
+		print(`    -l INT     min INDEL len [${opt.min_len}]`);
+		print(`    -f FLOAT   min mapped query fraction [${opt.min_frac}]`);
+		print(`    -c INT     max number of long INDELs per 10kb [${opt.max_cnt_10k}]`);
+		print(`    -a INT     penalty for non-polyA bases [${opt.polyA_pen}]`);
+		print(`  Breakends:`);
+		print(`    -Q INT     min mapq for alignment ends [${opt.min_mapq_end}]`);
+		print(`    -e INT     min alignment length at ends [${opt.min_aln_len_end}]`);
+		print(`    -m INT     min alignment length in the middle [${opt.min_aln_len_mid}]`);
 		return;
 	}
 
@@ -307,7 +310,8 @@ function gc_cmd_extract(args) {
 				if (op == "M" || op == "=" || op == "X" || op == "I" || op === "S" || op === "H")
 					q += len;
 			}
-			if (a.length == 0 || a.length > y.qlen * 1e-4 * opt.max_cnt_10k) continue;
+			if (a.length == 0) continue; // no long INDELs
+			if (a.length > 1 && a.length > y.qlen * 1e-4 * opt.max_cnt_10k) continue; // too many INDELs
 			// set stl/enl and str/enr
 			for (let i = 0; i < a.length; ++i) {
 				a[i].stl = a[i].str = a[i].st;
@@ -780,11 +784,86 @@ function gc_cmd_merge(args) {
 		write_sv(opt, sv.shift().v);
 }
 
+/***********************
+ * Filter merge output *
+ ***********************/
+
+function gc_get_count_gsv(info_count) {
+	let p, s = info_count.split("|"), cnt = [0, 0];
+	for (let i = 0; i < s.length; ++i)
+		if ((p = /([^\s:]+):(\d+),(\d+)/.exec(s[i])) != null)
+			cnt[0] += parseInt(p[2]), cnt[1] += parseInt(p[3]);
+	return cnt;
+}
+
+function gc_cmd_mergeflt(args) {
+	let opt = { min_cnt:2, min_cnt_strand:0, min_cen_dist:500000 };
+	for (const o of getopt(args, "e:c:s:")) {
+		if (o.opt === "-c") opt.min_cnt = parseInt(o.arg);
+		else if (o.opt === "-s") opt.min_cnt_strand = parseInt(o.arg);
+		else if (o.opt === "-e") opt.min_cen_dist = parseNum(o.arg);
+	}
+	if (args.length === 0) {
+		print("Usage: gafcall.js mergeflt [options] <in.gsv>");
+		print("Options:");
+		print(`  -c INT     min read count [${opt.min_cnt}]`);
+		print(`  -s INT     min read count on each strand [${opt.min_cnt_strand}]`);
+		print(`  -e NUM     min distance to centromeres (0 to disable) [${opt.min_cen_dist}]`);
+		return;
+	}
+	const re_info = /([^;\s=]+)=([^;\s=]+)/g;
+	for (const line of k8_readline(args[0])) {
+		let m, t = line.split("\t");
+		const is_bp = /^[><][><]$/.test(t[2]);
+		const col_info = is_bp? 8 : 6;
+		let cen_overlap = null, cen_dist = null, cnt = [0, 0];
+		while ((m = re_info.exec(t[col_info])) != null) {
+			if (m[1] === "count") {
+				cnt = gc_get_count_gsv(m[2]);
+			} else if (m[1] === "cen_dist") {
+				cen_dist = parseInt(m[2]);
+			} else if (m[1] === "cen_overlap") {
+				cen_overlap = parseInt(m[2]);
+			}
+		}
+		if (opt.min_cen_dist > 0) {
+			if (cen_dist != null && cen_dist <= opt.min_cen_dist) continue;
+			if (cen_overlap != null && cen_overlap > 0) continue;
+		}
+		if (cnt[0] + cnt[1] < opt.min_cnt) continue;
+		if (cnt[0] < opt.min_cnt_strand || cnt[1] < opt.min_cnt_strand) continue;
+		print(line);
+	}
+}
+
 /*************************
  * Parse and reformat SV *
  *************************/
 
-function gc_parse_sv(min_len, fn, ignore_flt, check_gt) {
+function gc_get_count_vcf(t) {
+	const re_info = /([^;\s=]+)=([^;\s=]+)/g;
+	let m;
+	while ((m = re_info.exec(t[7])) != null) {
+		if (m[1] == "SUPPORT") return parseInt(m[2]); // Sniffles2
+		else if (m[1] == "TUMOUR_SUPPORT") return parseInt(m[2]); // SAVANA
+	}
+	if (t.length >= 10 && /\bDV|VR\b/.test(t[8])) { // parse DV (Severus & Sniffles2) or VR (nanomonsv) format
+		const fmt = t[8].split(":");
+		let fmt_i = -1, n_fmt = 0;
+		for (let i = 0; i < fmt.length; ++i)
+			if (fmt[i] == "DV" || fmt[i] == "VR")
+				fmt_i = i, ++n_fmt;
+		if (n_fmt == 1 && fmt_i >= 0) {
+			let cnt = 0;
+			for (let i = 9; i < t.length; ++i)
+				cnt += parseInt(t[i].split(":")[fmt_i]);
+			return cnt;
+		}
+	}
+	return -1;
+}
+
+function gc_parse_sv(fn, min_len, min_cnt, ignore_flt, check_gt) {
 	let sv = [], ignore_id = {};
 	ignore_flt = typeof ignore_flt !== "undefined"? ignore_flt : true;
 	check_gt = typeof check_gt !== "undefined"? check_gt : false;
@@ -794,41 +873,50 @@ function gc_parse_sv(min_len, fn, ignore_flt, check_gt) {
 		if (!/^\d+$/.test(t[1])) continue;
 		//print("X", line);
 		t[1] = parseInt(t[1]);
-		let type = 0, info = null;
+		let type = 0, info = null, inv = false;
 		if (/^[><][><]$/.test(t[2])) type = 3, info = t[8]; // breakpoint
 		else if (/;/.test(t[7])) type = 1, info = t[7]; // VCF
 		else if (/^\d+$/.test(t[2]) && /;/.test(t[6])) type = 2, info = t[6]; // BED
 		if (type == 0) continue;
-		let svtype = null, svlen = 0;
-		if ((m = /SVTYPE=([^\s;]+)/.exec(info)) != null)
+		let svtype = null, svlen = 0, cnt_tot = -1;
+		if ((m = /\bSVTYPE=([^\s;]+)/.exec(info)) != null)
 			svtype = m[1];
-		if ((m = /SVLEN=([^\s;]+)/.exec(info)) != null)
+		if ((m = /\bSVLEN=([^\s;]+)/.exec(info)) != null)
 			svlen = parseFloat(m[1]);
+		if (svtype == "INV") inv = true;
+		if (type == 2 || type == 3) { // get supporting read count from GSV
+			if ((m = /\bcount=([^\s;]+)/.exec(info)) != null) {
+				const [cf, cr] = gc_get_count_gsv(m[1]);
+				cnt_tot = cf + cr;
+			}
+		} else if (type == 1) { // VCF
+			cnt_tot = gc_get_count_vcf(t);
+		}
+		if (cnt_tot > 0 && cnt_tot < min_cnt) continue; // too few supporting reads
 		if (type == 2) { // BED line
 			t[2] = parseInt(t[2]);
-			if (t[1] > t[2]) throw("incorrected BED?");
+			if (t[1] > t[2]) throw("incorrect BED?");
 			if (Math.abs(svlen) < min_len) continue;
-			sv.push({ ctg:t[0], pos:t[1], ctg2:t[0], pos2:t[2], ori:">>", svtype:svtype, svlen:svlen, vaf:1 });
+			sv.push({ ctg:t[0], pos:t[1], ctg2:t[0], pos2:t[2], ori:">>", svtype:svtype, svlen:svlen, inv:inv, count:cnt_tot, vaf:1 });
 		} else if (type == 3) { // breakpoint line
 			t[4] = parseInt(t[4]);
 			if (t[0] === t[3] && Math.abs(svlen) < min_len) continue;
-			sv.push({ ctg:t[0], pos:t[1], ctg2:t[3], pos2:t[4], ori:t[2], svtype:svtype, svlen:svlen, vaf:1 });
+			if (t[0] == t[3] && (t[2] == "><" || t[2] == "<>")) inv = true;
+			sv.push({ ctg:t[0], pos:t[1], ctg2:t[3], pos2:t[4], ori:t[2], svtype:svtype, svlen:svlen, inv:inv, count:cnt_tot, vaf:1 });
 		} else if (type == 1) { // VCF line
 			if (!ignore_flt && t[6] !== "PASS" && t[6] !== ".") continue; // ignore filtered calls
 			if (check_gt && t.length >= 9 && /^0[\/\|]0/.test(t[9])) continue; // not a variant
 			let rlen = t[3].length, en = t[1] + rlen - 1;
-			let s = { ctg:t[0], pos:t[1]-1, ctg2:t[0], pos2:en, ori:">>", vaf:1 };
+			let s = { ctg:t[0], pos:t[1]-1, ctg2:t[0], pos2:en, ori:">>", inv:inv, count:cnt_tot, vaf:1 };
 			if ((m = /\bVAF=([^\s;]+)/.exec(info)) != null)
 				s.vaf = parseFloat(m[1]);
-			if (/^[A-Z,\*]+$/.test(t[4])) { // assume full allele sequence; override SVTYPE/SVLEN even if present
+			if (/^[A-Z,\*]+$/.test(t[4]) && t[4] != "SV" && t[4] != "CSV") { // assume full allele sequence; override SVTYPE/SVLEN even if present
 				let alt = t[4].split(",");
 				for (let i = 0; i < alt.length; ++i) {
 					const a = alt[i], len = a.length - rlen;
 					if (Math.abs(len) < min_len) continue;
-					if (len < 0)
-						sv.push({ ctg:s.ctg, pos:s.pos, ctg2:s.ctg, pos2:en, svtype:"DEL", svlen:len, ori:">>", vaf:s.vaf });
-					else
-						sv.push({ ctg:s.ctg, pos:s.pos, ctg2:s.ctg, pos2:en, svtype:"INS", svlen:len, ori:">>", vaf:s.vaf });
+					s.ori = ">>", s.svlen = len, s.svtype = len < 0? "DEL" :"INS";
+					sv.push(s);
 				}
 			} else { // other SV encoding
 				if (t[2] !== ".") {
@@ -853,6 +941,7 @@ function gc_parse_sv(min_len, fn, ignore_flt, check_gt) {
 				else if ((m = /^\]([^\s:]+):(\d+)\][A-Z]+$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "<<";
 				else if ((m = /^\[([^\s:]+):(\d+)\[[A-Z]+$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "<>";
 				else if ((m = /^[A-Z]+\]([^\s:]+):(\d+)\]$/.exec(t[4])) != null) s.ctg2 = m[1], s.pos2 = parseInt(m[2]), s.ori = "><";
+				if (s.ctg == s.ctg2 && (s.ori == "><" || s.ori == "<>")) s.inv = true;
 				if (svtype !== "BND" && s.ctg !== s.ctg2) throw Error("different contigs for non-BND type");
 				if (svtype === "BND" && s.ctg === s.ctg2) {
 					if (svlen == 0 && Math.abs(s.pos2 - s.pos) < min_len) continue;
@@ -885,27 +974,31 @@ function gc_read_bed(fn) {
 }
 
 function gc_cmd_view(args) {
-	let min_read_len = 100, ignore_flt = false, check_gt = false, count_long = false, bed = null;
-	for (const o of getopt(args, "l:FGCb:")) {
+	let min_read_len = 100, ignore_flt = false, check_gt = false, count_long = false, min_count = 0, classify_inv = false, bed = null;
+	for (const o of getopt(args, "l:FGCb:c:I")) {
 		if (o.opt === "-l") min_read_len = parseNum(o.arg);
 		else if (o.opt === "-F") ignore_flt = true;
 		else if (o.opt === "-G") check_gt = true;
 		else if (o.opt === "-C") count_long = true;
 		else if (o.opt === "-b") bed = gc_read_bed(o.arg);
+		else if (o.opt === "-c") min_count = parseInt(o.arg);
+		else if (o.opt === "-I") classify_inv = true;
 	}
 	if (args.length == 0) {
 		print("Usage: gafcall.js view [options] <in.vcf>");
 		print("Options:");
 		print(`  -l NUM       min length [${min_read_len}]`);
+		print(`  -c INT       min supporting read count [${min_count}]`);
 		print(`  -b FILE      regions to include []`);
 		print(`  -F           ignore FILTER field in VCF`);
 		print(`  -G           check GT in VCF`);
 		print(`  -C           count 20kb, 100kb, 1Mb and translocations`);
+		print(`  -I           classify inversions`);
 		return;
 	}
 	for (let j = 0; j < args.length; ++j) {
-		const sv = gc_parse_sv(min_read_len, args[j], ignore_flt, check_gt);
-		let cnt = [ 0, 0, 0, 0, 0 ];
+		const sv = gc_parse_sv(args[j], min_read_len, min_count, ignore_flt, check_gt);
+		let cnt = [ 0, 0, 0, 0, 0 ], cnt_inv = 0;
 		for (let i = 0; i < sv.length; ++i) {
 			const s = sv[i];
 			if (bed != null) {
@@ -916,6 +1009,8 @@ function gc_cmd_view(args) {
 			if (count_long) {
 				if (s.ctg != s.ctg2) {
 					++cnt[0], ++cnt[1], ++cnt[2], ++cnt[3];
+				} else if (classify_inv && s.inv) {
+					++cnt_inv;
 				} else {
 					const len = Math.abs(s.svlen);
 					if (len >= 1000000) ++cnt[1];
@@ -927,8 +1022,13 @@ function gc_cmd_view(args) {
 				print(s.ctg, s.pos, s.ori, s.ctg2, s.pos2, s.svtype, s.svlen);
 			}
 		}
-		if (count_long)
-			print(cnt.join("\t"), args[j]);
+		cnt[4] -= cnt_inv;
+		if (count_long) {
+			if (classify_inv)
+				print(cnt.join("\t"), cnt_inv, args[j]);
+			else
+				print(cnt.join("\t"), args[j]);
+		}
 	}
 }
 
@@ -993,6 +1093,7 @@ function gc_cmp_sv(opt, base, test, label) {
 		const t = test[j];
 		if (t.svtype !== "BND" && Math.abs(t.svlen) < opt.min_len) continue; // not long enough for non-BND type; note that t.ctg === t.ctg2 MUST stand due to assertion in parsing
 		if (t.svtype === "BND" && t.ctg === t.ctg2 && Math.abs(t.svlen) < opt.min_len) continue; // not long enough; in principle, this can be merged to the line above
+		if (t.count > 0 && t.count < opt.min_count) continue; // filter by count
 		if (t.vaf != null && t.vaf < opt.min_vaf) continue; // filter by VAF
 		if (opt.bed != null) {
 			if (opt.bed[t.ctg] == null || opt.bed[t.ctg2] == null) continue;
@@ -1011,11 +1112,12 @@ function gc_cmp_sv(opt, base, test, label) {
 }
 
 function gc_cmd_eval(args) {
-	let opt = { min_len:100, read_len_ratio:0.8, win_size:500, min_len_ratio:0.6, min_vaf:0, bed:null, dbg:false, print_err:false, ignore_flt:false, check_gt:false };
-	for (const o of getopt(args, "dr:l:w:em:v:b:FG")) {
+	let opt = { min_len:100, read_len_ratio:0.8, win_size:500, min_len_ratio:0.6, min_vaf:0, min_count:0, bed:null, dbg:false, print_err:false, ignore_flt:false, check_gt:false, search_best:false };
+	for (const o of getopt(args, "dr:l:w:em:v:b:c:FGC")) {
 		if (o.opt === "-d") opt.dbg = true;
 		else if (o.opt === "-b") opt.bed = gc_read_bed(o.arg);
 		else if (o.opt === "-l") opt.min_len = parseNum(o.arg);
+		else if (o.opt === "-c") opt.min_count = parseInt(o.arg);
 		else if (o.opt === "-m") opt.min_len_ratio = parseFloat(o.arg);
 		else if (o.opt === "-r") opt.read_len_ratio = parseFloat(o.arg);
 		else if (o.opt === "-w") opt.win_size = parseNum(o.arg);
@@ -1023,34 +1125,57 @@ function gc_cmd_eval(args) {
 		else if (o.opt === "-F") opt.ignore_flt = true;
 		else if (o.opt === "-G") opt.check_gt = true;
 		else if (o.opt === "-e") opt.print_err = true;
+		else if (o.opt === "-C") opt.search_best = true;
 	}
 	if (args.length < 2) {
 		print("Usgae: gafcall.js eval [options] <base.vcf> <test.vcf>");
 		print("Options:");
 		print(`  -b FILE     confident regions in BED []`);
 		print(`  -l NUM      min SVLEN [${opt.min_len}]`);
+		print(`  -c INT      min supporting read count [${opt.min_count}]`);
 		print(`  -w NUM      fuzzy window size [${opt.win_size}]`);
 		print(`  -r FLOAT    read SVs longer than {-l}*FLOAT [${opt.read_len_ratio}]`);
 		print(`  -m FLOAT    two SVs regarded the same if length ratio above [${opt.min_len_ratio}]`);
-		print(`  -v FLOAT    ignore VAF below FLOAT (requiring VAF in VCF) [${opt.min_vaf}]`);
+		//print(`  -v FLOAT    ignore VAF below FLOAT (requiring VAF in VCF) [${opt.min_vaf}]`);
 		print(`  -F          ignore FILTER in VCF`);
 		print(`  -G          check GT in VCF`);
+		print(`  -C          search for the best count threshold`);
 		print(`  -e          print errors`);
 		return;
 	}
 	const min_read_len = Math.floor(opt.min_len * opt.read_len_ratio + .499);
 
 	if (args.length === 2) { // two-sample mode
-		const base = gc_parse_sv(min_read_len, args[0], opt.ignore_flt, opt.check_gt);
-		const test = gc_parse_sv(min_read_len, args[1], opt.ignore_flt, opt.check_gt);
-		const [tot_fn, fn] = gc_cmp_sv(opt, test, base, "FN");
-		const [tot_fp, fp] = gc_cmp_sv(opt, base, test, "FP");
-		print("RN", tot_fn, fn, (fn / tot_fn).toFixed(4), args[0]);
-		print("RP", tot_fp, fp, (fp / tot_fp).toFixed(4), args[1]);
+		const base = gc_parse_sv(args[0], min_read_len, opt.min_count, opt.ignore_flt, opt.check_gt);
+		const test = gc_parse_sv(args[1], min_read_len, opt.min_count, opt.ignore_flt, opt.check_gt);
+		if (opt.search_best) {
+			let best_c = 1, min_err = 1e9, best_tot_fn = -1, best_tot_fp = -1, best_fn = -1, best_fp = -1;
+			for (let c = 1; c < 10000; ++c) {
+				let test2 = [];
+				for (let i = 0; i < test.length; ++i)
+					if (test[i].count > 0 && test[i].count >= c)
+						test2.push(test[i]);
+				const [tot_fn, fn] = gc_cmp_sv(opt, test2, base,  "FN");
+				const [tot_fp, fp] = gc_cmp_sv(opt, base,  test2, "FP");
+				if (tot_fn == 0 || tot_fp == 0) break;
+				if (min_err > fn + fp)
+					min_err = fn + fp, best_c = c, best_tot_fp = tot_fp, best_tot_fn = tot_fn, best_fp = fp, best_fn = fn;
+				else if (min_err < fn + fp)
+					break;
+			}
+			print("BC", best_c);
+			print("RN", best_tot_fn, best_fn, (best_fn / best_tot_fn).toFixed(4), args[0]);
+			print("RP", best_tot_fp, best_fp, (best_fp / best_tot_fp).toFixed(4), args[1]);
+		} else {
+			const [tot_fn, fn] = gc_cmp_sv(opt, test, base, "FN");
+			const [tot_fp, fp] = gc_cmp_sv(opt, base, test, "FP");
+			print("RN", tot_fn, fn, (fn / tot_fn).toFixed(4), args[0]);
+			print("RP", tot_fp, fp, (fp / tot_fp).toFixed(4), args[1]);
+		}
 	} else { // multi-sample mode
 		let vcf = [];
 		for (let i = 0; i < args.length; ++i)
-			vcf[i] = gc_parse_sv(min_read_len, args[i], opt.ignore_flt, opt.check_gt);
+			vcf[i] = gc_parse_sv(args[i], min_read_len, opt.min_count, opt.ignore_flt, opt.check_gt);
 		for (let i = 0; i < args.length; ++i) {
 			let a = [ "SN" ];
 			for (let j = 0; j < args.length; ++j) {
@@ -1146,7 +1271,7 @@ function gc_cmd_snfpair(args) {
 			let st = t[8+opt.tumor].split(":");
 			let fmt = t[8].split(":");
 			for (let i = 0; i < fmt.length; ++i) {
-				if (fmt[i] === "DV" && parseInt(sn[i]) == 0 && parseInt(st[i]) > 0) {
+				if (fmt[i] === "DV" && (sn[i] == "NA" || parseInt(sn[i]) == 0) && parseInt(st[i]) > 0) {
 					print(line);
 					continue;
 				}
@@ -1239,6 +1364,7 @@ function main(args)
 		print("Commands:");
 		print("  extract      extract long INDELs and breakpoints from GAF");
 		print("  merge        merge extracted INDELs and breakpoints");
+		print("  mergeflt     filter merge output");
 		print("  eval         evaluate SV calls");
 		print("  view         print in the gafcall format");
 		print("  join         join two 'extract' outputs");
@@ -1251,6 +1377,7 @@ function main(args)
 	var cmd = args.shift();
 	if (cmd === "extract" || cmd === "getsv") gc_cmd_extract(args);
 	else if (cmd === "merge" || cmd === "mergesv") gc_cmd_merge(args);
+	else if (cmd === "mergeflt") gc_cmd_mergeflt(args);
 	else if (cmd === "eval") gc_cmd_eval(args);
 	else if (cmd === "view" || cmd === "format") gc_cmd_view(args);
 	else if (cmd === "join") gc_cmd_join(args);
