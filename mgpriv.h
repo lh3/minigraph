@@ -97,6 +97,7 @@ mg_gchains_t *mg_gchain_gen(void *km_dst, void *km, const gfa_t *g, const gfa_ed
 							mg_lchain_t *lc, const mg128_t *a, uint32_t hash, int32_t min_gc_cnt, int32_t min_gc_score,
 							int32_t gdp_max_ed, int32_t n_seg, const char *qseq);
 void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt, const char *qname);
+void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt);
 void mg_gchain_free(mg_gchains_t *gs);
 
 uint32_t *lv_ed_unified(void *km, int32_t tl, const char *ts, int32_t ql, const char *qs, int32_t is_ext, int32_t *score, int32_t *t_endl, int32_t *q_endl, int32_t *n_cigar);
@@ -116,6 +117,9 @@ void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc0, const mg_lchain_t 
 void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t n_seg, const int32_t *qlens, const char *qname, uint64_t flag, void *km);
 
 void mg_sprintf_lite(kstring_t *s, const char *fmt, ...);
+void mg_sprintf_km(void *km, kstring_t *s, const char *fmt, ...);
+void mg_str_write(void *km, kstring_t *s, int32_t len, char *str);
+void mg_str_reserve(void *km, kstring_t *s, int32_t len);
 
 void radix_sort_128x(mg128_t *beg, mg128_t *end);
 void radix_sort_gfa64(uint64_t *beg, uint64_t *end);
