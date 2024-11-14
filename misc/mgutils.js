@@ -1383,6 +1383,9 @@ function mg_cmd_path(args)
 	var file, buf = new Bytes();
 	var paths = [];
     var samples = [];
+
+    var paths3 = {};
+
     file = new File(args[0]);
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString();
@@ -1392,32 +1395,44 @@ function mg_cmd_path(args)
 	file.close();
 	file = args[1] == "-"? new File() : new File(args[1]);
 
-    var dict = {">":"+","<":"-"};
+    var strand_map = {"+":{">":"+","<":"-"},"-":{">":"-","<":"+"}};
 
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
         for (var j = 5; j < t.length; j += 6) {
             var index = ~~(j/6); //~~ is a way to get integer division
             if (!paths[index].length) {
-                paths[index].push(t[3].substring(1)+"+");
+                paths[index].push(t[3].substring(1)+"+"); //add the source node
             }
-            if (t[j] != ".") {
-                if (t[j][0] != "*") {
+            if (t[j] != ".") { //skip if there is no mapping
+                var strand = t[j].split(":")[2]
+                var sample_ID = t[j].split(":")[3]
+                if (!(sample_ID in paths3)) {
+                    paths3[sample_ID] = [];
+                } 
+                paths3[sample_ID].push(t[3].substring(1)+strand_map[strand][">"]);
+                if (t[j][0] != "*") { //if it is a deletion, there are no nodes to iterate over
                     var nodes = t[j].split(":")[0].split(/(?=>|<)/g);
                     for (var n=0; n<nodes.length; n++) {
                         var node=nodes[n];
-                        paths[index].push(node.substring(1)+dict[node[0]]);
+                        paths[index].push(node.substring(1)+strand_map[strand][node[0]]);
+                        paths3[sample_ID].push(node.substring(1)+strand_map[strand][node[0]]);
                     }
                 }
+                paths3[sample_ID].push(t[4].substring(1)+strand_map[strand][">"]);
             }
-            paths[index].push(t[4].substring(1)+"+");
+            paths[index].push(t[4].substring(1)+"+"); //add the sink node
 	    }
     }
     buf.destroy();
     file.close();
-    for (var p=0; p<paths.length; p++) {
-        var path = paths[p].join(",");
-	    print("P",samples[p],path,"0M");
+    //for (var p=0; p<paths.length; p++) {
+    //    var path = paths[p].join(",");
+	//    print("P",samples[p],path,"0M");
+    //}
+    for(var P in paths3) {
+        var path = paths3[P].join(",");
+        print("P",P,path,"0M");
     }
 }
 
@@ -1438,7 +1453,7 @@ function main(args)
 		print("  extractseg   extract a segment from GAF");
 		print("  merge        merge per-sample --call BED");
 		print("  merge2vcf    convert merge BED output to VCF");
-    print("  path         prints P-lines for per-sample --call BED");
+		print("  path         prints P-lines for per-sample --call BED");
 		print("  segfreq      compute node frequency from merged calls");
 		print("  genecopy     gene copy analysis");
 		print("  bed2sql      generate SQL from --call BED");
@@ -1460,7 +1475,7 @@ function main(args)
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else if (cmd == 'merge') mg_cmd_merge(args);
 	else if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
-  else if (cmd == 'path') mg_cmd_path(args);
+	else if (cmd == 'path') mg_cmd_path(args);
 	else if (cmd == 'segfreq') mg_cmd_segfreq(args);
 	else if (cmd == 'genecopy') mg_cmd_genecopy(args);
 	else throw Error("unrecognized command: " + cmd);
