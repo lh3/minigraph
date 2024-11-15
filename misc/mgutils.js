@@ -1376,24 +1376,17 @@ function mg_cmd_genecopy(args)
 
 function mg_cmd_path(args)
 {
-	if (args.length != 2) {
-		print("Usage: paste *.bed | mgutils.js path <sample file> -");
+	if (args.length != 1) {
+		print("Usage: paste *.bed | mgutils.js path -");
 		return;
 	}
 	var file, buf = new Bytes();
 	var paths = [];
-    var samples = [];
+    var J_lines = new Set();
 
     var paths3 = {};
 
-    file = new File(args[0]);
-	while (file.readline(buf) >= 0) {
-		var t = buf.toString();
-        paths.push([]);
-		samples.push(t);
-	}
-	file.close();
-	file = args[1] == "-"? new File() : new File(args[1]);
+	file = args[1] == "-" ? new File() : new File(args[0]);
 
     var strand_map = {"+":{">":"+","<":"-"},"-":{">":"-","<":"+"}};
 
@@ -1401,37 +1394,41 @@ function mg_cmd_path(args)
 		var t = buf.toString().split("\t");
         for (var j = 5; j < t.length; j += 6) {
             var index = ~~(j/6); //~~ is a way to get integer division
-            if (!paths[index].length) {
-                paths[index].push(t[3].substring(1)+"+"); //add the source node
-            }
             if (t[j] != ".") { //skip if there is no mapping
-                var strand = t[j].split(":")[2]
-                var sample_ID = t[j].split(":")[3]
+                var strand = t[j].split(":")[2];
+                var sample_ID = t[j].split(":")[3];
                 if (!(sample_ID in paths3)) {
                     paths3[sample_ID] = [];
+                    paths3[sample_ID].push(t[3].substring(1)+strand_map[strand][">"]+","); //add the source node
                 } 
-                paths3[sample_ID].push(t[3].substring(1)+strand_map[strand][">"]);
+                else {
+                    paths3[sample_ID].push(",");
+                }
                 if (t[j][0] != "*") { //if it is a deletion, there are no nodes to iterate over
                     var nodes = t[j].split(":")[0].split(/(?=>|<)/g);
                     for (var n=0; n<nodes.length; n++) {
                         var node=nodes[n];
-                        paths[index].push(node.substring(1)+strand_map[strand][node[0]]);
-                        paths3[sample_ID].push(node.substring(1)+strand_map[strand][node[0]]);
+                        paths3[sample_ID].push(node.substring(1)+strand_map[strand][node[0]]+",");
                     }
                 }
                 paths3[sample_ID].push(t[4].substring(1)+strand_map[strand][">"]);
             }
-            paths[index].push(t[4].substring(1)+"+"); //add the sink node
+            else { // handle non-mapped line
+                if (sample_ID in paths3 && !paths3[sample_ID].length) {
+                    J_lines.add("J\t"+t[3].substring(1)+"\t+\t"+t[4].substring(1)+"\t+\t*");
+                    paths3[sample_ID].push(";"+t[4].substring(1)+">");
+                }
+            }
 	    }
     }
     buf.destroy();
     file.close();
-    //for (var p=0; p<paths.length; p++) {
-    //    var path = paths[p].join(",");
-	//    print("P",samples[p],path,"0M");
-    //}
-    for(var P in paths3) {
-        var path = paths3[P].join(",");
+
+    for (const J of J_lines) {
+        print(J);
+    }
+    for (var P in paths3) {
+        var path = paths3[P].join("");
         print("P",P,path,"0M");
     }
 }
