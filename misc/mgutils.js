@@ -1384,7 +1384,7 @@ function mg_cmd_path(args)
 	var paths = [];
     var J_lines = new Set();
 
-    var paths3 = {};
+    var paths = {};
     var jumping = {};
 
 	file = args[1] == "-" ? new File() : new File(args[0]);
@@ -1393,45 +1393,37 @@ function mg_cmd_path(args)
 
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
+        var source = t[3], sink = t[4];
+
         for (var j = 5; j < t.length; j += 6) {
             var index = ~~(j/6); //~~ is a way to get integer division
             if (t[j] != ".") { //skip if there is no mapping
-                var strand = t[j].split(":")[2];
-                var sample_ID = t[j].split(":")[3];
-                if (!(sample_ID in paths3)) {
-                    paths3[sample_ID] = [];
-                    paths3[sample_ID].push(t[3].substring(1)+strand_map[strand][">"]+","); //add the source node
+                var [walk, length, strand, sample_ID, start_pos, end_pos] = t[j].split(":");
+                if (!(sample_ID in paths)) {
+                    paths[sample_ID] = [];
+                    paths[sample_ID].push(source.substring(1)+strand_map[strand][">"]+","); //add the source node
                 }
                 else {
-                    if (sample_ID in jumping && jumping[sample_ID]!=t[3].substring(1)) {
-                        paths3[sample_ID].push(";"+t[3].substring(1)+strand_map[strand][">"]+",");
-                        J_lines.add("J\t"+jumping[sample_ID]+"\t+\t"+t[3].substring(1)+"\t+\t*");
+                    if (sample_ID in jumping && jumping[sample_ID]!=source.substring(1)) {
+                        paths[sample_ID].push(";"+source.substring(1)+strand_map[strand][">"]+",");
+                        J_lines.add("J\t"+jumping[sample_ID]+"\t+\t"+source.substring(1)+"\t+\t*");
                         delete jumping[sample_ID];
                     }
                     else {
-                        paths3[sample_ID].push(",");
+                        paths[sample_ID].push(",");
                     }
                 }
-                if (t[j][0] != "*") { //if it is a deletion, there are no nodes to iterate over
-                    var nodes = t[j].split(":")[0].split(/(?=>|<)/g);
+                if (walk != "*") { //if it is a deletion, there are no nodes to iterate over
+                    var nodes = walk.split(/(?=>|<)/g);
                     for (var n=0; n<nodes.length; n++) {
                         var node=nodes[n];
-                        paths3[sample_ID].push(node.substring(1)+strand_map[strand][node[0]]+",");
+                        paths[sample_ID].push(node.substring(1)+strand_map[strand][node[0]]+",");
                     }
                 }
-                paths3[sample_ID].push(t[4].substring(1)+strand_map[strand][">"]);
+                paths[sample_ID].push(sink.substring(1)+strand_map[strand][">"]);
 
-                jumping[sample_ID] = t[4].substring(1);
+                jumping[sample_ID] = sink.substring(1);
             }
-            //else { // handle non-mapped line
-                //if (sample_ID in paths3 && !paths3[sample_ID].length) {
-                //    J_lines.add("J\t"+t[3].substring(1)+"\t+\t"+t[4].substring(1)+"\t+\t*");
-                //    //paths3[sample_ID].push(";"+t[4].substring(1)+">");
-                //}
-            //    if (!(sample_ID in jumping)) {
-            //        jumping[sample_ID] = t[3].substring(1);
-            //    }
-            //}
 	    }
     }
     buf.destroy();
@@ -1440,8 +1432,8 @@ function mg_cmd_path(args)
     for (const J of J_lines) {
         print(J);
     }
-    for (var P in paths3) {
-        var path = paths3[P].join("");
+    for (var P in paths) {
+        var path = paths[P].join("");
         print("P",P,path,"0M");
     }
 }
