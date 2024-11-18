@@ -1385,10 +1385,11 @@ function mg_cmd_path(args)
     var J_lines = new Set();
 
     var paths3 = {};
+    var jumping = {};
 
 	file = args[1] == "-" ? new File() : new File(args[0]);
 
-    var strand_map = {"+":{">":"+","<":"-"},"-":{">":"-","<":"+"}};
+    var strand_map = {"+":{">":"+","<":"-"},"-":{">":"+","<":"-"}};
 
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
@@ -1400,9 +1401,16 @@ function mg_cmd_path(args)
                 if (!(sample_ID in paths3)) {
                     paths3[sample_ID] = [];
                     paths3[sample_ID].push(t[3].substring(1)+strand_map[strand][">"]+","); //add the source node
-                } 
+                }
                 else {
-                    paths3[sample_ID].push(",");
+                    if (sample_ID in jumping && jumping[sample_ID]!=t[3].substring(1)) {
+                        paths3[sample_ID].push(";"+t[3].substring(1)+strand_map[strand][">"]+",");
+                        J_lines.add("J\t"+jumping[sample_ID]+"\t+\t"+t[3].substring(1)+"\t+\t*");
+                        delete jumping[sample_ID];
+                    }
+                    else {
+                        paths3[sample_ID].push(",");
+                    }
                 }
                 if (t[j][0] != "*") { //if it is a deletion, there are no nodes to iterate over
                     var nodes = t[j].split(":")[0].split(/(?=>|<)/g);
@@ -1412,13 +1420,18 @@ function mg_cmd_path(args)
                     }
                 }
                 paths3[sample_ID].push(t[4].substring(1)+strand_map[strand][">"]);
+
+                jumping[sample_ID] = t[4].substring(1);
             }
-            else { // handle non-mapped line
-                if (sample_ID in paths3 && !paths3[sample_ID].length) {
-                    J_lines.add("J\t"+t[3].substring(1)+"\t+\t"+t[4].substring(1)+"\t+\t*");
-                    paths3[sample_ID].push(";"+t[4].substring(1)+">");
-                }
-            }
+            //else { // handle non-mapped line
+                //if (sample_ID in paths3 && !paths3[sample_ID].length) {
+                //    J_lines.add("J\t"+t[3].substring(1)+"\t+\t"+t[4].substring(1)+"\t+\t*");
+                //    //paths3[sample_ID].push(";"+t[4].substring(1)+">");
+                //}
+            //    if (!(sample_ID in jumping)) {
+            //        jumping[sample_ID] = t[3].substring(1);
+            //    }
+            //}
 	    }
     }
     buf.destroy();
