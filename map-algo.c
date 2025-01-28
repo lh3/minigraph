@@ -472,8 +472,10 @@ void mg_map_frag(const mg_idx_t *gi, int n_segs, const int *qlens, const char **
 	mg_gchain_flt_sub(opt->pri_ratio, gi->k * 2, opt->best_n, gcs[0]->n_gc, gcs[0]->gc);
 	mg_gchain_drop_flt(b->km, gcs[0]);
 	mg_gchain_set_mapq(b->km, gcs[0], qlen_sum, mv.n, opt->min_gc_score);
-	if ((opt->flag&MG_M_CIGAR) && n_segs == 1)
+	if ((opt->flag&MG_M_CIGAR) && n_segs == 1) {
 		mg_gchain_cigar(b->km, gi->g, gi->es, seq_cat, gcs[0], qname);
+		mg_gchain_gen_ds(b->km, gi->g, gi->es, seq_cat, gcs[0]);
+	}
 	kfree(b->km, seq_cat);
 	if (mg_dbg_flag & MG_DBG_QNAME) t = print_time(t, 5, qname);
 

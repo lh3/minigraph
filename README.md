@@ -21,6 +21,7 @@ Seq-to-graph mapper and graph generator
   - [Sequence-to-graph mapping](#map)
   - [Graph generation](#ggen)
   - [Calling structural variations](#callsv)
+  - [SV calling showcase (human MHC)](#svexample)
   - [Prebuilt graphs](#prebuilt)
   - [Algorithm overview](#algo)
 - [Limitations](#limit)
@@ -45,6 +46,10 @@ gfatools gfa2fa -s out.gfa > out.fa
 
 # Extract localized structural variations
 gfatools bubble out.gfa > SV.bed
+
+# Generate human MHC graph and call SVs jointly (~10 min)
+curl -sL https://zenodo.org/record/8245267/files/mg-cookbook-v1_x64-linux.tar.bz2?download=1 | tar -jxf -
+cd mg-cookbook-v1_x64-linux && ./00run.sh
 ```
 
 ## <a name="intro"></a>Introduction
@@ -142,14 +147,40 @@ bubble/variation and the rest of columns are:
 
 Given an assembly, you can find the path/allele of this assembly in each bubble with
 ```sh
-minigraph -cxasm --call graph.gfa sample-asm.fa > sample.bed
+minigraph -cxasm --call -t16 graph.gfa sample-asm.fa > sample.bed
 ```
 On each line in the BED-like output, the last colon separated field gives the
 alignment path through the bubble, the path length in the graph, the mapping
 strand of sample contig, the contig name, the approximate contig start and
 contig end. The number of lines in the file is the same as the number of lines
-in the output of `gfatools bubble`. You can use the `paste` Unix command to
-piece multiple samples together.
+in the output of `gfatools bubble`.
+
+### <a name="svexample"></a>SV calling showcase (human MHC)
+
+The following example generates a graph for 61 humam MHC haplotypes and calls
+SVs from them. Primary sequences are retrieved from an [AGC][agc] archive.
+```sh
+# Obtain cookbook data and precompiled binaries
+curl -sL https://zenodo.org/record/8245267/files/mg-cookbook-v1_x64-linux.tar.bz2?download=1 | tar -jxf -
+cd mg-cookbook-v1_x64-linux
+
+# Generate graph. This takes ~7 minutes.
+./agc listset MHC-61.agc | awk '!/GRC/{a=a" <(./agc getset MHC-61.agc "$1")"}END{print "./minigraph -cxggs <(./agc getset MHC-61.agc MHC-00GRCh38)"a}' | bash > MHC-61.gfa 2> MHC-61.gfa.log
+
+# Call SVs per sample. This takes a couple of minutes.
+./agc listset MHC-61.agc | xargs -i echo ./minigraph -cxasm --call -t1 MHC-61.gfa '<(./agc getset MHC-61.agc {})' \> {}.bed 2\> {}.bed.log | parallel -j16
+
+# Merge per-sample calls and generate VCF. `-r0` indicates the reference sample.
+paste *.bed | ./k8 mgutils.js merge -s <(./agc listset MHC-61.agc) - | gzip > MHC-61.sv.bed.gz
+./k8 mgutils-es6.js merge2vcf -r0 MHC-61.sv.bed.gz > MHC-61.sv.vcf
+```
+
+In this example, the GRCh38 haplotype is named "MHC-00GRCh38" in the AGC
+archive and is taken as the reference. The awk command line generates a command
+line that retrieves each haplotype on the fly and feeds it to minigraph.
+`misc/mgutils.js merge` combines per-sample calls and generates a merged BED
+file. The final `misc/mgutils-es6.js merge2vcf` derives a VCF file. This script
+requires the latest k8 JavaScript runtime.
 
 ### <a name="prebuilt"></a>Prebuilt graphs
 
@@ -221,4 +252,5 @@ highlighted in bold. The description may help to tune minigraph parameters.
 [gfatools]: https://github.com/lh3/gfatools
 [bandage]: https://rrwick.github.io/Bandage/
 [gfaviz]: https://github.com/ggonnella/gfaviz
-[human-zenodo]: https://zenodo.org/record/6499594
+[human-zenodo]: https://zenodo.org/record/6983934
+[agc]: https://github.com/refresh-bio/agc

@@ -4,6 +4,10 @@
 #include "kalloc.h"
 #include "miniwfa.h"
 
+/******************
+ * Generate cigar *
+ ******************/
+
 static void append_cigar1(void *km, mg64_v *c, int32_t op, int32_t len)
 {
 	if (c->n > 0 && (c->a[c->n - 1]&0xf) == op) {
@@ -32,7 +36,7 @@ static void append_cigar(void *km, mg64_v *c, int32_t n_cigar, const uint32_t *c
 	c->n += n_cigar - 1;
 }
 
-void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt, const char *qname)
+void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt, const char *qname) // qname for debugging only
 {
 	int32_t i, l_seq = 0, m_seq = 0;
 	char *seq = 0;
@@ -132,9 +136,158 @@ void mg_gchain_cigar(void *km, const gfa_t *g, const gfa_edseq_t *es, const char
 			if (op != 1) gc->p->aplen += len;
 			if (op != 2) l += len;
 		}
+		memset(&gc->ds, 0, sizeof(gc->ds));
 		assert(l == gc->qe - gc->qs && gc->p->aplen == gc->pe - gc->ps);
 	}
 	km_destroy(km2);
 	kfree(km, seq);
 	kfree(km, cigar.a);
+}
+
+/***********************
+ * Generate the ds tag *
+ ***********************/
+
+#define mg_get_nucl(s, i) (seq_nt4_table[(uint8_t)(s)[(i)]]) // get the base in the "nt4" encoding
+
+static void write_indel(void *km, kstring_t *str, int64_t len, const char *seq, int64_t ll, int64_t lr) // write an indel to ds
+{
+	int64_t i;
+	if (ll + lr >= len) {
+		mg_sprintf_km(km, str, "[");
+		for (i = 0; i < len; ++i)
+			mg_sprintf_km(km, str, "%c", "acgtn"[mg_get_nucl(seq, i)]);
+		mg_sprintf_km(km, str, "]");
+	} else {
+		int64_t k = 0;
+		if (ll > 0) {
+			mg_sprintf_km(km, str, "[");
+			for (i = 0; i < ll; ++i)
+				mg_sprintf_km(km, str, "%c", "acgtn"[mg_get_nucl(seq, k+i)]);
+			mg_sprintf_km(km, str, "]");
+			k += ll;
+		}
+		for (i = 0; i < len - lr - ll; ++i)
+			mg_sprintf_km(km, str, "%c", "acgtn"[mg_get_nucl(seq, k+i)]);
+		k += len - lr - ll;
+		if (lr > 0) {
+			mg_sprintf_km(km, str, "[");
+			for (i = 0; i < lr; ++i)
+				mg_sprintf_km(km, str, "%c", "acgtn"[mg_get_nucl(seq, k+i)]);
+			mg_sprintf_km(km, str, "]");
+		}
+	}
+}
+
+void mg_gchain_gen_ds(void *km, const gfa_t *g, const gfa_edseq_t *es, const char *qseq, mg_gchains_t *gt)
+{
+	int32_t i, m_off = 0, n_off = 0, *off = 0;
+	void *km2;
+	kstring_t str = {0,0,0}, seq = {0,0,0};
+	km2 = km_init2(km, 0);
+	for (i = 0; i < gt->n_gc; ++i) {
+		mg_gchain_t *gc = &gt->gc[i];
+		int32_t j;
+		int64_t x, y, ds_len;
+		str.l = seq.l = n_off = 0;
+		if (gc->p->aplen > seq.m) {
+			seq.s = Krealloc(km2, char, seq.s, gc->p->aplen);
+			seq.m = gc->p->aplen;
+		}
+		for (j = 0, seq.l = 0; j < gc->cnt; ++j) { // extract the aligned sequence in the graph
+			int32_t k = gc->off + j;
+			uint32_t v = gt->lc[k].v;
+			int32_t slen = es[v].len;
+			int32_t st = j > 0? 0 : gc->p->ss;
+			int32_t en = j < gc->cnt - 1? slen : gc->p->ee;
+			assert(seq.l + (en - st) <= gc->p->aplen);
+			memcpy(&seq.s[seq.l], &es[v].seq[st], en - st);
+			seq.l += en - st;
+		}
+		assert(seq.l == gc->p->aplen);
+		for (j = 0, x = 0, y = gc->qs, ds_len = 0, n_off = 0; j < gc->p->n_cigar; ++j) { // estimate the approximate length of ds
+			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4, z;
+			if (op == 0 || op == 7 || op == 8) { // alignment match
+				int32_t l = 0;
+				++n_off;
+				for (z = 0; z < len; ++z) {
+					if (mg_get_nucl(seq.s, x+z) != mg_get_nucl(qseq, y+z))
+						ds_len += 3, ds_len += 6, n_off += 2, l = 0;
+					else ++l;
+				}
+				ds_len += 6;
+				x += len, y += len;
+			} else if (op == 1) { // insertion
+				ds_len += len + 1, ++n_off, y += len;
+			} else if (op == 2) { // deletion
+				ds_len += len + 1, ++n_off, x += len;
+			}
+		}
+		if (n_off > m_off) {
+			m_off = n_off + (n_off>>1) + 16;
+			off = Krealloc(km2, int32_t, off, m_off);
+		}
+		mg_str_reserve(km2, &str, ds_len);
+		for (j = 0, x = 0, y = gc->qs, n_off = 0; j < gc->p->n_cigar; ++j) { // write ds
+			int64_t op = gc->p->cigar[j]&0xf, len = gc->p->cigar[j]>>4;
+			assert(n_off < m_off);
+			if (op == 0 || op == 7 || op == 8) { // alignment match
+				int64_t z;
+				int32_t l = 0;
+				for (z = 0; z < len; ++z) {
+					uint8_t cx = mg_get_nucl(seq.s, x+z);
+					uint8_t cy = mg_get_nucl(qseq, y+z);
+					if (cx != cy) {
+						if (l > 0) {
+							off[n_off++] = str.l;
+							mg_sprintf_km(km2, &str, ":%d", l);
+						}
+						off[n_off++] = str.l;
+						mg_sprintf_km(km2, &str, "*%c%c", "acgtn"[cx], "acgtn"[cy]);
+						l = 0;
+					} else ++l;
+				}
+				if (l > 0) {
+					off[n_off++] = str.l;
+					mg_sprintf_km(km2, &str, ":%d", l);
+				}
+				x += len, y += len;
+			} else if (op == 1) { // insertion
+				int64_t z, ll, lr;
+				for (z = 1; z <= len; ++z)
+					if (y - z < gc->qs || qseq[y + len - z] != qseq[y - z])
+						break;
+				lr = z - 1;
+				for (z = 0; z < len; ++z)
+					if (y + len + z >= gc->qe || qseq[y + len + z] != qseq[y + z])
+						break;
+				ll = z;
+				off[n_off++] = str.l;
+				mg_sprintf_km(km2, &str, "+");
+				write_indel(km2, &str, len, &qseq[y], ll, lr);
+				y += len;
+			} else if (op == 2) { // deletion
+				int64_t z, ll, lr;
+				for (z = 1; z <= len; ++z)
+					if (x - z < 0 || seq.s[x + len - z] != seq.s[x - z])
+						break;
+				lr = z - 1;
+				for (z = 0; z < len; ++z)
+					if (x + len + z >= gc->p->aplen || seq.s[x + z] != seq.s[x + len + z])
+						break;
+				ll = z;
+				off[n_off++] = str.l;
+				mg_sprintf_km(km2, &str, "-");
+				write_indel(km2, &str, len, &seq.s[x], ll, lr);
+				x += len;
+			}
+		}
+		gc->ds.len = str.l;
+		gc->ds.ds = Kcalloc(gt->km, char, str.l + 1);
+		memcpy(gc->ds.ds, str.s, str.l);
+		gc->ds.n_off = n_off;
+		gc->ds.off = Kcalloc(gt->km, int32_t, n_off);
+		memcpy(gc->ds.off, off, n_off * sizeof(int32_t));
+	}
+	km_destroy(km2); // this frees both str.s and seq.s
 }
