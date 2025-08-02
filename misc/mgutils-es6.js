@@ -76,6 +76,16 @@ function* getopt(argv, ostr, longopts) {
 	}
 }
 
+function* k8_readline(fn) {
+	let buf = new Bytes();
+	let file = new File(fn);
+	while (file.readline(buf) >= 0) {
+		yield buf.toString();
+	}
+	file.close();
+	buf.destroy();
+}
+
 /***************
  * Subcommands *
  ***************/
@@ -219,6 +229,64 @@ function mg_cmd_addsample(args) {
 	buf.destroy();
 }
 
+function mg_cmd_getlcr(args) {
+	let ext = 5, min_lcr = 0.7, min_ac = 5, ref_idx = 0;
+	for (const o of getopt(args, "a:r:e:f:")) {
+		if (o.opt == "-r") ref_idx = parseInt(o.arg);
+		else if (o.opt == "-e") ext = parseInt(o.arg);
+		else if (o.opt == "-f") min_lcr = parseFloat(o.arg);
+		else if (o.opt == "-a") min_ac = parseInt(o.arg);
+	}
+	if (args.length == 0) {
+		print("Usage: mgutils-es6.js getlcr [options] <merged.bed>");
+		print("Options:");
+		print(`  -r INT      index of the reference sample [${ref_idx}]`);
+		print(`  -f FLOAT    min fraction LCR [${min_lcr}]`);
+		print(`  -a INT      min allele count [${min_ac}]`);
+		print(`  -e INT      extend by INT-bp on each side in output [${ext}]`);
+		return 1;
+	}
+	const re = /([^\s=;]+)=([^\s=;]+)/g;
+	for (const line of k8_readline(args[0])) {
+		if (line[0] == '#') continue;
+		let m, t = line.split("\t", 5 + ref_idx);
+		let ldust = 0, lbb = 0, anno = null, alen = null, ac = null, ref = null;
+		while ((m = re.exec(t[3])) != null) {
+			if (m[1] == "LBUBBLE") lbb = parseInt(m[2]);
+			else if (m[1] == "LDUST") ldust = parseInt(m[2]);
+			else if (m[1] == "ANNO") anno = m[2];
+			else if (m[1] == "ALEN") alen = m[2].split(",");
+			else if (m[1] == "AC") ac = m[2].split(",");
+		}
+		if (alen == null) continue;
+		let is_lcr = /^(lcr|mini|micro|ldust)$/.test(anno);
+		if (anno == "segdup" && lbb > 0 && ldust >= lbb * min_lcr)
+			is_lcr = true;
+		if (!is_lcr) continue;
+
+		if ((m = /^(\d+)/.exec(t[4 + ref_idx])) == null) continue;
+		ref = parseInt(m[1]);
+		let alen_sel = [];
+		for (let i = 0; i < ac.length; ++i) {
+			ac[i] = parseInt(ac[i]);
+			alen[i] = parseInt(alen[i]);
+			if (i == ref || ac[i] >= min_ac)
+				alen_sel.push(alen[i]);
+		}
+		if (alen_sel.length < 2) continue;
+		const ctg = t[0].replace(/^[^\s#]+#\d#/, "");
+		let st = parseInt(t[1]);
+		let en = parseInt(t[2]);
+		let max = en - st;
+		for (let i = 0; i < alen_sel.length; ++i) {
+			const l = parseInt(alen_sel[i]);
+			max = l > max? l : max;
+		}
+		st = st > ext? st - ext : 0;
+		print(ctg, st, en + ext, "mg", max);
+	}
+}
+
 /*****************
  * Main function *
  *****************/
@@ -230,12 +298,14 @@ function main(args)
 		print("Commands:");
 		print("  merge2vcf    convert merge BED output to VCF");
 		print("  addsample    add sample names to merged BED (as a fix)");
+		print("  getlcr       extract LCRs from merged BED");
 		exit(1);
 	}
 
 	var cmd = args.shift();
 	if (cmd === "merge2vcf") mg_cmd_merge2vcf(args);
 	else if (cmd === "addsample") mg_cmd_addsample(args);
+	else if (cmd === "getlcr") mg_cmd_getlcr(args);
 	else throw Error("unrecognized command: " + cmd);
 }
 
