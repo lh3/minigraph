@@ -1410,6 +1410,70 @@ function mg_cmd_genecopy(args)
 		print("GC", g, out[g].join("\t"));
 }
 
+function mg_cmd_path(args)
+{
+	if (args.length != 1) {
+		print("Usage: paste *.bed | mgutils.js path -");
+		return;
+	}
+	var file, buf = new Bytes();
+	var paths = [];
+    var J_lines = new Set();
+
+    var paths = {};
+    var jumping = {};
+
+	file = args[1] == "-" ? new File() : new File(args[0]);
+
+    var strand_map = {"+":{">":"+","<":"-"},"-":{">":"+","<":"-"}};
+
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+        var source = t[3], sink = t[4];
+
+        for (var j = 5; j < t.length; j += 6) {
+            var index = ~~(j/6); //~~ is a way to get integer division
+            if (t[j] != ".") { //skip if there is no mapping
+                var [walk, length, strand, sample_ID, start_pos, end_pos] = t[j].split(":");
+                if (!(sample_ID in paths)) {
+                    paths[sample_ID] = [];
+                    paths[sample_ID].push(source.substring(1)+strand_map[strand][">"]+","); //add the source node
+                }
+                else {
+                    if (sample_ID in jumping && jumping[sample_ID]!=source.substring(1)) {
+                        paths[sample_ID].push(";"+source.substring(1)+strand_map[strand][">"]+",");
+                        J_lines.add("J\t"+jumping[sample_ID]+"\t+\t"+source.substring(1)+"\t+\t*");
+                        delete jumping[sample_ID];
+                    }
+                    else {
+                        paths[sample_ID].push(",");
+                    }
+                }
+                if (walk != "*") { //if it is a deletion, there are no nodes to iterate over
+                    var nodes = walk.split(/(?=>|<)/g);
+                    for (var n=0; n<nodes.length; n++) {
+                        var node=nodes[n];
+                        paths[sample_ID].push(node.substring(1)+strand_map[strand][node[0]]+",");
+                    }
+                }
+                paths[sample_ID].push(sink.substring(1)+strand_map[strand][">"]);
+
+                jumping[sample_ID] = sink.substring(1);
+            }
+	    }
+    }
+    buf.destroy();
+    file.close();
+
+    for (const J of J_lines) {
+        print(J);
+    }
+    for (var P in paths) {
+        var path = paths[P].join("");
+        print("P",P,path,"0M");
+    }
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -1426,6 +1490,8 @@ function main(args)
 		print("  anno2tbl     summarize anno output");
 		print("  extractseg   extract a segment from GAF");
 		print("  merge        merge per-sample --call BED");
+		print("  merge2vcf    convert merge BED output to VCF");
+		print("  path         prints P-lines for per-sample --call BED");
 		print("  segfreq      compute node frequency from merged calls");
 		print("  genecopy     gene copy analysis");
 		print("  bed2sql      generate SQL from --call BED");
@@ -1446,6 +1512,8 @@ function main(args)
 	else if (cmd == 'bed2sql') mg_cmd_bed2sql(args);
 	else if (cmd == 'extractseg') mg_cmd_extractseg(args);
 	else if (cmd == 'merge') mg_cmd_merge(args);
+	else if (cmd == 'merge2vcf') mg_cmd_merge2vcf(args);
+	else if (cmd == 'path') mg_cmd_path(args);
 	else if (cmd == 'segfreq') mg_cmd_segfreq(args);
 	else if (cmd == 'genecopy') mg_cmd_genecopy(args);
 	else throw Error("unrecognized command: " + cmd);
