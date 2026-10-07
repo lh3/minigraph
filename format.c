@@ -120,7 +120,7 @@ void mg_print_lchain(FILE *fp, const mg_idx_t *gi, int n_lc, const mg_lchain_t *
 
 void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t n_seg, const int32_t *qlens, const char *qname, uint64_t flag, void *km)
 {
-	int32_t i, j, qlen, rev_sign = 0;
+	int32_t i, j, qlen;
 	s->l = 0;
 	for (i = 0, qlen = 0; i < n_seg; ++i) qlen += qlens[i];
 	if ((gs == 0 || gs->n_gc == 0) && (flag&MG_M_SHOW_UNMAP)) {
@@ -132,7 +132,7 @@ void mg_write_gaf(kstring_t *s, const gfa_t *g, const mg_gchains_t *gs, int32_t 
 	if (gs == 0) return;
 	for (i = 0; i < gs->n_gc; ++i) {
 		const mg_gchain_t *p = &gs->gc[i];
-		int32_t sign_pos, compact;
+		int32_t sign_pos, compact, rev_sign = 0; // reset for each record
 		if (p->id != p->parent && !(flag&MG_M_PRINT_2ND)) continue;
 		if (p->cnt == 0) continue;
 		mg_sprintf_lite(s, "%s", qname);
